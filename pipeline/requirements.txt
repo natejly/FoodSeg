@@ -1,0 +1,6 @@
+open3d
+numpy
+opencv-python-headless
+pillow
+tqdm
+scipy

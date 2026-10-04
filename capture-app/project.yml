@@ -1,0 +1,46 @@
+# XcodeGen spec. Regenerate the Xcode project with:  xcodegen generate
+name: FoodScan
+options:
+  bundleIdPrefix: edu.yale.njl36
+  deploymentTarget:
+    iOS: "17.0"
+  createIntermediateGroups: true
+
+targets:
+  FoodScan:
+    type: application
+    platform: iOS
+    sources:
+      - Sources
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: edu.yale.njl36.foodscan
+        TARGETED_DEVICE_FAMILY: "1,2"          # iPhone + iPad
+        SWIFT_VERSION: "5.0"
+        CODE_SIGN_STYLE: Automatic
+        # Set this to your Apple ID team once, or pick it in
+        # Xcode > Signing & Capabilities. A free Apple ID works for
+        # installing on your own iPad (app expires after 7 days).
+        DEVELOPMENT_TEAM: UV86XJ3JV5
+        SUPPORTS_MACCATALYST: false
+        INFOPLIST_KEY_UIApplicationSceneManifest_Generation: true
+    info:
+      path: Sources/Info.plist
+      properties:
+        CFBundleDisplayName: FoodScan
+        NSCameraUsageDescription: FoodScan records color, LiDAR depth and camera poses of your plate.
+        UIRequiredDeviceCapabilities: [arkit]
+        # Expose Documents/ in the Files app and via Finder so scans can be
+        # copied off the device without a share sheet.
+        UIFileSharingEnabled: true
+        LSSupportsOpeningDocumentsInPlace: true
+        UILaunchScreen: {}
+        # Landscape only; the camera and scan halves sit side by side.
+        # UIRequiresFullScreen lets the iPad honor the lock (no Split View).
+        UIRequiresFullScreen: true
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        UISupportedInterfaceOrientations~ipad:
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight

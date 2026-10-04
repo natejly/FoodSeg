@@ -1,0 +1,17 @@
+# Apple ModelI/O MTL File: oc_full.mtl
+
+newmtl Texture
+	map_Kd Texture_baseColor.png
+	Ka 0.511402 0.511402 0.511402
+	Ks 0
+	map_ao Texture_ambientOcclusion.png
+	subsurface 0
+	metallic 0
+	specularTint 0
+	map_roughness Texture_roughness.png
+	anisotropicRotation 0
+	sheen 0.05
+	sheenTint 0
+	clearCoat 0
+	clearCoatGloss 0
+
