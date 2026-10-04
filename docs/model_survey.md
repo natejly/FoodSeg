@@ -80,6 +80,26 @@ Food-specific SOTA for reference: FoodSeg103 (ingredient level) 55.0 mIoU (LIM-Q
 
 Metrics: render 3D labels back to held-out frames → 2D mIoU / mask AP; point-level AP on ~20 hand-labelled scans; BenchSeg flicker/drift.
 
+### 4b. Native 3D / point-cloud scene understanding (web survey, 2026-10)
+
+**No published method segments food natively in 3D.** Every food pipeline found is 2D masks → lift; the gap is data (no labelled food point clouds), not a missed method. Keep the 2D-first pipeline.
+
+| Work | What it does | Relevance | Code |
+|---|---|---|---|
+| VolE (arXiv 2505.10205; Sci Rep 2026) | FoodMem video masks; keep a point only if it projects inside the mask in **all** views; 2.22 % MAPE (MTF), Foodkit 21 items | strict-intersection baseline vs our vote | promised, not found |
+| Sci Rep 2025 (PMC12603017) | overhead RealSense D435, DeepLabv3+ 2D, RANSAC plane + DBSCAN | ≈ our `run_meal` fallback; ±10 % weight, rice up to 30 % | no |
+| Farchione, Idoughi, Wonka (arXiv 2606.23653) | feed-forward volume + uncertainty from point cloud + view-aligned 2D features, graph decoder; diet is one domain | only learned-3D food-volume model found | no |
+| VolTex (arXiv 2506.02895) | text-prompted 2D seg → NeuS | 2D-first | — |
+| **SpaCeFormer** (ICML 2026, NVIDIA) | proposal-free open-vocab 3D instance seg on coloured clouds; 0.1–0.3 s/scene; trained on 604k auto-lifted masks | only native-3D model worth a zero-shot test; indoor-room scale, mm tabletop untested | HF + GitHub |
+| **MV3DIS** (CVPR 2026, arXiv 2604.08916) | coarse 3D segments as reference to match 2D masks across views + depth-consistency weighting for occlusion | targets our cross-view ID breaks | not found |
+| OV3D-CG (ICCV 2025) | SAM path for small/rare objects + 3D model for common ones | small-object handling | — |
+| Superpoint lifting: OV-SAM3D (2405.15580), SAM graph cut (2312.08372), EmbodiedSAM (2408.11811) | label geometric patches, not points | boundary refinement where foods touch | yes (varied) |
+| OpenScene; Concerto (2510.23607) | average per-pixel 2D features onto points; Concerto: lifted DINOv2 ⊕ Sonata 3D > either alone | open-vocab queries on the fused cloud, training-free | yes |
+| PointLLM, ShapeLLM | 3D LLMs, object-level | no food results; lose RGB texture → worse than a 2D VLM for naming | yes |
+| Lift, Associate, and Fuse (arXiv 2608.20659) | survey of 161 2D→3D transfer systems | related-work frame; rendered-view vs native-3D metrics are not interchangeable → pick one for RQ2 | — |
+
+**RQ2 ablation this suggests** (all on top of `labels.py`, a few hundred lines each): (a) current vote, (b) VolE all-view intersection, (c) vote + superpoint refinement, (d) MV3DIS-style 3D-guided matching with depth-consistency weights, (e) SpaCeFormer zero-shot. Evaluate on the hand-corrected 3D GT from `segmentation_robustness.md`.
+
 ## 5. Naming (VLM)
 
 Caveat: DiningBench "classification" is 8-way multiple choice with same-menu distractors, not open naming. The 1→2 view jump is where multi-view helps; plateau at ≥3; small models get *worse* with more views on nutrition. No CoT for naming (hurts perception); CoT only for nutrient arithmetic.
