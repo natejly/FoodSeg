@@ -113,9 +113,10 @@ def mesh_prism_volume(mesh: o3d.geometry.TriangleMesh, plane: Plane,
                       min_height: float = 0.001) -> float:
     """Volume between the mesh's upward-facing triangles and the plane.
 
-    For each triangle whose normal points away from the plane, the volume of the
-    prism down to the plane is (projected area) x (mean vertex height). Summing
-    over the visible top surface gives the volume with no grid discretisation.
+    Each triangle contributes (signed projected area) x (mean vertex height):
+    upward faces add, downward faces (overhang undersides) subtract. Summing
+    gives the volume with no grid discretisation; a negative total means the
+    crop is mostly undersides, i.e. not an object resting on the plane.
     Pass a mesh already cropped to one object (see `crop_mesh_to_points`).
     """
     v = np.asarray(mesh.vertices)

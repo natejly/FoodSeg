@@ -5,182 +5,20 @@
   "container": "plane"
  },
  "plane_normal": [
-  -0.0054737021584854335,
-  0.9999605508089625,
-  -0.0069953849441259375
+  -0.012832511779022625,
+  0.9998886660058716,
+  -0.0076146066503711305
  ],
  "items": [
   {
    "id": 1,
    "name": "item_1",
-   "n_points": 53873,
-   "volume_ml": 1261.3712351789902,
-   "nutrition_error": "FDC: nothing found for 'item_1' in Survey (FNDDS)"
-  },
-  {
-   "id": 2,
-   "name": "item_2",
-   "n_points": 53640,
-   "volume_ml": 2161.542955155818,
-   "nutrition_error": "FDC: nothing found for 'item_2' in Survey (FNDDS)"
-  },
-  {
-   "id": 3,
-   "name": "item_3",
-   "n_points": 29744,
-   "volume_ml": -697.1390665696176,
-   "nutrition_error": "FDC: nothing found for 'item_3' in Survey (FNDDS)"
-  },
-  {
-   "id": 4,
-   "name": "item_4",
-   "n_points": 29405,
-   "volume_ml": 873.7045772991628,
-   "nutrition_error": "FDC: nothing found for 'item_4' in Survey (FNDDS)"
-  },
-  {
-   "id": 5,
-   "name": "item_5",
-   "n_points": 21539,
-   "volume_ml": 252.6905757026492,
-   "nutrition_error": "FDC: nothing found for 'item_5' in Survey (FNDDS)"
-  },
-  {
-   "id": 6,
-   "name": "item_6",
-   "n_points": 17040,
-   "volume_ml": 175.49433485631505,
-   "nutrition_error": "FDC: nothing found for 'item_6' in Survey (FNDDS)"
-  },
-  {
-   "id": 7,
-   "name": "item_7",
-   "n_points": 9514,
-   "volume_ml": -16.2206054661886,
-   "nutrition_error": "FDC: nothing found for 'item_7' in Survey (FNDDS)"
-  },
-  {
-   "id": 8,
-   "name": "item_8",
-   "n_points": 7759,
-   "volume_ml": -28.40703902685855,
-   "nutrition_error": "FDC: nothing found for 'item_8' in Survey (FNDDS)"
-  },
-  {
-   "id": 9,
-   "name": "item_9",
-   "n_points": 1790,
-   "volume_ml": -2.9217090314267713,
-   "nutrition_error": "FDC: nothing found for 'item_9' in Survey (FNDDS)"
-  },
-  {
-   "id": 10,
-   "name": "item_10",
-   "n_points": 1090,
-   "volume_ml": 9.536534537572221,
-   "nutrition_error": "FDC: nothing found for 'item_10' in Survey (FNDDS)"
-  },
-  {
-   "id": 11,
-   "name": "item_11",
-   "n_points": 427,
-   "volume_ml": 3.211149584331093,
-   "nutrition_error": "FDC rate limit hit (DEMO_KEY: 30/h; real key: 1,000/h). Get a free key at https://fdc.nal.usda.gov/api-key-signup"
-  },
-  {
-   "id": 12,
-   "name": "item_12",
-   "n_points": 330,
-   "volume_ml": 0.8756343550777461,
-   "nutrition_error": "FDC rate limit hit (DEMO_KEY: 30/h; real key: 1,000/h). Get a free key at https://fdc.nal.usda.gov/api-key-signup"
-  },
-  {
-   "id": 13,
-   "name": "item_13",
-   "n_points": 278,
-   "volume_ml": 1.4662096671748057,
-   "nutrition_error": "FDC rate limit hit (DEMO_KEY: 30/h; real key: 1,000/h). Get a free key at https://fdc.nal.usda.gov/api-key-signup"
-  },
-  {
-   "id": 14,
-   "name": "item_14",
-   "n_points": 276,
-   "volume_ml": 1.1952002063369236,
-   "nutrition_error": "FDC rate limit hit (DEMO_KEY: 30/h; real key: 1,000/h). Get a free key at https://fdc.nal.usda.gov/api-key-signup"
-  },
-  {
-   "id": 15,
-   "name": "item_15",
-   "n_points": 171,
-   "volume_ml": 0.1950403726854398,
-   "nutrition_error": "FDC rate limit hit (DEMO_KEY: 30/h; real key: 1,000/h). Get a free key at https://fdc.nal.usda.gov/api-key-signup"
-  },
-  {
-   "id": 16,
-   "name": "item_16",
-   "n_points": 171,
-   "volume_ml": 1.2733692394460157,
-   "nutrition_error": "FDC rate limit hit (DEMO_KEY: 30/h; real key: 1,000/h). Get a free key at https://fdc.nal.usda.gov/api-key-signup"
-  },
-  {
-   "id": 17,
-   "name": "item_17",
-   "n_points": 108,
-   "volume_ml": 3.9151301452548286,
-   "nutrition_error": "FDC rate limit hit (DEMO_KEY: 30/h; real key: 1,000/h). Get a free key at https://fdc.nal.usda.gov/api-key-signup"
-  },
-  {
-   "id": 18,
-   "name": "item_18",
-   "n_points": 99,
-   "volume_ml": 0.5449178390177997,
-   "nutrition_error": "FDC rate limit hit (DEMO_KEY: 30/h; real key: 1,000/h). Get a free key at https://fdc.nal.usda.gov/api-key-signup"
-  },
-  {
-   "id": 19,
-   "name": "item_19",
-   "n_points": 75,
-   "volume_ml": 0.3239387057776917,
-   "nutrition_error": "FDC rate limit hit (DEMO_KEY: 30/h; real key: 1,000/h). Get a free key at https://fdc.nal.usda.gov/api-key-signup"
-  },
-  {
-   "id": 20,
-   "name": "item_20",
-   "n_points": 75,
-   "volume_ml": -6.886779459450469,
-   "nutrition_error": "FDC rate limit hit (DEMO_KEY: 30/h; real key: 1,000/h). Get a free key at https://fdc.nal.usda.gov/api-key-signup"
-  },
-  {
-   "id": 21,
-   "name": "item_21",
-   "n_points": 71,
-   "volume_ml": 0.5607817786702378,
-   "nutrition_error": "FDC rate limit hit (DEMO_KEY: 30/h; real key: 1,000/h). Get a free key at https://fdc.nal.usda.gov/api-key-signup"
-  },
-  {
-   "id": 22,
-   "name": "item_22",
-   "n_points": 66,
-   "volume_ml": 0.6009727958075486,
-   "nutrition_error": "FDC rate limit hit (DEMO_KEY: 30/h; real key: 1,000/h). Get a free key at https://fdc.nal.usda.gov/api-key-signup"
-  },
-  {
-   "id": 23,
-   "name": "item_23",
-   "n_points": 65,
-   "volume_ml": 0.1605669517779667,
-   "nutrition_error": "FDC rate limit hit (DEMO_KEY: 30/h; real key: 1,000/h). Get a free key at https://fdc.nal.usda.gov/api-key-signup"
-  },
-  {
-   "id": 24,
-   "name": "item_24",
-   "n_points": 63,
-   "volume_ml": 0.021776648099992947,
-   "nutrition_error": "FDC rate limit hit (DEMO_KEY: 30/h; real key: 1,000/h). Get a free key at https://fdc.nal.usda.gov/api-key-signup"
+   "n_points": 53171,
+   "volume_ml": 2140.906383620712
   }
  ],
  "totals": {
-  "volume_ml": 3997.1097014664238,
+  "volume_ml": 2140.906383620712,
   "mass_g": 0.0,
   "kcal": 0.0,
   "protein_g": 0.0,

@@ -9,7 +9,7 @@ Stages (each is a module you can run alone):
   2. support         table plane, or registered container template  volume.py / container.py
   3. names           --names, or masks/instances.json, or a VLM      naming.py
   4. masks -> 3D     per-point label votes                          labels.py  (needs masks/ from segment.py)
-                     fallback without masks: one object = largest cluster above the support
+                     fallback without masks: the cluster(s) nearest the orbit's look-at point
   5. volume          mesh-prism per item, relative to the support   volume.py / container.py
   6. nutrition       density -> mass -> FNDDS nutrients             nutrition.py
 """
@@ -32,17 +32,23 @@ from .volume import (Plane, cluster_objects, crop_mesh_to_points, fit_support_pl
 ARKIT_UP = np.array([0.0, 1.0, 0.0])
 
 
+def look_at(scan: Scan) -> np.ndarray:
+    """Least-squares point closest to every camera's optical axis (the orbit centre)."""
+    A, b = np.zeros((3, 3)), np.zeros(3)
+    for f in scan.good_frames():
+        c, d = f.T_cw[:3, 3], f.T_cw[:3, 2]   # OpenCV: +Z forward
+        P = np.eye(3) - np.outer(d, d)
+        A += P
+        b += P @ c
+    return np.linalg.solve(A, b)
+
+
 def run(scan_dir: Path, container: Path | None = None, masks_dir: Path | None = None,
         names: list[str] | None = None, nutrition: bool = True, poses: str | None = None,
-        depth: str = "depth", voxel: float = 0.0015, up_hint: np.ndarray | None = ARKIT_UP,
-        crop_radius: float | None = None) -> dict:
+        depth: str = "depth", voxel: float = 0.0015, up_hint: np.ndarray | None = ARKIT_UP) -> dict:
     scan = Scan(scan_dir, poses=poses, depth=depth)
     mesh, pcd = fuse(scan, voxel=voxel, stride=2)
     pts = np.asarray(pcd.points)
-    if crop_radius:
-        c = pts.mean(0)
-        keep = np.linalg.norm(pts - c, axis=1) < crop_radius
-        pts = pts[keep]
     plane = fit_support_plane(pts, up_hint=up_hint)
 
     # --- support surface --------------------------------------------------
@@ -83,11 +89,19 @@ def run(scan_dir: Path, container: Path | None = None, masks_dir: Path | None = 
                           "label_margin": float(margin[labels == lid].mean()),
                           "n_points": int(len(ipts)), "volume_ml": item_volume(ipts)})
     else:
-        clusters = cluster_objects(above)
-        names = names or [f"item_{i+1}" for i in range(len(clusters))]
+        # The whole room within max_depth is fused, so keep only what the user orbited:
+        # one item without names, else len(names) clusters, nearest the look-at point first.
+        X = plane.project_2d(look_at(scan)[None])[0]
+        clusters = sorted(cluster_objects(above),
+                          key=lambda c: np.linalg.norm(plane.project_2d(c).mean(0) - X))
+        names = names or ["item_1"]
         for i, ipts in enumerate(clusters[:len(names)]):
             items.append({"id": i + 1, "name": names[i], "n_points": int(len(ipts)),
                           "volume_ml": item_volume(ipts)})
+
+    for it in items:
+        if it["volume_ml"] <= 0:  # mostly downward-facing triangles: overhang/clutter, not food on the support
+            it["warning"] = "non-positive volume"
 
     # --- nutrition ----------------------------------------------------------
     if nutrition and items:
