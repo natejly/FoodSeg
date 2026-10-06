@@ -1,4 +1,5 @@
 data/
+.claude/
 .venv/
 __pycache__/
 DerivedData/
