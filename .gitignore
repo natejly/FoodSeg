@@ -1,5 +1,6 @@
 data/
 .claude/
+*.zip
 .venv/
 __pycache__/
 DerivedData/
