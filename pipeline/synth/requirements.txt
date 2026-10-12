@@ -1,0 +1,8 @@
+blenderproc==2.8.0
+trimesh
+networkx
+openpyxl
+numpy
+scipy
+pillow
+pytest
