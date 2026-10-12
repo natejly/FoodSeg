@@ -115,6 +115,7 @@ def main() -> None:
     ap.add_argument("--arch", default="convnext_tiny.fb_in22k_ft_in1k")
     ap.add_argument("--epochs", type=int, default=40)
     ap.add_argument("--bs", type=int, default=16)
+    ap.add_argument("--eval-bs", type=int, default=32, help="inference batch for the val/test forward (default %(default)s); lower for big backbones")
     ap.add_argument("--lr", type=float, default=2e-4)
     ap.add_argument("--wd", type=float, default=0.05)
     ap.add_argument("--drop-path", type=float, default=0.1)
@@ -173,8 +174,8 @@ def main() -> None:
             model.load_state_dict({k: v.to(live[k].dtype) for k, v in ema.items()})
         model.eval()
         out = []
-        for b in range(0, len(ids), 32):
-            x = data.batch([data.index[d] for d in ids[b:b + 32]], dev).contiguous(memory_format=torch.channels_last)
+        for b in range(0, len(ids), args.eval_bs):
+            x = data.batch([data.index[d] for d in ids[b:b + args.eval_bs]], dev).contiguous(memory_format=torch.channels_last)
             views = flips(x) if tta else [x]
             with torch.autocast("cuda", dtype=torch.float16):
                 p = torch.stack([model(v).float() for v in views]).mean(0)
