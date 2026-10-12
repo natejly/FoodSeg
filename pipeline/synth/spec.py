@@ -127,13 +127,17 @@ def sample_scene(rng: np.random.Generator, assets: list[dict], out: Path, scene_
         support_top = h + mound
 
     # TODO: place container_shaped assets (MetaFood3D "X(bowl)") in a bowl fitted to their underside
+    # only items whose footprint fits the dish's flat area (else they slide off, e.g. a fried egg in a bowl)
+    fit_r = c.well_r if c.kind == "plate" else c.r_at_height(c.floor + 0.5 * (c.H - c.floor))
     pool = [a for a in assets if (a.get("volume_ok", a["watertight"]) or allow_open)
-            and not a.get("container_shaped")]
+            and not a.get("container_shaped") and max(a["extent_m"][:2]) <= 2 * fit_r]
     real = [a for a in pool if not a["procedural"]]
     n_items = int(rng.integers(0 if items else 1, max_items - len(items) + 1))
     cursor = support_top + 0.005          # items spawn stacked by bounding radius, never overlapping
     for _ in range(n_items):
         src = real if real and rng.random() < 0.7 else [a for a in pool if a["procedural"]]
+        if not src:
+            break
         a = src[rng.integers(len(src))]
         ext = np.asarray(a["extent_m"])
         rad = float(np.linalg.norm(ext)) / 2      # any rotation fits in this sphere

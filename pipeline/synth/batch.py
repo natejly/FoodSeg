@@ -58,6 +58,10 @@ def main() -> None:
                str(sdir / "spec.json"), str(rdir), "--spp", str(args.spp)]
         r = subprocess.run(cmd, capture_output=True, text=True)
         if r.returncode != 0 or not (rdir / "render_meta.json").exists():
+            # usually the GPU ran out of memory (it may be shared); retry once on the CPU
+            print(f"{sid}: GPU render failed, retrying on CPU", flush=True)
+            r = subprocess.run(cmd + ["--cpu"], capture_output=True, text=True)
+        if r.returncode != 0 or not (rdir / "render_meta.json").exists():
             (root / "failed").mkdir(parents=True, exist_ok=True)
             (root / "failed" / f"{sid}.log").write_text(r.stdout[-20000:] + "\n" + r.stderr[-20000:])
             print(f"{sid}: render FAILED (log in {root / 'failed'})")

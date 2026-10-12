@@ -72,6 +72,7 @@ def main() -> None:
     ap.add_argument("out")
     ap.add_argument("--spp", type=int, default=64)
     ap.add_argument("--no-physics", action="store_true")
+    ap.add_argument("--cpu", action="store_true", help="render on CPU (when the GPU is full)")
     args = ap.parse_args(argv)
 
     t0 = time.time()
@@ -148,6 +149,8 @@ def main() -> None:
     bproc.renderer.enable_depth_output(activate_antialiasing=False)
     bproc.renderer.enable_segmentation_output(map_by=["category_id"], default_values={"category_id": 0})
     bproc.renderer.set_max_amount_of_samples(args.spp)
+    if args.cpu:
+        bproc.renderer.set_render_devices(use_only_cpu=True)
     t_setup = time.time()
     data = bproc.renderer.render()
     t_render = time.time()
