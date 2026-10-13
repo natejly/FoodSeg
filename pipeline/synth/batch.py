@@ -1,7 +1,8 @@
 """Sample, render and finalize scenes end to end (one Blender process per scene).
 
     python -m synth.batch --assets ../data/synth/assets.jsonl --root ../data/synth/v0 \
-        --n 50 [--start 0] [--res-scale 0.5] [--spp 64] [--blender ~/blender/blender-4.2.1-linux-x64]
+        --n 50 [--start 0] [--res-scale 0.5] [--spp 64] [--blender ~/blender/blender-4.2.1-linux-x64] \
+        [--preset hard]
 
 Layout under ROOT: specs/<sid>/ (spec + meshes), raw/<sid>/ (npz, deleted unless
 --keep-raw), scans/<sid>/ (FoodScan format + gt). Scenes whose scans/<sid>/gt.json
@@ -22,6 +23,7 @@ import numpy as np
 from .assets import load_index
 from .finalize import finalize
 from .spec import sample_scene
+from .spec_hard import sample_scene_hard
 
 RENDER = Path(__file__).with_name("render.py")
 
@@ -40,6 +42,7 @@ def main() -> None:
     ap.add_argument("--hdri-dir", default=None)
     ap.add_argument("--keep-raw", action="store_true")
     ap.add_argument("--keep-hr", action="store_true")
+    ap.add_argument("--preset", choices=["v0", "hard"], default="v0", help="hard: see synth/spec_hard.py")
     args = ap.parse_args()
 
     root = Path(args.root)
@@ -52,8 +55,9 @@ def main() -> None:
         if (odir / "gt.json").exists():
             continue
         t0 = time.time()
-        sample_scene(np.random.default_rng([args.seed, i]), assets, sdir, sid, n_views=args.views,
-                     res_scale=args.res_scale, hdris=hdris)
+        sampler = sample_scene_hard if args.preset == "hard" else sample_scene
+        sampler(np.random.default_rng([args.seed, i]), assets, sdir, sid, n_views=args.views,
+                res_scale=args.res_scale, hdris=hdris)
         cmd = [str(bproc), "run", "--custom-blender-path", args.blender, str(RENDER),
                str(sdir / "spec.json"), str(rdir), "--spp", str(args.spp)]
         r = subprocess.run(cmd, capture_output=True, text=True)

@@ -88,3 +88,50 @@ def test_spec_finalize_loader_roundtrip(tmp_path):
     m = np.asarray(Image.open(tmp_path / "scan" / "gt" / "masks" / "000000.png"))
     assert set(np.unique(m)) == {0, 1}
     assert np.load(tmp_path / "scan" / "gt" / "container.npz")["points"].shape[1] == 3
+
+
+def _closed(F) -> bool:
+    """Every directed edge is matched by its reverse: a closed, consistently oriented surface."""
+    from collections import Counter
+    e = Counter((int(a), int(b)) for t in F for a, b in ((t[0], t[1]), (t[1], t[2]), (t[2], t[0])))
+    return all(e[(b, a)] == v for (a, b), v in e.items())
+
+
+def test_split_pieces_partition_the_heap():
+    from synth.geometry import Mound, split_angles, topping_mesh
+    rng = np.random.default_rng(0)
+    for kind in ("bowl", "plate"):
+        c = sample_container(rng, kind)
+        if kind == "bowl":
+            lev = c.floor + 0.6 * (c.H - c.floor)
+            m = Mound(rf=c.r_at_height(lev), mound=0.015, level=lev, wobble=0.003, seed=1)
+        else:
+            m = Mound(rf=0.7 * c.well_r, mound=0.02, p=3, wobble=0.003, centre=(0.01, -0.005), seed=1)
+        whole = mesh_volume(*m.piece(c, lambda r: np.zeros_like(r), lambda r: np.full_like(r, 2 * np.pi),
+                                     n_r=60, m=192))
+        fns = split_angles(rng, 3, m.rf)
+        parts = [m.piece(c, fns[k], fns[k + 1], n_r=60, m=64) for k in range(3)]
+        assert all(_closed(F) for _, F in parts)
+        assert abs(sum(mesh_volume(V, F) for V, F in parts) / whole - 1) < 1e-3
+        Vt, Ft = topping_mesh(c, m, (m.centre[0] + 0.3 * m.rf, m.centre[1]), 0.015, 0.004, seed=2)
+        assert _closed(Ft) and 0 < mesh_volume(Vt, Ft) * 1e6 < np.pi * 15 ** 2 * 4 / 1000 * 1.5
+        # the topping lies on the heap, not inside it
+        assert (Vt[:, 2] >= m.top(c, Vt[:, 0], Vt[:, 1]) - 1e-6).all()
+
+
+def test_hard_spec(tmp_path):
+    from synth.assets import build_primitives
+    from synth.spec_hard import sample_scene_hard
+
+    assets = build_primitives(tmp_path / "prims", n_per=2)
+    kinds = set()
+    for i in range(8):
+        spec = sample_scene_hard(np.random.default_rng([0, i]), assets, tmp_path / f"s{i}", f"s{i:06d}",
+                                 n_views=4, res_scale=0.25)
+        assert [it["id"] for it in spec["items"]] == list(range(1, len(spec["items"]) + 1))
+        assert len(spec["items"]) <= 8 and all(it["volume_ml"] > 0 for it in spec["items"])
+        for it in spec["items"]:
+            kinds.add(it["shape"]["kind"])
+            if it["shape"]["kind"] == "topping":
+                assert spec["items"][it["shape"]["on_item"] - 1]["shape"]["kind"] == "piece"
+    assert {"piece", "single"} <= kinds

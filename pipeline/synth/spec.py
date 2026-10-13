@@ -190,15 +190,21 @@ def main() -> None:
     ap.add_argument("--max-items", type=int, default=4)
     ap.add_argument("--allow-open", action="store_true", help="use non-watertight meshes (volume = hull)")
     ap.add_argument("--hdri-dir", default=None)
+    ap.add_argument("--preset", choices=["v0", "hard"], default="v0", help="hard: see synth/spec_hard.py")
     args = ap.parse_args()
     assets = load_index(args.assets)
     hdris = sorted(str(p.resolve()) for p in Path(args.hdri_dir).rglob("*.hdr")) if args.hdri_dir else None
     for i in range(args.start, args.start + args.n):
         rng = np.random.default_rng([args.seed, i])
         sid = f"s{i:06d}"
-        s = sample_scene(rng, assets, Path(args.out) / sid, sid, n_views=args.views,
-                         res_scale=args.res_scale, max_items=args.max_items,
-                         allow_open=args.allow_open, hdris=hdris)
+        if args.preset == "hard":
+            from .spec_hard import sample_scene_hard
+            s = sample_scene_hard(rng, assets, Path(args.out) / sid, sid, n_views=args.views,
+                                  res_scale=args.res_scale, hdris=hdris)
+        else:
+            s = sample_scene(rng, assets, Path(args.out) / sid, sid, n_views=args.views,
+                             res_scale=args.res_scale, max_items=args.max_items,
+                             allow_open=args.allow_open, hdris=hdris)
         print(sid, s["container"]["kind"], [(it["name"], round(it["volume_ml"], 1)) for it in s["items"]])
 
 

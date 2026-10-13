@@ -103,11 +103,45 @@ Caveats / TODO
 - iPad K is a placeholder (fx 1440 at 1920×1440); take it from a real `frames.jsonl`.
 - `LidarParams` are literature placeholders; fit them on the `cal_*` scans and keep the
   fitted values (they are copied into every `gt.json`).
-- Procedural food has flat colours; real appearance comes from MetaFood3D / OmniObject3D
-  textures. HDRIs (`--hdri-dir`, Poly Haven) and table textures are optional.
+- v0 procedural food has flat colours (the hard preset adds noise colour + bump); real
+  appearance comes from MetaFood3D / OmniObject3D textures. HDRIs (`--hdri-dir`, Poly
+  Haven) and table textures are optional.
 - No amodal masks yet (needs a per-item render pass).
 - Physics: items that leave the dish or are visible in < 3 frames are flagged in `gt.json`
   (`off_container`, `frames_visible`) and excluded by `synth/evaluate.py`.
+- Physics runs on a convex-hull proxy (≤ 20k sampled vertices) of each scan, whose pose is
+  copied back: Bullet's hull shape walks every vertex per contact query, and with the
+  full 0.3-1.6 M-vertex scans one scene did not finish physics in 10 min.
+
+### Hard preset: the 3D segmentation stress test (`--preset hard`, `synth/spec_hard.py`)
+
+v0 scenes (and the `eval/mf3d_composite.py` scenes: separate scans on a flat plane, no
+colour) are close to solved for 3D instance segmentation (DGCNN mIoU 0.945). Real meals
+fail on what they lack, so the hard preset adds, keeping every volume exact:
+
+| Case | How | Exactness |
+|---|---|---|
+| amorphous foods touching | one heap (`geometry.Mound`) split into 1-3 wedges with wavy boundaries (`split_angles`), each a different fill food with its own mound height; 30 % of splits pick the closest-coloured fills | wedges partition the heap: piece volumes sum to the whole (test) |
+| stacked food | toppings (sauce, cheese, pesto…) lying on a piece's top surface, fully inside it (`topping_mesh`) | closed mesh on top of the surface, no overlap |
+| same-class piles | 2-5 scans of one MetaFood3D category dropped together | physics; asset volumes |
+| clutter | knife / fork / spoon / mug / napkin on the table, label 253 | not food; excluded from masks |
+| appearance | noise colour + bump on procedural food (`render.textured_material`) | — |
+
+Plates are 60 %, bowls 40 %; up to 8 food items. Each scan also gets `gt/points.npz`
+(about one surface sample per mm² of every object in its final pose, ARKit frame,
+labels 1..K / 254 container / 253 clutter), and `synth.seg_export` fuses the scan the way
+`run_meal` does and labels each fused point by its nearest sample within 4 mm, giving
+`gt/seg_points.npz` (xyz, rgb, normal, label) for training DGCNN / PTv3 on the fused
+cloud.
+
+```bash
+cd pipeline
+conda activate synth
+python -m synth.batch --assets ../data/synth/assets.jsonl --root ../data/synth/hard --preset hard \
+    --n 20 --res-scale 0.5 --spp 32
+conda activate foodseg
+python -m synth.seg_export ../data/synth/hard/scans
+```
 
 ### MetaFood3D as downloaded (checked 2026-10-11)
 - `3D_Mesh/<Category>/<object>/<Name>.obj` + `.mtl` + `.jpg` texture; 637 meshes, 108

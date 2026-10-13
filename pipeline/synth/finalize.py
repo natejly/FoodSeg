@@ -11,6 +11,8 @@ depth/*.f32, smooth_depth/*.f32, conf/*.u8; see foodscan/loader.py) plus:
     gt/masks/instances.json   -> `run_meal --masks SCAN/gt/masks` = oracle segmentation
     gt/container/*.png   container mask (for rim-exclusion training)
     gt/container.npz     exact ContainerTemplate (`run_meal --container SCAN/gt/container.npz`)
+    gt/points.npz        surface samples of every object in its final pose, ARKit frame
+                         (xyz, label: item id, 254 container, 253 clutter) -> synth.seg_export
     gt/depth_clean/*.f32 noise-free 256x192 depth
     gt/depth_hr/*.f32    noise-free depth at RGB resolution (with --keep-hr; for depth_upsample evals)
 """
@@ -28,6 +30,7 @@ from .geometry import container_from_json
 from .lidar import D_H, D_W, LidarParams, simulate
 
 CONTAINER_ID = 254
+DISTRACTOR_ID = 253     # non-food clutter (hard preset)
 
 
 def finalize(scene_dir: Path, raw_dir: Path, out: Path, seed: int = 0, keep_hr: bool = False,
@@ -61,7 +64,7 @@ def finalize(scene_dir: Path, raw_dir: Path, out: Path, seed: int = 0, keep_hr: 
             sim["clean"].astype("<f4").tofile(out / "gt" / "depth_clean" / f"{name}.f32")
             if keep_hr:
                 depth.astype("<f4").tofile(out / "gt" / "depth_hr" / f"{name}.f32")
-            food = np.where(seg == CONTAINER_ID, 0, seg).astype(np.uint8)
+            food = np.where((seg == CONTAINER_ID) | (seg == DISTRACTOR_ID), 0, seg).astype(np.uint8)
             Image.fromarray(food).save(out / "gt" / "masks" / f"{name}.png")
             Image.fromarray(((seg == CONTAINER_ID) * 255).astype(np.uint8)).save(
                 out / "gt" / "container" / f"{name}.png")
@@ -92,8 +95,13 @@ def finalize(scene_dir: Path, raw_dir: Path, out: Path, seed: int = 0, keep_hr: 
                                          "mass_g", "procedural", "generated")}
                      | {"scene_volume_ml": r["scene_volume_ml"], "frames_visible": visible.get(it["id"], 0),
                         "off_container": bool(off), "pose_arkit": (W2A @ np.array(r["local2world"])).tolist(),
-                        "fill": it.get("fill")})
-    gt = {"scene_id": spec["scene_id"], "synthetic": True,
+                        "fill": it.get("fill"), "shape": it.get("shape")})
+    if (raw_dir / "gt_points.npz").exists():     # per-point 3D labels, ARKit frame
+        z = np.load(raw_dir / "gt_points.npz")
+        xyz = z["xyz"].astype(np.float64) @ W2A[:3, :3].T + W2A[:3, 3]
+        np.savez_compressed(out / "gt" / "points.npz", xyz=xyz.astype(np.float32), label=z["label"])
+    gt = {"scene_id": spec["scene_id"], "synthetic": True, "preset": spec.get("preset", "v0"),
+          "distractors": [d["name"] for d in spec.get("distractors", [])],
           "container": {k: v for k, v in spec["container"].items() if k != "mesh"},
           "table_plane_arkit": {"normal": (W2A[:3, :3] @ [0, 0, 1]).tolist(),
                                 "point": W2A[:3, 3].tolist()},

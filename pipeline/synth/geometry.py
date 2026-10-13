@@ -251,3 +251,132 @@ def box_mesh(x: float, y: float, z: float) -> tuple[np.ndarray, np.ndarray]:
 
 def dumps(obj) -> str:
     return json.dumps(obj, indent=1, default=lambda o: o.tolist() if hasattr(o, "tolist") else str(o))
+
+
+# ---- harder scenes: touching pieces, toppings -------------------------------
+
+def grid_solid(top: np.ndarray, bot: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """Closed solid between two (n, m, 3) vertex grids with matching boundaries.
+
+    The grid is a topological box: top sheet, bottom sheet and four side strips, so
+    the mesh is closed even when rows collapse to a point (a wedge apex) or the two
+    sheets meet (a mound edge); degenerate faces add no volume.
+    """
+    n, m = top.shape[:2]
+    V = np.concatenate([top.reshape(-1, 3), bot.reshape(-1, 3)])
+    t = np.arange(n * m).reshape(n, m)
+    b = t + n * m
+    q = lambda g: np.stack([g[:-1, :-1], g[1:, :-1], g[1:, 1:], g[:-1, 1:]], -1).reshape(-1, 4)
+    quads = [q(t), q(b)[:, ::-1]]
+    loop = np.concatenate([t[:, 0], t[-1, 1:], t[-2::-1, -1], t[0, -2:0:-1]])   # CCW boundary
+    loopb = loop + n * m
+    a, c = np.r_[loop], np.roll(loop, -1)
+    quads.append(np.stack([c, a, a + n * m, c + n * m], 1))
+    Q = np.concatenate(quads)
+    F = np.concatenate([Q[:, [0, 1, 2]], Q[:, [0, 2, 3]]])
+    # weld coincident vertices (apex, rim, seam) and drop the faces that collapse: Bullet's
+    # triangle-mesh collider stalls on zero-area triangles
+    _, first, inv = np.unique(V, axis=0, return_index=True, return_inverse=True)
+    order = np.argsort(first)
+    rank = np.empty_like(order)
+    rank[order] = np.arange(len(order))
+    V, F = V[np.sort(first)], rank[inv.reshape(-1)][F]
+    F = F[(F[:, 0] != F[:, 1]) & (F[:, 1] != F[:, 2]) & (F[:, 0] != F[:, 2])]
+    a, b, c = V[F[:, 0]], V[F[:, 1]], V[F[:, 2]]
+    F = F[np.linalg.norm(np.cross(b - a, c - a), axis=1) > 1e-14]
+    if mesh_volume(V, F) < 0:
+        F = F[:, ::-1].copy()
+    return V, F
+
+
+@dataclass
+class Mound:
+    """A heap of amorphous food in container `c`: its top over a disc of radius rf
+    centred at `centre`, its bottom the container's inner surface.
+
+    top = max(level, z_in) + (mound + wobble * bump) * (1 - rho^p), rho = r / rf, so on
+    a bowl filled to `level` it meets the wall at rf, and on a plate (level None) it
+    tapers to the plate surface. Pieces of one mound split by angle touch exactly.
+    """
+    rf: float
+    mound: float
+    p: float = 2.0
+    level: float | None = None
+    wobble: float = 0.0
+    centre: tuple[float, float] = (0.0, 0.0)
+    seed: int = 0
+    lift: float = 5e-4
+
+    def _bump(self, rho, th):
+        rng = np.random.default_rng(self.seed)
+        k, ph, amp = rng.integers(2, 6, 3), rng.random(3) * 2 * np.pi, rng.normal(0, 1, 3)
+        return sum(a * rho ** kk * np.cos(kk * th + p) * np.sin(np.pi * rho * (i + 1))
+                   for i, (a, kk, p) in enumerate(zip(amp, k, ph))) / 3
+
+    def base(self, c: Container, x, y):
+        return c.z_in(np.hypot(x, y)) + self.lift
+
+    def top(self, c: Container, x, y):
+        x, y = np.asarray(x, float), np.asarray(y, float)
+        lx, ly = x - self.centre[0], y - self.centre[1]
+        rho = np.clip(np.hypot(lx, ly) / self.rf, 0, 1)
+        th = np.arctan2(ly, lx)
+        base = self.base(c, x, y)
+        lev = base if self.level is None else np.maximum(self.level + self.lift, base)
+        s = 1 - rho ** self.p
+        z = lev + (self.mound + self.wobble * self._bump(rho, th)) * s
+        z = np.maximum(z, base + 1e-4)
+        return np.where(rho >= 1, base, z)
+
+    def piece(self, c: Container, th_a, th_b, n_r: int = 40, m: int = 48):
+        """Closed mesh of the wedge th_a(r) <= theta <= th_b(r) (callables of local radius)."""
+        rs = np.linspace(0, self.rf, n_r)
+        u = np.linspace(0, 1, m)
+        th = th_a(rs)[:, None] + (th_b(rs) - th_a(rs))[:, None] * u[None]
+        x = self.centre[0] + rs[:, None] * np.cos(th)
+        y = self.centre[1] + rs[:, None] * np.sin(th)
+        top = np.stack([x, y, self.top(c, x, y)], -1)
+        bot = np.stack([x, y, self.base(c, x, y)], -1)
+        top[-1] = bot[-1]                      # the rim of the heap sits on the dish
+        return grid_solid(top, bot)
+
+
+def split_angles(rng: np.random.Generator, n: int, rf: float, min_gap: float = 1.2, amp: float = 0.15):
+    """n wavy radial boundaries splitting a disc into n wedges; returns callables th_k(r), k = 0..n
+    (th_n = th_0 + 2 pi), so wedge k spans [th_k, th_{k+1}]."""
+    if n == 1:
+        a0 = rng.uniform(0, 2 * np.pi)
+        return [lambda r, a=a0: np.full_like(r, a), lambda r, a=a0: np.full_like(r, a + 2 * np.pi)]
+    while True:
+        w = rng.dirichlet(np.ones(n) * 3) * 2 * np.pi
+        if w.min() >= min_gap:
+            break
+    base = rng.uniform(0, 2 * np.pi) + np.r_[0, np.cumsum(w)[:-1]]
+    waves = [(rng.uniform(-amp, amp), rng.uniform(0.5, 1.5) * rf, rng.uniform(0, 2 * np.pi)) for _ in range(n)]
+    fns = [lambda r, b=b, a=a, lam=lam, ph=ph: b + a * np.sin(2 * np.pi * r / lam + ph) * (r / rf)
+           for b, (a, lam, ph) in zip(base, waves)]
+    return fns + [lambda r, f=fns[0]: f(r) + 2 * np.pi]
+
+
+def topping_mesh(c: Container, under: Mound, centre: tuple[float, float], radius: float, thick: float,
+                 seed: int = 0, n_r: int = 20, m: int = 48, lift: float = 3e-4):
+    """A sauce / cheese blob lying on `under`'s top surface: irregular disc footprint,
+    thickness thick * (1 - rho^3) * (1 + small noise)."""
+    rng = np.random.default_rng(seed)
+    phi = np.linspace(0, 2 * np.pi, m)                     # seam duplicated: zero-volume wall
+    k, ph, a = rng.integers(2, 5, 2), rng.random(2) * 2 * np.pi, rng.uniform(0.05, 0.2, 2)
+    Rphi = radius * (1 + sum(ai * np.sin(ki * phi + pi) for ai, ki, pi in zip(a, k, ph)))
+    rho = np.linspace(0, 1, n_r)
+    x = centre[0] + rho[:, None] * Rphi[None] * np.cos(phi)[None]
+    y = centre[1] + rho[:, None] * Rphi[None] * np.sin(phi)[None]
+    zb = under.top(c, x, y) + lift
+    s = (1 - rho ** 3)[:, None] * (1 + 0.15 * np.sin(3 * phi + ph[0])[None] * rho[:, None])
+    top = np.stack([x, y, zb + thick * s], -1)
+    bot = np.stack([x, y, zb], -1)
+    top[-1] = bot[-1]
+    return grid_solid(top, bot)
+
+
+def lathe_solid(profile: np.ndarray, n_theta: int = 48) -> tuple[np.ndarray, np.ndarray]:
+    """Public alias for small props (mugs): lathe a closed (r, z) profile."""
+    return lathe(profile, n_theta)

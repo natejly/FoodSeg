@@ -19,9 +19,11 @@ import time
 from pathlib import Path
 
 import bmesh
+import bpy
 import numpy as np
 
 CONTAINER_ID = 254
+DISTRACTOR_ID = 253
 
 
 def mesh_from_npz(path: Path, name: str):
@@ -54,6 +56,85 @@ def flat_material(obj, name: str, color, roughness: float):
     mat.set_principled_shader_value("Base Color", [*color, 1.0])
     mat.set_principled_shader_value("Roughness", float(roughness))
     obj.replace_materials(mat)
+
+
+def textured_material(obj, name: str, color, roughness: float, scale: float, metallic: float = 0.0):
+    """Principled BSDF whose colour and bump follow 3D noise in object space (metres),
+    so procedural food isn't a flat colour: scale ~300 gives mm-sized grain, ~60 a sauce."""
+    mat = bproc.material.create(name)
+    bsdf = mat.get_the_one_node_with_type("BsdfPrincipled")
+    bsdf.inputs["Roughness"].default_value = float(roughness)
+    bsdf.inputs["Metallic"].default_value = float(metallic)
+    coord = mat.nodes.new("ShaderNodeTexCoord")
+    noise = mat.nodes.new("ShaderNodeTexNoise")
+    noise.inputs["Scale"].default_value = float(scale)
+    noise.inputs["Detail"].default_value = 8.0
+    ramp = mat.nodes.new("ShaderNodeValToRGB")
+    c = np.asarray(color, float)
+    ramp.color_ramp.elements[0].color = [*np.clip(c * 0.7, 0, 1), 1.0]
+    ramp.color_ramp.elements[1].color = [*np.clip(c * 1.2, 0, 1), 1.0]
+    bump = mat.nodes.new("ShaderNodeBump")
+    bump.inputs["Strength"].default_value = 0.35
+    bump.inputs["Distance"].default_value = 0.002
+    mat.links.new(coord.outputs["Object"], noise.inputs["Vector"])
+    mat.links.new(noise.outputs["Fac"], ramp.inputs["Fac"])
+    mat.links.new(ramp.outputs["Color"], bsdf.inputs["Base Color"])
+    mat.links.new(noise.outputs["Fac"], bump.inputs["Height"])
+    mat.links.new(bump.outputs["Normal"], bsdf.inputs["Normal"])
+    obj.replace_materials(mat)
+
+
+def surface_samples(obj, rng: np.random.Generator, per_m2: float = 1e6, lo: int = 500,
+                    hi: int = 60000) -> np.ndarray:
+    """Area-uniform points on the object's surface in world coordinates (~1 per mm^2)."""
+    me = obj.blender_obj.data
+    me.calc_loop_triangles()
+    tri = np.empty(len(me.loop_triangles) * 3, np.int64)
+    me.loop_triangles.foreach_get("vertices", tri)
+    co = np.empty(len(me.vertices) * 3, np.float64)
+    me.vertices.foreach_get("co", co)
+    M = np.array(obj.blender_obj.matrix_world)
+    V = co.reshape(-1, 3) @ M[:3, :3].T + M[:3, 3]
+    T = V[tri.reshape(-1, 3)]
+    area = 0.5 * np.linalg.norm(np.cross(T[:, 1] - T[:, 0], T[:, 2] - T[:, 0]), axis=1)
+    n = int(np.clip(area.sum() * per_m2, lo, hi))
+    k = rng.choice(len(T), n, p=area / area.sum())
+    u, v = rng.random(n), rng.random(n)
+    flip = u + v > 1
+    u[flip], v[flip] = 1 - u[flip], 1 - v[flip]
+    t = T[k]
+    return (t[:, 0] + u[:, None] * (t[:, 1] - t[:, 0]) + v[:, None] * (t[:, 2] - t[:, 0])).astype(np.float32)
+
+
+def hull_proxy(obj, name: str, max_pts: int = 20000, min_verts: int = 5000):
+    """Convex hull of (a random subset of) obj's vertices as a separate object with the same
+    transform, or None when obj is already small enough to simulate directly."""
+    me = obj.get_mesh()
+    if len(me.vertices) <= min_verts:
+        return None
+    co = np.empty(len(me.vertices) * 3, np.float64)
+    me.vertices.foreach_get("co", co)
+    co = co.reshape(-1, 3)
+    if len(co) > max_pts:
+        co = co[np.random.default_rng(0).choice(len(co), max_pts, replace=False)]
+    bm = bmesh.new()
+    for p in co:
+        bm.verts.new(p)
+    res = bmesh.ops.convex_hull(bm, input=bm.verts)
+    loose = {g for g in res["geom_interior"] + res["geom_unused"] if isinstance(g, bmesh.types.BMVert)}
+    bmesh.ops.delete(bm, geom=list(loose), context="VERTS")
+    proxy = bproc.object.create_with_empty_mesh(name)
+    bm.to_mesh(proxy.get_mesh())
+    bm.free()
+    copy_pose(obj, proxy)
+    return proxy
+
+
+def copy_pose(src, dst) -> None:
+    """Location / rotation / scale (matrix_world can be stale until the depsgraph updates)."""
+    d, s = dst.blender_obj, src.blender_obj
+    d.rotation_mode = s.rotation_mode
+    d.location, d.rotation_euler, d.scale = s.location.copy(), s.rotation_euler.copy(), s.scale.copy()
 
 
 def world_volume_ml(obj) -> float:
@@ -98,7 +179,7 @@ def main() -> None:
     cont.enable_rigidbody(False, collision_shape="MESH", collision_margin=0.0005)
 
     # food
-    objs = []
+    objs, proxies = [], []
     for it in spec["items"]:
         o = load_mesh(it, scene_dir)
         s = it["to_m"] * it["scale"]
@@ -106,23 +187,51 @@ def main() -> None:
         if it.get("color") is not None or it["fmt"] == "npz":
             col = it.get("color") or [0.6, 0.45, 0.3]
             jitter = np.clip(np.asarray(col) * np.random.uniform(0.85, 1.15, 3), 0, 1)
-            flat_material(o, f"food_{it['id']}", jitter.tolist(), it.get("roughness", 0.5))
+            if it.get("texture"):
+                scale = 80 if it["source"] == "procedural_topping" else np.random.uniform(150, 400)
+                textured_material(o, f"food_{it['id']}", jitter.tolist(), it.get("roughness", 0.5), scale)
+            else:
+                flat_material(o, f"food_{it['id']}", jitter.tolist(), it.get("roughness", 0.5))
         o.set_cp("category_id", it["id"])
+        proxy = None
         if it["dynamic"]:
             o.set_origin(mode="CENTER_OF_VOLUME")   # init_location is the centre, not the base
             o.set_location(it["init_location"])
             o.set_rotation_euler(it["init_euler"])
             mass = (it["mass_g"] or it["volume_ml"]) / 1000.0      # kg; ~1 g/mL when unknown
-            o.enable_rigidbody(True, collision_shape="CONVEX_HULL", mass=mass, friction=0.8,
-                               linear_damping=0.3, angular_damping=0.3, collision_margin=0.0005)
+            # scans have up to ~1 M vertices and Bullet's hull shape walks all of them per
+            # contact query, so simulate a small hull of the same shape and copy its pose back
+            proxy = hull_proxy(o, f"proxy_{it['id']}")
+            (proxy or o).enable_rigidbody(True, collision_shape="CONVEX_HULL", mass=mass, friction=0.8,
+                                          linear_damping=it.get("damping", 0.3),
+                                          angular_damping=it.get("damping", 0.3), collision_margin=0.0005)
         else:
             o.enable_rigidbody(False, collision_shape="MESH", collision_margin=0.0005)
         objs.append((it, o))
+        if proxy:
+            proxies.append((o, proxy))
+    print(f"[render] scene loaded in {time.time() - t0:.0f}s ({len(proxies)} physics proxies)", flush=True)
+
+    # non-food clutter on the table (hard preset): static, its own label
+    clutter = []
+    for i, d in enumerate(spec.get("distractors", [])):
+        o = mesh_from_npz(scene_dir / d["mesh"], f"distractor_{i}")
+        o.set_location(d["location"])
+        o.set_rotation_euler(d["euler"])
+        textured_material(o, f"distractor_{i}", d["color"], d["roughness"], scale=40, metallic=d["metallic"])
+        o.set_cp("category_id", DISTRACTOR_ID)
+        o.enable_rigidbody(False, collision_shape="MESH", collision_margin=0.0005)
+        clutter.append(o)
 
     if not args.no_physics and any(it["dynamic"] for it, _ in objs):
         bproc.object.simulate_physics_and_fix_final_poses(
             min_simulation_time=1.5, max_simulation_time=6, check_object_interval=0.5,
             substeps_per_frame=40, solver_iters=30)
+        print(f"[render] physics done at {time.time() - t0:.0f}s", flush=True)
+    for o, proxy in proxies:
+        copy_pose(proxy, o)
+        proxy.delete()
+    bpy.context.view_layer.update()
 
     # lighting
     L = spec["lighting"]
@@ -172,6 +281,16 @@ def main() -> None:
                       "scene_volume_ml": world_volume_ml(o), "spec_volume_ml": it["volume_ml"],
                       "radius_from_axis_m": float(np.hypot(ctr[0], ctr[1])),
                       "min_z_m": float(bb[:, 2].min())})
+    # surface samples of every labelled object in its final pose: per-point 3D ground truth
+    # for the fused cloud (finalize moves them to the ARKit frame)
+    srng = np.random.default_rng(0)
+    pts, lab = [], []
+    for lid, o in [(it["id"], o) for it, o in objs] + [(CONTAINER_ID, cont)] + [(DISTRACTOR_ID, o) for o in clutter]:
+        p = surface_samples(o, srng)
+        pts.append(p)
+        lab.append(np.full(len(p), lid, np.uint8))
+    np.savez_compressed(out / "gt_points.npz", xyz=np.concatenate(pts), label=np.concatenate(lab))
+
     meta = {"scene_id": spec["scene_id"], "spp": args.spp, "n_frames": len(data["colors"]),
             "container_local2world": [list(r) for r in R], "items": items,
             "timing_s": {"setup": t_setup - t0, "render": t_render - t_setup, "total": time.time() - t0}}
