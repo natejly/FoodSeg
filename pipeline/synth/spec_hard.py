@@ -64,6 +64,28 @@ def distractors(rng: np.random.Generator, out: Path, r_clear: float) -> list[dic
     return res
 
 
+# Table surfaces people eat on: (base colour range low, high, roughness range, texture scale range).
+TABLES = [
+    ((0.25, 0.13, 0.06), (0.55, 0.33, 0.16), (0.3, 0.6), (8, 30)),      # wood
+    ((0.55, 0.55, 0.52), (0.85, 0.85, 0.82), (0.2, 0.5), (2, 10)),      # light laminate / stone
+    ((0.03, 0.03, 0.03), (0.12, 0.12, 0.12), (0.3, 0.7), (5, 20)),      # dark laminate
+    ((0.1, 0.1, 0.1), (0.8, 0.8, 0.8), (0.7, 0.95), (150, 400)),        # tablecloth / placemat weave
+]
+
+
+def table_look(rng: np.random.Generator) -> dict:
+    lo, hi, rough, scale = TABLES[rng.integers(len(TABLES))]
+    col = rng.uniform(lo, hi) if rng.random() < 0.85 else rng.uniform(0.1, 0.8, 3)   # some colourful cloths
+    return {"color": [float(v) for v in col], "roughness": float(rng.uniform(*rough)),
+            "texture_scale": float(rng.uniform(*scale)), "size_m": 4.0}
+
+
+def light_tint(rng: np.random.Generator, spread: float) -> list[float]:
+    """Light colour along the warm (tungsten) - cool (daylight / LED) axis."""
+    t = rng.uniform(-1, 1) * spread
+    return [float(1 + t), 1.0, float(1 - t)]
+
+
 def _similar(rng: np.random.Generator, n: int) -> np.ndarray:
     """n fill indices; with p = 0.3 the closest colours to a random first one (the hard case)."""
     idx = rng.choice(len(FILLS), n, replace=False)
@@ -117,7 +139,9 @@ def sample_scene_hard(rng: np.random.Generator, assets: list[dict], out: Path, s
         heap = []
         for k, fi in enumerate(_similar(rng, n_pieces)):
             mnd = Mound(rf=rf, level=lev, centre=centre, seed=int(rng.integers(1 << 31)),
-                        mound=float(rng.uniform(0.004, 0.025) if c.kind == "bowl" else rng.uniform(0.01, 0.035)),
+                        # a scoop on a plate is a dome a few cm high, not a smear
+                        mound=float(rng.uniform(0.005, 0.03) if c.kind == "bowl"
+                                    else min(rf * rng.uniform(0.35, 0.8), 0.05)),
                         p=float(rng.uniform(2, 4)), wobble=float(rng.uniform(0, 0.004)))
             name, col, rough = FILLS[fi]
             items.append(_procedural(name, f"piece_{k}.npz", *mnd.piece(c, fns[k], fns[k + 1]), out, col, rough,
@@ -213,14 +237,16 @@ def sample_scene_hard(rng: np.random.Generator, assets: list[dict], out: Path, s
     spec.update({
         "items": items,
         "distractors": distractors(rng, out, c.R + c.rim_w) if rng.random() < 0.7 else [],
-        "table": {"color": rng.uniform(0.05, 0.8, 3).tolist(), "roughness": float(rng.uniform(0.2, 0.9)),
-                  "size_m": 4.0},
+        "table": table_look(rng),
         "lighting": {"hdri": (hdris[rng.integers(len(hdris))] if hdris else None),
                      "hdri_strength": float(rng.uniform(0.5, 1.5)),
-                     "ambient": float(rng.uniform(0.2, 0.8)),
+                     "ambient": float(rng.uniform(0.15, 0.5)),
+                     "ambient_tint": light_tint(rng, 0.08),
                      "key": {"location": [float(rng.uniform(-1, 1)), float(rng.uniform(-1, 1)),
                                           float(rng.uniform(0.8, 1.6))],
-                             "energy_w": float(rng.uniform(60, 300)), "size_m": float(rng.uniform(0.2, 1.0))}},
+                             "energy_w": float(rng.uniform(40, 200)), "size_m": float(rng.uniform(0.2, 1.0)),
+                             "color": light_tint(rng, 0.12)}},
+        "look": {"view_transform": "Standard", "exposure": float(rng.uniform(-0.7, 0.2))},
         "camera": {"K": K.tolist(), "width": w, "height": h, "res_scale": res_scale,
                    "c2w": [p.tolist() for p in poses], "timestamps": times},
         "world_to_arkit": world_to_arkit(rng).tolist(),

@@ -27,6 +27,7 @@ import numpy as np
 from PIL import Image
 
 from .geometry import container_from_json
+from .camera import PhoneCamera
 from .lidar import D_H, D_W, LidarParams, simulate
 
 CONTAINER_ID = 254
@@ -51,12 +52,17 @@ def finalize(scene_dir: Path, raw_dir: Path, out: Path, seed: int = 0, keep_hr: 
 
     frames = sorted(raw_dir.glob("frame_*.npz"))
     visible: dict[int, int] = {}
+    phone = PhoneCamera.sample(rng) if spec.get("preset") == "hard" else None
     with open(out / "frames.jsonl", "w") as f:
         for i, p in enumerate(frames):
             z = np.load(p)
             rgb, depth, seg = z["rgb"], z["depth"], z["seg"]
             name = f"{i:06d}"
-            Image.fromarray(rgb).save(out / "rgb" / f"{name}.jpg", quality=95)
+            if phone:
+                Image.fromarray(phone.apply(rgb, rng)).save(out / "rgb" / f"{name}.jpg",
+                                                            quality=phone.jpeg_quality)
+            else:
+                Image.fromarray(rgb).save(out / "rgb" / f"{name}.jpg", quality=95)
             sim = simulate(depth, rgb, K, rng, params)
             sim["depth"].astype("<f4").tofile(out / "depth" / f"{name}.f32")
             sim["smooth_depth"].astype("<f4").tofile(out / "smooth_depth" / f"{name}.f32")
@@ -102,6 +108,7 @@ def finalize(scene_dir: Path, raw_dir: Path, out: Path, seed: int = 0, keep_hr: 
         np.savez_compressed(out / "gt" / "points.npz", xyz=xyz.astype(np.float32), label=z["label"])
     gt = {"scene_id": spec["scene_id"], "synthetic": True, "preset": spec.get("preset", "v0"),
           "distractors": [d["name"] for d in spec.get("distractors", [])],
+          "phone_camera": phone.to_json() if phone else None,
           "container": {k: v for k, v in spec["container"].items() if k != "mesh"},
           "table_plane_arkit": {"normal": (W2A[:3, :3] @ [0, 0, 1]).tolist(),
                                 "point": W2A[:3, 3].tolist()},

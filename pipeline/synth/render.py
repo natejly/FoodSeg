@@ -168,7 +168,10 @@ def main() -> None:
     # table
     tab = spec["table"]
     table = bproc.object.create_primitive("PLANE", scale=[tab["size_m"] / 2] * 3)
-    flat_material(table, "table", tab["color"], tab["roughness"])
+    if tab.get("texture_scale"):              # mottled wood / laminate / cloth instead of flat colour
+        textured_material(table, "table", tab["color"], tab["roughness"], tab["texture_scale"])
+    else:
+        flat_material(table, "table", tab["color"], tab["roughness"])
     table.enable_rigidbody(False, collision_shape="BOX", collision_margin=0.0005)
 
     # container (static)
@@ -238,13 +241,23 @@ def main() -> None:
     if L.get("hdri"):
         bproc.world.set_world_background_hdr_img(L["hdri"], strength=L["hdri_strength"])
     else:
-        bproc.renderer.set_world_background([L["ambient"]] * 3, strength=1.0)
+        tint = np.asarray(L.get("ambient_tint", [1.0, 1.0, 1.0]))     # warm / cool room light
+        bproc.renderer.set_world_background((L["ambient"] * tint).tolist(), strength=1.0)
     key = bproc.types.Light()
     key.set_type("AREA")
     key.set_location(L["key"]["location"])
     key.set_rotation_mat(bproc.camera.rotation_from_forward_vec(-np.asarray(L["key"]["location"])))
     key.set_energy(L["key"]["energy_w"])
+    key.set_color(L["key"].get("color", [1.0, 1.0, 1.0]))
     key.blender_obj.data.size = L["key"]["size_m"]
+
+    # colour management: Blender's default AgX desaturates bright colours (chili rendered pink);
+    # a phone pipeline is closer to a plain sRGB curve, with auto-exposure that varies per scene
+    look = spec.get("look", {})
+    vs = bpy.context.scene.view_settings
+    vs.view_transform = look.get("view_transform", vs.view_transform)
+    vs.look = "None"
+    vs.exposure = float(look.get("exposure", 0.0))
 
     # camera: ARKit K has pixel centres at +0.5, BlenderProc at integers
     cam = spec["camera"]
