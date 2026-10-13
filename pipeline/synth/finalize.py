@@ -27,7 +27,7 @@ import numpy as np
 from PIL import Image
 
 from .geometry import container_from_json
-from .camera import PhoneCamera
+from .camera import PhoneCamera, develop, scene_key
 from .lidar import D_H, D_W, LidarParams, simulate
 
 CONTAINER_ID = 254
@@ -53,10 +53,14 @@ def finalize(scene_dir: Path, raw_dir: Path, out: Path, seed: int = 0, keep_hr: 
     frames = sorted(raw_dir.glob("frame_*.npz"))
     visible: dict[int, int] = {}
     phone = PhoneCamera.sample(rng) if spec.get("preset") == "hard" else None
+    key = None
+    if frames and "rgb_linear" in np.load(frames[0]).files:     # HDR render: meter the whole scan once
+        key = scene_key([np.load(p)["rgb_linear"] for p in frames[::4]])
     with open(out / "frames.jsonl", "w") as f:
         for i, p in enumerate(frames):
             z = np.load(p)
-            rgb, depth, seg = z["rgb"], z["depth"], z["seg"]
+            depth, seg = z["depth"], z["seg"]
+            rgb = develop(z["rgb_linear"], key, phone.ev_bias if phone else 0.0) if key is not None else z["rgb"]
             name = f"{i:06d}"
             if phone:
                 Image.fromarray(phone.apply(rgb, rng)).save(out / "rgb" / f"{name}.jpg",

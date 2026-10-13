@@ -256,8 +256,10 @@ def main() -> None:
     look = spec.get("look", {})
     vs = bpy.context.scene.view_settings
     vs.view_transform = look.get("view_transform", vs.view_transform)
-    vs.look = "None"
+    vs.look = look.get("look", "None")
     vs.exposure = float(look.get("exposure", 0.0))
+    if look.get("hdr"):           # scene-linear EXR; synth.camera.develop does exposure + tone curve
+        bproc.renderer.set_output_format(file_format="OPEN_EXR", color_depth=16)
 
     # camera: ARKit K has pixel centres at +0.5, BlenderProc at integers
     cam = spec["camera"]
@@ -280,8 +282,9 @@ def main() -> None:
     for i, (rgb, depth, seg) in enumerate(zip(data["colors"], data["depth"], data["category_id_segmaps"])):
         depth = np.asarray(depth, np.float32)
         depth[~np.isfinite(depth) | (depth > 1e4)] = 0.0
-        np.savez_compressed(out / f"frame_{i:06d}.npz", rgb=np.asarray(rgb, np.uint8)[..., :3],
-                            depth=depth, seg=np.asarray(seg).astype(np.uint8))
+        rgb = np.asarray(rgb)[..., :3]
+        col = {"rgb_linear": rgb.astype(np.float16)} if look.get("hdr") else {"rgb": rgb.astype(np.uint8)}
+        np.savez_compressed(out / f"frame_{i:06d}.npz", **col, depth=depth, seg=np.asarray(seg).astype(np.uint8))
 
     R = cont.blender_obj.matrix_world
     items = []

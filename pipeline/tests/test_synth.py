@@ -119,6 +119,21 @@ def test_split_pieces_partition_the_heap():
         assert (Vt[:, 2] >= m.top(c, Vt[:, 0], Vt[:, 1]) - 1e-6).all()
 
 
+def test_develop_exposes_and_rolls_off():
+    from synth.camera import PhoneCamera, develop, scene_key
+    dim = np.full((40, 60, 3), 0.02, np.float32)
+    bright = np.full((40, 60, 3), 2.0, np.float32)
+    bright[:, :10] = 40.0                                   # a specular highlight
+    for lin in (dim, bright):
+        out = develop(lin, scene_key([lin]))
+        assert 80 < np.median(out) < 140                    # auto-exposure lands near mid-grey either way
+                                                            # (a highlight pulls the metering down a bit)
+    assert develop(bright, scene_key([bright]))[:, :10].max() < 255   # highlight rolls off, no clip
+    rng = np.random.default_rng(0)
+    img = PhoneCamera.sample(rng).apply(np.full((48, 64, 3), 120, np.uint8), rng)
+    assert img.dtype == np.uint8 and abs(float(img.mean()) - 120) < 15
+
+
 def test_hard_spec(tmp_path):
     from synth.assets import build_primitives
     from synth.spec_hard import sample_scene_hard

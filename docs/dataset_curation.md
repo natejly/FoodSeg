@@ -39,6 +39,20 @@ Plan:
   (squash, cucumber slices). Candidates: OmniObject3D food scans (CC BY 4.0, metric, no
   weights), procedural leaf / cube / scramble generators. Leafy salad is the hardest case
   for every method (thin, interleaved, no clean surface) and worth its own stratum.
+- **Coverage today** (`python -m synth.composition`, ~90 most common ingredients mapped):
+  of 13,157 real visible components, 57.5 % map to a MetaFood3D scan category, 7.1 % to a
+  procedural fill, 1.1 % to a topping, **34.3 % cannot be rendered**; 43.9 % of dishes can
+  be rendered in full. Gaps by size: leafy greens 1,476 components, unmapped long tail
+  1,121, small piles (olives, chickpeas, corn, brussels sprouts) 616, scrambled eggs /
+  egg whites 531, cubed vegetables (roasted potato, squash, zucchini) 482, whole fruit we
+  lack (orange, lemon, pear) 206. Small piles, scrambles and cubes are cheap procedural
+  generators (~12 % of components); leafy greens are the hard, valuable one.
+- **After adding primitives** (olive, chickpea, brussels sprout, roasted potato / squash
+  cubes, zucchini slices, orange, lemon, pear) and fills (scrambled eggs, egg whites, brown
+  rice, quinoa), index `data/synth/assets_v2.jsonl`: 66.6 % scan / primitive, 11.1 % fill,
+  1.1 % topping, **21.2 % gap**; **62.6 % of dishes render in full** (was 43.9 %). Left:
+  leafy greens 1,476 components, unmapped tail 1,121, corn kernels / radishes 111,
+  sliced meat 75.
 - Keep a share (~20 %) of uniform random compositions so models don't learn the cafeteria
   prior only.
 

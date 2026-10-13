@@ -18,7 +18,13 @@ from pathlib import Path
 import numpy as np
 
 from .geometry import Mound, box_mesh, lathe_solid, mesh_volume, sample_container, split_angles, topping_mesh
-from .spec import DISH_COLOURS, FILLS, intrinsics, orbit_poses, world_to_arkit
+from .spec import DISH_COLOURS, FILLS as V0_FILLS, intrinsics, orbit_poses, world_to_arkit
+
+# v0's fills plus Nutrition5k staples that render as amorphous heaps (synth/composition.py)
+FILLS = V0_FILLS + [
+    ("scrambled eggs", (0.95, 0.78, 0.25), 0.6), ("brown rice", (0.55, 0.40, 0.22), 0.7),
+    ("quinoa", (0.75, 0.65, 0.45), 0.6), ("egg whites", (0.92, 0.90, 0.80), 0.5),
+]
 
 # Foods that lie on another food: name, base colour (linear RGB), roughness.
 TOPPINGS = [
@@ -246,7 +252,9 @@ def sample_scene_hard(rng: np.random.Generator, assets: list[dict], out: Path, s
                                           float(rng.uniform(0.8, 1.6))],
                              "energy_w": float(rng.uniform(40, 200)), "size_m": float(rng.uniform(0.2, 1.0)),
                              "color": light_tint(rng, 0.12)}},
-        "look": {"view_transform": "Standard", "exposure": float(rng.uniform(-0.7, 0.2))},
+        # render scene-linear; synth.camera.develop meters and tone-maps per scan like a phone
+        # (fixed curves either washed colours out (Filmic) or blew out bright scenes (Standard))
+        "look": {"hdr": True},
         "camera": {"K": K.tolist(), "width": w, "height": h, "res_scale": res_scale,
                    "c2w": [p.tolist() for p in poses], "timestamps": times},
         "world_to_arkit": world_to_arkit(rng).tolist(),
