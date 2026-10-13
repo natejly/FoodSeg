@@ -30,7 +30,15 @@ struct ContentView: View {
             ARPreview(session: recorder.session)
             VStack {
                 statusBar
+                if let advice = recorder.guide.advice {
+                    Text(advice)
+                        .font(.headline)
+                        .padding(.horizontal, 14).padding(.vertical, 8)
+                        .background(adviceColor.opacity(0.85), in: Capsule())
+                        .foregroundStyle(.white)
+                }
                 Spacer()
+                if recorder.isRecording { guideBar }
                 controls
             }
             .padding()
@@ -78,6 +86,30 @@ struct ContentView: View {
                 }
             }
         }
+        .padding(8)
+        .background(.black.opacity(0.5), in: RoundedRectangle(cornerRadius: 8))
+        .foregroundStyle(.white)
+    }
+
+    private var adviceColor: Color {
+        recorder.guide.tooDark || recorder.guide.tooFast ? .orange : .blue
+    }
+
+    /// Live coverage / blur readout while recording.
+    private var guideBar: some View {
+        let g = recorder.guide
+        return HStack(spacing: 16) {
+            Text(String(format: "%.0f s", g.seconds))
+            Label("\(Int((g.orbitCoverage * 100).rounded()))%", systemImage: "arrow.triangle.2.circlepath")
+                .foregroundStyle(g.orbitCoverage >= 0.9 ? Color.green : Color.white)
+            Label("top", systemImage: g.topDown ? "checkmark.circle.fill" : "circle")
+                .foregroundStyle(g.topDown ? Color.green : Color.white)
+            Text(String(format: "blur %.1f px", g.blurPixels))
+                .foregroundStyle(g.tooFast ? Color.orange : Color.white)
+            Text(String(format: "%.0f ms", g.exposureMs))
+                .foregroundStyle(g.tooDark ? Color.orange : Color.white)
+        }
+        .font(.caption.monospaced())
         .padding(8)
         .background(.black.opacity(0.5), in: RoundedRectangle(cornerRadius: 8))
         .foregroundStyle(.white)

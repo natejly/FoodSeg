@@ -33,6 +33,11 @@ final class ScanRecorder: NSObject, ObservableObject, ARSessionDelegate {
     @Published var previewGeometry: SCNGeometry?
     @Published var previewPoints = 0
 
+    // Live capture-quality guidance (see CaptureGuide).
+    @Published var guide = CaptureGuide.Status()
+    private var guideState = CaptureGuide()
+    private var lastGuidePublish: TimeInterval = 0
+
     /// Save every `stride`-th ARFrame. ARKit runs at 60 fps, so 4 -> 15 fps.
     var stride = 4
 
@@ -91,6 +96,8 @@ final class ScanRecorder: NSObject, ObservableObject, ARSessionDelegate {
             previewQueue.async { self.cloud = PointCloud(); self.previewFrames = 0 }
             previewGeometry = nil
             previewPoints = 0
+            guideState = CaptureGuide()
+            guide = CaptureGuide.Status()
             currentScanName = dir.lastPathComponent
             isRecording = true
         } catch {
@@ -129,6 +136,13 @@ final class ScanRecorder: NSObject, ObservableObject, ARSessionDelegate {
             }
         }
         if state != trackingState { trackingState = state }
+
+        // Publish at ~5 Hz: every publish re-renders ContentView, including the cloud pane.
+        let status = guideState.update(frame: frame, recording: isRecording)
+        if status != guide && (frame.timestamp - lastGuidePublish > 0.2 || status.advice != guide.advice) {
+            guide = status
+            lastGuidePublish = frame.timestamp
+        }
 
         guard isRecording, let writer = writer else { return }
         frameCounter += 1
@@ -241,5 +255,107 @@ enum PixelBufferCopy {
             }
         }
         return data
+    }
+}
+
+/// Turns ARKit poses into live scanning advice. Fed every ARFrame on the main thread.
+///
+/// Scan 20261002_210342 covered only 203 deg of azimuth in 10.8 s while moving at a median
+/// 18 cm/s in dim light; its LiDAR sides were 4-6 mm off and RGB was blurred. This makes
+/// those three things (coverage, duration, blur) visible while scanning.
+struct CaptureGuide {
+    struct Status: Equatable {
+        /// Estimated motion blur in RGB pixels: speed x exposure x focal length / distance.
+        var blurPixels: Float = 0
+        var exposureMs: Float = 0
+        /// Fraction of 10-degree azimuth bins seen around the target.
+        var orbitCoverage: Float = 0
+        /// Seen from >= 70 deg elevation (the top-down pass).
+        var topDown = false
+        var seconds: Double = 0
+
+        static let maxBlurPixels: Float = 4
+        /// ARKit's 60 fps stream caps exposure at ~16.7 ms, so dim light shows up as
+        /// exposure pinned near that cap. 12 ms is a first guess; calibrate it against
+        /// exposureDuration in frames.jsonl of good and bad scans.
+        static let maxExposureMs: Float = 12
+        var tooFast: Bool { blurPixels > Self.maxBlurPixels }
+        var tooDark: Bool { exposureMs > Self.maxExposureMs }
+
+        /// One instruction at a time, most important first.
+        var advice: String? {
+            if tooDark { return "Too dark: add light (exposure \(Int(exposureMs.rounded())) ms)" }
+            if tooFast { return "Slow down" }
+            if seconds > 0 && orbitCoverage < 0.9 { return "Keep circling the plate" }
+            if seconds > 0 && !topDown { return "Now a pass from directly above" }
+            if seconds > 0 && seconds < 30 { return "Good. Keep going a bit longer" }
+            return nil
+        }
+    }
+
+    private static let bins = 36
+    private var pivot: simd_float3?
+    private var seen = [Bool](repeating: false, count: CaptureGuide.bins)
+    private var lastPos: simd_float3?
+    private var lastTime: TimeInterval = 0
+    private var startTime: TimeInterval?
+    private var speed: Float = 0     // m/s, smoothed
+    private var status = Status()
+
+    mutating func update(frame: ARFrame, recording: Bool) -> Status {
+        let cam = frame.camera
+        let t = cam.transform
+        let pos = SIMD3<Float>(t.columns.3.x, t.columns.3.y, t.columns.3.z)
+        status.exposureMs = Float(cam.exposureDuration * 1000)
+
+        if let last = lastPos, frame.timestamp > lastTime {
+            let v = simd_distance(pos, last) / Float(frame.timestamp - lastTime)
+            speed = 0.8 * speed + 0.2 * v
+        }
+        lastPos = pos
+        lastTime = frame.timestamp
+
+        // Target distance: centre pixel of the LiDAR depth, else the protocol's 30 cm.
+        var dist: Float = 0.3
+        if let d = frame.sceneDepth?.depthMap, let c = Self.centreDepth(d), c > 0.05 { dist = c }
+        let fx = cam.intrinsics[0][0]
+        status.blurPixels = speed * Float(cam.exposureDuration) * fx / dist
+
+        guard recording else {
+            pivot = nil; startTime = nil
+            seen = [Bool](repeating: false, count: Self.bins)
+            status.orbitCoverage = 0; status.topDown = false; status.seconds = 0
+            return status
+        }
+        if startTime == nil { startTime = frame.timestamp }
+        status.seconds = frame.timestamp - (startTime ?? frame.timestamp)
+        // Orbit centre: where the first recorded frame's optical axis hits the scene.
+        if pivot == nil {
+            let forward = -SIMD3<Float>(t.columns.2.x, t.columns.2.y, t.columns.2.z)
+            pivot = pos + forward * dist
+        }
+        let r = pos - pivot!
+        let len = simd_length(r)
+        guard len > 0.05 else { return status }
+        // World is gravity-aligned with +Y up, so azimuth is in the XZ plane.
+        let elevation = asin(max(-1, min(1, r.y / len))) * 180 / .pi
+        if elevation >= 70 { status.topDown = true }
+        if elevation < 75 {   // azimuth is meaningless when looking straight down
+            let az = atan2(r.z, r.x) + .pi
+            let b = min(Self.bins - 1, Int(az / (2 * .pi) * Float(Self.bins)))
+            seen[b] = true
+        }
+        status.orbitCoverage = Float(seen.filter { $0 }.count) / Float(Self.bins)
+        return status
+    }
+
+    private static func centreDepth(_ buf: CVPixelBuffer) -> Float? {
+        CVPixelBufferLockBaseAddress(buf, .readOnly)
+        defer { CVPixelBufferUnlockBaseAddress(buf, .readOnly) }
+        guard let base = CVPixelBufferGetBaseAddress(buf) else { return nil }
+        let w = CVPixelBufferGetWidth(buf), h = CVPixelBufferGetHeight(buf)
+        let row = base.advanced(by: (h / 2) * CVPixelBufferGetBytesPerRow(buf))
+        let v = row.assumingMemoryBound(to: Float32.self)[w / 2]
+        return v.isFinite ? v : nil
     }
 }

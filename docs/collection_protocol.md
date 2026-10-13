@@ -15,6 +15,13 @@
   nearly top-down. Keep the whole plate in frame.
 - Avoid strong backlight and direct sun (LiDAR washout). Indoor diffuse light is ideal.
 - If tracking drops to `limited`, keep going; frames are flagged and skipped at fusion.
+- Follow the app's live guide while recording: the banner gives one instruction at a time
+  ("Too dark", "Slow down", "Keep circling", "Now a pass from directly above"). The bottom bar
+  shows elapsed seconds, orbit coverage (aim for ≥ 90 %), top-down ✓, estimated motion blur
+  (keep ≤ 4 px) and exposure (≥ 12 ms means the light is too dim).
+- Check every scan after pulling it: `python -m foodscan.scan_report data/scans/<name>`.
+  Rescan anything with FLAGS. If a scan passes every check and still reconstructs badly,
+  suspect the sensor or the fusion, not the technique.
 
 ## Calibration session (do first, once)
 For each object: 5 scans, at least two on different plates/backgrounds.

@@ -25,6 +25,24 @@ pipeline/.venv/bin/python scripts/objcap/align.py SCAN results/recon/full/oc_ful
     results/recon/full/oc_full.poses.json results/recon/full/oc_full_arkit.obj
 ```
 
+## Why the LiDAR TSDF was bad (diagnosis, 2026-10-13)
+
+Measured on `results/recon/lidar/lidar_crop.ply` against the aligned Object Capture mesh:
+
+- **Sensor is fine where it looks head-on:** desk plane 1.3 mm RMS; box top face 1.5 mm median.
+- **Silhouettes smear:** ~3.6k points float 1–4 cm outside the box near its top edge. ARKit
+  sceneDepth is densified from a sparse LiDAR dot grid and ramps across depth jumps. This is
+  what inflated the TSDF box to 16–17 cm against 14.6 cm.
+- **Sides are grazing:** vertical faces are 4–6 mm off, because the scan covered only 203° of
+  azimuth in 10.8 s, so half the sides were never seen head-on.
+- **Motion blur:** median camera speed 17.6 cm/s (p90 31) in dim light, so RGB frames were blurred.
+
+Fixes: `fuse` now drops silhouette pixels (`--edge-rel`), grazing-angle pixels
+(`--max-incidence`) and blurred frames (`--min-sharpness`). On the synthetic box with
+LiDAR-like edge smear (`tests/make_synthetic_scan.py --edge-smear 3`) this takes stray
+points > 5 mm from 472 to 0 and the footprint from 10.3×7.8 to 6.4×4.4 cm (true 6×4).
+The app's live guide and `foodscan.scan_report` target the technique half.
+
 ## Literature (summary of a web survey, 2026-10)
 
 - **Best pipeline (GPU):** blur/duplicate frame filtering → COLMAP/GLOMAP poses Sim(3)-aligned to

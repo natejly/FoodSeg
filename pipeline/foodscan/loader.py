@@ -73,6 +73,12 @@ class Frame:
             c = c[ys][:, xs]
         return c
 
+    def sharpness(self) -> float:
+        """Variance of the Laplacian of the grey image at quarter resolution (motion-blur score)."""
+        from scipy.ndimage import laplace
+        g = np.asarray(Image.open(self._dir / "rgb" / f"{self._name}.jpg").convert("L").reduce(4), np.float32)
+        return float(laplace(g).var())
+
     def masked_depth(self, min_conf: int = CONF_HIGH, smoothed: bool = False,
                      max_depth: float | None = None) -> np.ndarray:
         """Depth with low-confidence (and optionally far) pixels zeroed."""
@@ -156,3 +162,13 @@ class Scan:
     def good_frames(self, stride: int = 1) -> list[Frame]:
         """Frames with normal tracking, every `stride`-th one."""
         return [f for f in self.frames if f.tracking_state == "normal"][::stride]
+
+    def sharp_frames(self, stride: int = 1, min_rel_sharpness: float = 0.5) -> list[Frame]:
+        """good_frames(stride) minus motion-blurred ones: drops frames whose sharpness is below
+        `min_rel_sharpness` x the scan median. Textureless scans (median 0) keep everything."""
+        frames = self.good_frames(stride)
+        if min_rel_sharpness <= 0 or not frames:
+            return frames
+        s = np.array([f.sharpness() for f in frames])
+        thr = min_rel_sharpness * np.median(s)
+        return [f for f, v in zip(frames, s) if v >= thr]

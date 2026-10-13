@@ -126,6 +126,17 @@ def render_depth_bowl(T_cw_arkit: np.ndarray, K_depth: np.ndarray, fill: float =
     return _finish(t, d_cv)
 
 
+def smear_edges(depth: np.ndarray, px: int) -> np.ndarray:
+    """Mimic ARKit sceneDepth at silhouettes: within `px` pixels of a depth jump, replace depth
+    with a local average, i.e. a ramp of "flying pixels" between foreground and background."""
+    from scipy.ndimage import maximum_filter, minimum_filter, uniform_filter
+    k = 2 * px + 1
+    jump = (maximum_filter(depth, k) - minimum_filter(depth, k)) > 0.01
+    out = depth.copy()
+    out[jump] = uniform_filter(depth, k)[jump]
+    return out
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("out")
@@ -133,6 +144,8 @@ def main() -> None:
     ap.add_argument("--noise", type=float, default=0.002, help="depth noise sigma (m)")
     ap.add_argument("--scene", choices=["box", "bowl"], default="box")
     ap.add_argument("--fill", type=float, default=0.0, help="bowl scene: flat food fill height (m)")
+    ap.add_argument("--edge-smear", type=int, default=0,
+                    help="smear depth across silhouettes over this many px, like LiDAR (0 = off)")
     args = ap.parse_args()
     out = Path(args.out)
     for sub in ["rgb", "depth", "smooth_depth", "conf"]:
@@ -153,6 +166,8 @@ def main() -> None:
                 depth = render_depth_bowl(T, K_depth, fill=args.fill)
             else:
                 depth = render_depth(T, K_depth)
+            if args.edge_smear:
+                depth = smear_edges(depth, args.edge_smear)
             noisy = depth + rng.normal(0, args.noise, depth.shape).astype(np.float32) * (depth > 0)
             noisy.astype("<f4").tofile(out / "depth" / f"{i:06d}.f32")
             depth.astype("<f4").tofile(out / "smooth_depth" / f"{i:06d}.f32")

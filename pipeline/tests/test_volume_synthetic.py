@@ -28,6 +28,8 @@ def main() -> None:
     ap.add_argument("--voxel", type=float, default=0.0015)
     ap.add_argument("--noise", type=float, default=0.0005, help="synthetic depth noise sigma (m)")
     ap.add_argument("--frames", type=int, default=24)
+    ap.add_argument("--edge-smear", type=int, default=0, help="synthetic LiDAR edge smear (px)")
+    ap.add_argument("--no-clean", action="store_true", help="disable fuse's edge/incidence filters")
     args = ap.parse_args()
 
     if args.scan_dir:
@@ -35,7 +37,8 @@ def main() -> None:
     else:
         scan_dir = Path(tempfile.mkdtemp()) / "synth"
         subprocess.run([sys.executable, str(Path(__file__).parent / "make_synthetic_scan.py"),
-                        str(scan_dir), "--frames", str(args.frames), "--noise", str(args.noise)],
+                        str(scan_dir), "--frames", str(args.frames), "--noise", str(args.noise),
+                        "--edge-smear", str(args.edge_smear)],
                        check=True, stdout=subprocess.DEVNULL)
 
     scan = Scan(scan_dir)
@@ -43,7 +46,8 @@ def main() -> None:
     print(f"scan {scan_dir.name}: {len(scan)} frames, truth {truth} cm^3, voxel {args.voxel*1000:.1f} mm")
 
     print("== full scan (TSDF) ==")
-    mesh, pcd = fuse(scan, voxel=args.voxel, stride=1)
+    off = dict(edge_rel=0, max_incidence=0) if args.no_clean else {}
+    mesh, pcd = fuse(scan, voxel=args.voxel, stride=1, **off)
     pts = np.asarray(pcd.points)
     pts = pts[np.linalg.norm(pts[:, :2], axis=1) < 0.2]      # plate-sized region
     plane = fit_support_plane(pts, up_hint=UP)

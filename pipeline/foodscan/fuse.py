@@ -3,6 +3,7 @@
 Usage:
     python -m foodscan.fuse SCAN_DIR [--voxel 0.003] [--stride 2] [--max-depth 0.8]
                             [--min-conf 2] [--smoothed] [--out OUT_PREFIX]
+                            [--edge-rel 0.02] [--max-incidence 75] [--min-sharpness 0.5]
 
 Writes OUT_PREFIX.ply (mesh) and OUT_PREFIX_points.ply (point cloud).
 
@@ -24,9 +25,52 @@ from tqdm import tqdm
 
 from .loader import CONF_HIGH, Frame, Scan
 
+# Depth cleaning defaults. ARKit sceneDepth is a 256x192 map densified from a sparse LiDAR
+# dot grid, so it interpolates across object silhouettes ("flying pixels": a ramp between
+# foreground and background) and is least reliable where the surface is seen edge-on.
+# On scan 20261002_210342 those two effects put ~3.6k points 1-4 cm outside the box and
+# 4-6 mm of error on its sides, while the head-on top face was within 1.5 mm.
+EDGE_REL = 0.02         # drop a pixel if its 3x3 depth range exceeds 2 % of its depth
+MAX_INCIDENCE = 75.0    # drop pixels whose surface normal is > 75 deg from the view ray
+MIN_SHARPNESS = 0.5     # drop frames sharper than this fraction of the scan median
 
-def _depth_image(frame: Frame, min_conf: int, smoothed: bool, max_depth: float) -> o3d.t.geometry.Image:
+
+def clean_depth(depth: np.ndarray, K: np.ndarray, edge_rel: float = EDGE_REL,
+                max_incidence: float = MAX_INCIDENCE) -> np.ndarray:
+    """Zero depth at silhouettes (edge_rel) and grazing-angle surfaces (max_incidence, deg).
+    Either test is disabled by passing 0. Invalid pixels must already be 0."""
+    from scipy.ndimage import maximum_filter, median_filter, minimum_filter, uniform_filter
+    d = depth.copy()
+    valid = d > 0
+    if edge_rel > 0:
+        # range of a median-denoised map, so per-pixel noise on oblique flat surfaces
+        # (the table, a plate) does not read as an edge
+        dm = np.where(valid, median_filter(depth, 3), 0.0)
+        rng = maximum_filter(dm, 3) - minimum_filter(np.where(dm > 0, dm, np.inf), 3)
+        d[valid & (rng > edge_rel * depth)] = 0.0
+    if max_incidence > 0:
+        # normals from a lightly smoothed depth over a +-2 px baseline: the raw map's ~1 mm
+        # noise against a ~1.7 mm pixel footprint would otherwise flag flat surfaces.
+        w = uniform_filter(valid.astype(np.float32), 3)
+        ds = np.where(w > 0, uniform_filter(np.where(valid, depth, 0.0), 3) / np.maximum(w, 1e-6), 0.0)
+        h, wd = d.shape
+        u, v = np.meshgrid(np.arange(wd), np.arange(h))
+        ray = np.stack([(u - K[0, 2]) / K[0, 0], (v - K[1, 2]) / K[1, 1], np.ones_like(ds)], -1)
+        P = ray * ds[..., None]
+        dx = np.zeros_like(P); dy = np.zeros_like(P)
+        dx[:, 2:-2] = P[:, 4:] - P[:, :-4]
+        dy[2:-2] = P[4:] - P[:-4]
+        n = np.cross(dx, dy)
+        cos = np.abs((n * ray).sum(-1)) / (np.linalg.norm(n, axis=-1) * np.linalg.norm(ray, axis=-1) + 1e-12)
+        known = np.linalg.norm(n, axis=-1) > 0
+        d[known & (cos < np.cos(np.radians(max_incidence)))] = 0.0
+    return d
+
+
+def _depth_image(frame: Frame, min_conf: int, smoothed: bool, max_depth: float,
+                 edge_rel: float, max_incidence: float) -> o3d.t.geometry.Image:
     depth = frame.masked_depth(min_conf=min_conf, smoothed=smoothed, max_depth=max_depth)
+    depth = clean_depth(depth, frame.K_depth, edge_rel, max_incidence)
     return o3d.t.geometry.Image(o3d.core.Tensor(np.ascontiguousarray(depth.astype(np.float32))))
 
 
@@ -47,12 +91,17 @@ def _extrinsic(frame: Frame) -> o3d.core.Tensor:
 
 
 def single_frame_cloud(frame: Frame, min_conf: int = CONF_HIGH, smoothed: bool = False,
-                       max_depth: float = 0.8) -> o3d.geometry.PointCloud:
-    """Point cloud from one RGB-D frame, in world coordinates (the RGB-D baseline)."""
+                       max_depth: float = 0.8, edge_rel: float = 0.0,
+                       max_incidence: float = 0.0) -> o3d.geometry.PointCloud:
+    """Point cloud from one RGB-D frame, in world coordinates (the RGB-D baseline).
+
+    Depth cleaning is off by default: with a single view nothing refills the silhouette
+    pixels it removes, so it erodes objects (-23 % volume on the synthetic box)."""
     w, h = frame.depth_size
     K = frame.K_depth
     intrinsic = o3d.camera.PinholeCameraIntrinsic(w, h, K[0, 0], K[1, 1], K[0, 2], K[1, 2])
     depth = frame.masked_depth(min_conf=min_conf, smoothed=smoothed, max_depth=max_depth)
+    depth = clean_depth(depth, K, edge_rel, max_incidence)
     color = np.asarray(Image.fromarray(frame.rgb()).resize((w, h), Image.BILINEAR))
     rgbd = o3d.geometry.RGBDImage.create_from_color_and_depth(
         o3d.geometry.Image(np.ascontiguousarray(color)),
@@ -63,9 +112,11 @@ def single_frame_cloud(frame: Frame, min_conf: int = CONF_HIGH, smoothed: bool =
 
 
 def fuse(scan: Scan, voxel: float = 0.0015, stride: int = 2, min_conf: int = CONF_HIGH,
-         smoothed: bool = False, max_depth: float = 0.8, device: str = "CPU:0"):
-    """TSDF-integrate all good frames. Returns (legacy mesh, legacy point cloud)."""
-    frames = scan.good_frames(stride)
+         smoothed: bool = False, max_depth: float = 0.8, device: str = "CPU:0",
+         edge_rel: float = EDGE_REL, max_incidence: float = MAX_INCIDENCE,
+         min_sharpness: float = MIN_SHARPNESS):
+    """TSDF-integrate all good, sharp frames. Returns (legacy mesh, legacy point cloud)."""
+    frames = scan.sharp_frames(stride, min_sharpness)
     if not frames:
         raise RuntimeError("no frames with normal tracking")
     dev = o3d.core.Device(device)
@@ -79,7 +130,7 @@ def fuse(scan: Scan, voxel: float = 0.0015, stride: int = 2, min_conf: int = CON
         device=dev,
     )
     for f in tqdm(frames, desc="integrate"):
-        depth = _depth_image(f, min_conf, smoothed, max_depth).to(dev)
+        depth = _depth_image(f, min_conf, smoothed, max_depth, edge_rel, max_incidence).to(dev)
         color = _color_image(f).to(dev)
         K, E = _K(f), _extrinsic(f)
         blocks = vbg.compute_unique_block_coordinates(depth, K, E, 1.0, max_depth)
@@ -100,6 +151,12 @@ def main() -> None:
     ap.add_argument("--min-conf", type=int, default=CONF_HIGH, choices=[0, 1, 2])
     ap.add_argument("--smoothed", action="store_true", help="use ARKit smoothedSceneDepth")
     ap.add_argument("--device", default="CPU:0", help="CPU:0 or CUDA:0 on the cluster")
+    ap.add_argument("--edge-rel", type=float, default=EDGE_REL,
+                    help="drop depth at silhouettes: 3x3 range > this x depth (0 = off)")
+    ap.add_argument("--max-incidence", type=float, default=MAX_INCIDENCE,
+                    help="drop depth seen more edge-on than this many degrees (0 = off)")
+    ap.add_argument("--min-sharpness", type=float, default=MIN_SHARPNESS,
+                    help="drop frames blurrier than this fraction of the median (0 = off)")
     ap.add_argument("--out", default=None, help="output prefix (default: SCAN_DIR/fused)")
     args = ap.parse_args()
 
@@ -107,7 +164,9 @@ def main() -> None:
     print(f"{len(scan)} frames, {len(scan.good_frames())} with normal tracking, "
           f"device {scan.meta.get('device')}")
     mesh, pcd = fuse(scan, voxel=args.voxel, stride=args.stride, min_conf=args.min_conf,
-                     smoothed=args.smoothed, max_depth=args.max_depth, device=args.device)
+                     smoothed=args.smoothed, max_depth=args.max_depth, device=args.device,
+                     edge_rel=args.edge_rel, max_incidence=args.max_incidence,
+                     min_sharpness=args.min_sharpness)
     out = Path(args.out) if args.out else Path(args.scan_dir) / "fused"
     mesh_path = out.with_suffix(".ply")
     pts_path = out.parent / (out.name + "_points.ply")
