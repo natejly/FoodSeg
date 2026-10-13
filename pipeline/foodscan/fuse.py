@@ -3,7 +3,7 @@
 Usage:
     python -m foodscan.fuse SCAN_DIR [--voxel 0.003] [--stride 2] [--max-depth 0.8]
                             [--min-conf 2] [--smoothed] [--out OUT_PREFIX]
-                            [--edge-rel 0.02] [--max-incidence 75] [--min-sharpness 0.5]
+                            [--edge-rel 0.02] [--max-incidence 0] [--min-sharpness 0.5]
 
 Writes OUT_PREFIX.ply (mesh) and OUT_PREFIX_points.ply (point cloud).
 
@@ -31,7 +31,8 @@ from .loader import CONF_HIGH, Frame, Scan
 # On scan 20261002_210342 those two effects put ~3.6k points 1-4 cm outside the box and
 # 4-6 mm of error on its sides, while the head-on top face was within 1.5 mm.
 EDGE_REL = 0.02         # drop a pixel if its 3x3 depth range exceeds 2 % of its depth
-MAX_INCIDENCE = 75.0    # drop pixels whose surface normal is > 75 deg from the view ray
+MAX_INCIDENCE = 0.0     # off: dropping grazing pixels (e.g. 75 deg) eroded small items in the
+                        # food sim (cheese cube -21 -> -43 %) for ~2 points of MAPE gain
 MIN_SHARPNESS = 0.5     # drop frames sharper than this fraction of the scan median
 
 
@@ -46,8 +47,12 @@ def clean_depth(depth: np.ndarray, K: np.ndarray, edge_rel: float = EDGE_REL,
         # range of a median-denoised map, so per-pixel noise on oblique flat surfaces
         # (the table, a plate) does not read as an edge
         dm = np.where(valid, median_filter(depth, 3), 0.0)
-        rng = maximum_filter(dm, 3) - minimum_filter(np.where(dm > 0, dm, np.inf), 3)
-        d[valid & (rng > edge_rel * depth)] = 0.0
+        near = minimum_filter(np.where(dm > 0, dm, np.inf), 3)
+        rng = maximum_filter(dm, 3) - near
+        # keep the foreground side of the jump: the object's own rim is real, the smeared
+        # ramp and the background behind it are not (removing the rim too erased small items)
+        behind = dm - near > 0.5 * edge_rel * depth
+        d[valid & (rng > edge_rel * depth) & behind] = 0.0
     if max_incidence > 0:
         # normals from a lightly smoothed depth over a +-2 px baseline: the raw map's ~1 mm
         # noise against a ~1.7 mm pixel footprint would otherwise flag flat surfaces.

@@ -37,11 +37,28 @@ Measured on `results/recon/lidar/lidar_crop.ply` against the aligned Object Capt
   azimuth in 10.8 s, so half the sides were never seen head-on.
 - **Motion blur:** median camera speed 17.6 cm/s (p90 31) in dim light, so RGB frames were blurred.
 
-Fixes: `fuse` now drops silhouette pixels (`--edge-rel`), grazing-angle pixels
-(`--max-incidence`) and blurred frames (`--min-sharpness`). On the synthetic box with
-LiDAR-like edge smear (`tests/make_synthetic_scan.py --edge-smear 3`) this takes stray
-points > 5 mm from 472 to 0 and the footprint from 10.3×7.8 to 6.4×4.4 cm (true 6×4).
+Fixes: `fuse` now drops the background side of silhouettes (`--edge-rel`, on) and blurred
+frames (`--min-sharpness`, on); a grazing-angle filter (`--max-incidence`) exists but is off.
+On the synthetic box with LiDAR-like edge smear (`tests/make_synthetic_scan.py --edge-smear 3`)
+stray points > 5 mm go from 472 to 0 and the footprint from 10.3×7.8 to 6.5×4.5 cm (true 6×4).
 The app's live guide and `foodscan.scan_report` target the technique half.
+
+Food sim (`tests/sim_scan_quality.py`, 5 rendered scenes / 8 items from synth v1, container
+support, item MAPE):
+
+| Condition | no filters | edge | edge + 75° incidence | defaults |
+|---|---|---|---|---|
+| mild smear (synth.lidar as rendered), full orbit | 22.6 % | 22.7 % | 22.8 % | 22.8 % |
+| wide smear (7×7 within 3 px of jumps, high conf), full orbit | 64.2 % | 27.3 % | 25.8 % | 27.2 % |
+| wide smear, 200° arc only | 50.5 % | 41.9 % | 43.5 % | 42.9 % |
+
+- The edge filter does nearly all the work. It must keep the foreground rim: an earlier
+  version that cleared both sides eroded small items (9 ml cheese cube −21 → −48 %).
+- Incidence filtering erodes small items (cheese cube −21 → −43 % under mild smear), so it is off.
+- The sharpness filter is untested here: renders have no motion blur.
+- No filter rescues a half orbit, and small items vanish: coverage has to come from capture.
+- Caveats: 24 frames per sim scan (real ≈ 160), 8 items, and the wide-smear model is a guess
+  until it is fitted to real calibration scans.
 
 ## Literature (summary of a web survey, 2026-10)
 
