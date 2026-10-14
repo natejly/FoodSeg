@@ -47,6 +47,9 @@ def main() -> None:
     ap.add_argument("--preset", choices=["v0", "hard"], default="v0", help="hard: see synth/spec_hard.py")
     ap.add_argument("--collision-cache", default=None, help="CoACD parts cache (default: <assets dir>/collision)")
     ap.add_argument("--hull-only", action="store_true", help="single convex hull per scan (old physics)")
+    ap.add_argument("--physics", choices=["mpm", "bullet"], default="mpm",
+                    help="hard preset: mpm settles soft food and drops together (synth.mpm); bullet: rigid only")
+    ap.add_argument("--mpm-time", type=float, default=1.0)
     args = ap.parse_args()
 
     root = Path(args.root)
@@ -68,6 +71,10 @@ def main() -> None:
             for it in spec["items"]:
                 if it["dynamic"] and it["fmt"] != "npz" and it["asset_id"] in by_id:
                     it["collision"] = str(ensure_collision(by_id[it["asset_id"]], cache).resolve())
+            (sdir / "spec.json").write_text(json.dumps(spec, indent=1, default=lambda o: o.tolist()))
+        if args.preset == "hard" and args.physics == "mpm":
+            from .mpm import settle               # taichi: only when used
+            spec = settle(spec, sdir, sim_time=args.mpm_time, log=lambda m: print(f"{sid} {m}", flush=True))
             (sdir / "spec.json").write_text(json.dumps(spec, indent=1, default=lambda o: o.tolist()))
         cmd = [str(bproc), "run", "--custom-blender-path", args.blender, str(RENDER),
                str(sdir / "spec.json"), str(rdir), "--spp", str(args.spp)]

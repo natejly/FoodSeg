@@ -21,6 +21,7 @@ from pathlib import Path
 import bmesh
 import bpy
 import numpy as np
+from mathutils import Matrix
 
 CONTAINER_ID = 254
 DISTRACTOR_ID = 253
@@ -111,10 +112,10 @@ def collision_parts(p: str) -> list:
     return np.split(z["V"].astype(float), np.cumsum(z["n"])[:-1])
 
 
-def compound_collider(obj, parts: list, c_local: np.ndarray, mass: float, damping: float) -> list:
+def compound_collider(obj, parts: list, c_local: np.ndarray, mass: float | None, damping: float = 0.0) -> list:
     """Compound rigid body: hidden convex-hull children (one per CoACD part, in the object's
     mesh-local frame shifted by its origin move c_local); the visible mesh itself is not
-    simulated, so its resolution doesn't matter."""
+    simulated, so its resolution doesn't matter. mass None: the children only (cloth obstacles)."""
     kids = []
     for k, P in enumerate(parts):
         bm = bmesh.new()
@@ -126,10 +127,12 @@ def compound_collider(obj, parts: list, c_local: np.ndarray, mass: float, dampin
         bm.free()
         kid.blender_obj.parent = obj.blender_obj
         kid.blender_obj.matrix_parent_inverse.identity()
-        kid.enable_rigidbody(True, collision_shape="CONVEX_HULL", collision_margin=0.0005)
+        if mass is not None:
+            kid.enable_rigidbody(True, collision_shape="CONVEX_HULL", collision_margin=0.0005)
         kid.hide()
         kids.append(kid)
-    obj.enable_rigidbody(True, collision_shape="COMPOUND", mass=mass, friction=0.8, linear_damping=damping,
+    if mass is not None:
+        obj.enable_rigidbody(True, collision_shape="COMPOUND", mass=mass, friction=0.8, linear_damping=damping,
                          angular_damping=damping, collision_margin=0.0005)
     return kids
 
@@ -191,6 +194,141 @@ def textured_material(obj, name: str, color, roughness: float, scale: float, met
     mat.links.new(ramp.outputs["Color"], bsdf.inputs["Base Color"])
     mat.links.new(noise.outputs["Fac"], bump.inputs["Height"])
     mat.links.new(bump.outputs["Normal"], bsdf.inputs["Normal"])
+    obj.replace_materials(mat)
+
+
+def food_material(obj, name: str, color, roughness: float, L: dict) -> None:
+    """Procedural food by consistency (synth.looks). Voronoi cells in object space (metres) are
+    grains (rounded, dark crevices), oat flakes (pale plateaus in paste) or chunks in a liquid;
+    low-frequency noise and distorted bands are lumps and spoon swirls. Wet foods get a clear
+    coat and subsurface scattering, so oatmeal and stews read as glossy paste, not sand."""
+    mat = bproc.material.create(name)
+    nt, links = mat.nodes, mat.links
+    bsdf = mat.get_the_one_node_with_type("BsdfPrincipled")
+    c = np.asarray(color, float)
+
+    def node(kind, **inp):
+        n = nt.new(kind)
+        for k, v in inp.items():
+            n.inputs[k].default_value = v
+        return n
+
+    def ramp(src, a, b, lo=0.0, hi=1.0):
+        """smoothstep from (a -> lo) to (b -> hi), a < b"""
+        n = node("ShaderNodeMapRange", **{"From Min": a, "From Max": b, "To Min": lo, "To Max": hi})
+        n.interpolation_type = "SMOOTHSTEP"
+        links.new(src, n.inputs["Value"])
+        return n.outputs["Result"]
+
+    def math(op, a, b):
+        n = nt.new("ShaderNodeMath")
+        n.operation = op
+        for i, v in enumerate((a, b)):
+            if isinstance(v, (int, float)):
+                n.inputs[i].default_value = float(v)
+            else:
+                links.new(v, n.inputs[i])
+        return n.outputs[0]
+
+    def mix(fac, a, b):
+        n = nt.new("ShaderNodeMixRGB")
+        for sock, v in ((n.inputs["Fac"], fac), (n.inputs["Color1"], a), (n.inputs["Color2"], b)):
+            if isinstance(v, (int, float)):
+                sock.default_value = float(v)
+            elif isinstance(v, (list, tuple, np.ndarray)):
+                sock.default_value = [*np.clip(v, 0, 1), 1.0]
+            else:
+                links.new(v, sock)
+        return n.outputs["Color"]
+
+    def vec(op, a, b):
+        n = nt.new("ShaderNodeVectorMath")
+        n.operation = op
+        links.new(a, n.inputs[0])
+        if isinstance(b, (int, float)):
+            n.inputs["Scale"].default_value = float(b)
+        elif isinstance(b, tuple):
+            n.inputs[1].default_value = b
+        else:
+            links.new(b, n.inputs[1])
+        return n.outputs["Vector"]
+
+    coord = nt.new("ShaderNodeTexCoord").outputs["Object"]
+    tv = L.get("tint_var", 0.06)
+    patch = node("ShaderNodeTexNoise", Scale=25.0, Detail=3.0)      # darker / lighter patches
+    links.new(coord, patch.inputs["Vector"])
+    colour = mix(ramp(patch.outputs["Fac"], 0.3, 0.7), (c * (1 - tv)).tolist(), (c * (1 + tv)).tolist())
+    height = None
+
+    cells = L.get("cells")
+    if cells:
+        # domain warp so cells aren't regular polygons
+        warp = node("ShaderNodeTexNoise", Scale=float(cells["scale"]) / 3, Detail=2.0)
+        links.new(coord, warp.inputs["Vector"])
+        off = vec("SCALE", vec("SUBTRACT", warp.outputs["Color"], (0.5, 0.5, 0.5)), cells["distort"] / cells["scale"])
+        p = vec("ADD", coord, off)
+        vor = nt.new("ShaderNodeTexVoronoi")
+        vor.feature = "F1"
+        vor.inputs["Scale"].default_value = float(cells["scale"])
+        links.new(p, vor.inputs["Vector"])
+        vid = nt.new("ShaderNodeTexVoronoi")                 # same cells: their random colour
+        vid.inputs["Scale"].default_value = float(cells["scale"])
+        links.new(p, vid.inputs["Vector"])
+        rnd = nt.new("ShaderNodeSeparateColor")
+        links.new(vid.outputs["Color"], rnd.inputs["Color"])
+        d = vor.outputs["Distance"]
+        if cells["mode"] == "dome":                          # rounded grain / curd, crevice at the edge
+            height = ramp(d, 0.05, 0.55, 1.0, 0.0)
+        elif cells["mode"] == "flake":                       # some cells are flakes, raised soft plateaus in paste
+            is_flake = math("LESS_THAN", rnd.outputs["Blue"], cells.get("cover", 0.55))
+            height = math("MULTIPLY", ramp(d, 0.3, 0.5, 1.0, 0.0), is_flake)
+        else:                                                # chunks where F1 is small, liquid between
+            r = 0.2 + 0.35 * cells.get("cover", 0.4)
+            height = ramp(d, r - 0.12, r, 1.0, 0.0)
+        j = cells["jitter"]
+        colour = mix(0.5, colour, mix(rnd.outputs["Red"], (c * (1 - j)).tolist(), (c * (1 + j)).tolist()))
+        if cells["mode"] == "chunk" and L.get("chunk_color") is not None:
+            cc = np.asarray(L["chunk_color"])
+            colour = mix(height, colour, mix(rnd.outputs["Red"], (cc * 0.8).tolist(), (cc * 1.2).tolist()))
+        if cells["mode"] == "flake":                         # oat flakes paler and drier than the paste
+            colour = mix(height, colour, mix(rnd.outputs["Red"], (c * 1.05).tolist(), (c * 1.3).tolist()))
+        lo = 0.0
+        for sc, frac in L.get("speckles", []):               # peas / carrot / egg in fried rice, red quinoa
+            m = math("MULTIPLY", math("GREATER_THAN", rnd.outputs["Green"], lo),
+                     math("LESS_THAN", rnd.outputs["Green"], lo + frac))
+            colour = mix(m, colour, list(sc))
+            lo += frac
+        if cells.get("crevice"):
+            colour = mix(math("MULTIPLY", math("SUBTRACT", 1.0, height), cells["crevice"]), colour,
+                         (c * 0.45).tolist())
+
+    # solids in a wet food (beans, oat flakes) are matte; only the liquid between them shines
+    solid = height if cells and cells["mode"] in ("chunk", "flake") else None
+    lump_scale, lump_w = L.get("lumps", (50.0, 0.15))
+    lump = node("ShaderNodeTexNoise", Scale=float(lump_scale), Detail=4.0)
+    links.new(coord, lump.inputs["Vector"])
+    h = math("MULTIPLY", lump.outputs["Fac"], lump_w)
+    height = h if height is None else math("ADD", height, h)
+    if L.get("swirl"):                                       # spoon swirls / ripples
+        sw_scale, sw_w = L["swirl"]
+        wave = node("ShaderNodeTexWave", Scale=float(sw_scale), Distortion=8.0, Detail=2.0)
+        wave.wave_profile = "SIN"
+        links.new(coord, wave.inputs["Vector"])
+        height = math("ADD", height, math("MULTIPLY", wave.outputs["Fac"], sw_w))
+
+    bump = node("ShaderNodeBump", Strength=float(L.get("bump", 0.4)), Distance=0.0015)
+    links.new(height, bump.inputs["Height"])
+    links.new(bump.outputs["Normal"], bsdf.inputs["Normal"])
+    links.new(colour, bsdf.inputs["Base Color"])
+    bsdf.inputs["Roughness"].default_value = float(roughness)
+    bsdf.inputs["Subsurface Weight"].default_value = float(L.get("sss", 0.2))
+    bsdf.inputs["Subsurface Radius"].default_value = (1.0, 0.6, 0.35)
+    bsdf.inputs["Subsurface Scale"].default_value = 0.002          # metres: food scatters over ~mm
+    bsdf.inputs["Coat Weight"].default_value = float(L.get("coat", 0.0))
+    bsdf.inputs["Coat Roughness"].default_value = 0.08
+    if solid is not None:
+        links.new(math("ADD", float(roughness), math("MULTIPLY", solid, 0.35)), bsdf.inputs["Roughness"])
+        links.new(math("MULTIPLY", float(L.get("coat", 0.0)), math("SUBTRACT", 1.0, solid)), bsdf.inputs["Coat Weight"])
     obj.replace_materials(mat)
 
 
@@ -309,14 +447,20 @@ def main() -> None:
         if it.get("color") is not None or it["fmt"] == "npz":
             col = it.get("color") or [0.6, 0.45, 0.3]
             jitter = np.clip(np.asarray(col) * np.random.uniform(0.85, 1.15, 3), 0, 1)
-            if it.get("texture"):
+            if it.get("look"):
+                food_material(o, f"food_{it['id']}", jitter.tolist(), it.get("roughness", 0.5), it["look"])
+            elif it.get("texture"):
                 scale = 80 if it["source"] == "procedural_topping" else np.random.uniform(150, 400)
                 textured_material(o, f"food_{it['id']}", jitter.tolist(), it.get("roughness", 0.5), scale)
             else:
                 flat_material(o, f"food_{it['id']}", jitter.tolist(), it.get("roughness", 0.5))
         o.set_cp("category_id", it["id"])
         proxy = None
-        if it["dynamic"]:
+        if it.get("matrix_world") is not None:     # settled by synth.mpm with the soft food
+            o.blender_obj.matrix_world = Matrix(it["matrix_world"])
+            if it.get("collision"):
+                part_objs[it["id"]] = compound_collider(o, collision_parts(it["collision"]), np.zeros(3), None)
+        elif it["dynamic"]:
             # init_location is the centre, not the base; mesh coords move by -c_local
             org = np.array(o.set_origin(mode="CENTER_OF_VOLUME"))
             c_local = org / s
@@ -333,7 +477,7 @@ def main() -> None:
                 (proxy or o).enable_rigidbody(True, collision_shape="CONVEX_HULL", mass=mass, friction=0.8,
                                               linear_damping=damping, angular_damping=damping,
                                               collision_margin=0.0005)
-        elif not it.get("cloth"):            # cloth (leaves) is simulated after the rigid bodies settle
+        elif not it.get("cloth") and not it.get("mpm"):   # cloth (leaves): simulated after the rigid bodies
             o.enable_rigidbody(False, collision_shape="MESH", collision_margin=0.0005)
         objs.append((it, o))
         if proxy:

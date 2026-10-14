@@ -306,6 +306,13 @@ class Mound:
     centre: tuple[float, float] = (0.0, 0.0)
     seed: int = 0
     lift: float = 5e-4
+    relief: float = 0.0          # amplitude (m) of the food's own lumpy texture (grains, flakes, curds)
+    relief_scale: float = 0.01   # its wavelength (m)
+    # pieces of one heap: within `blend` (m) of the wedge edges (th_a, th_b callables) the top
+    # eases to the heap's shared profile (mound, p), so neighbours meet without a cliff
+    shared: tuple[float, float] | None = None
+    edges: tuple | None = None
+    blend: float = 0.015
 
     def _bump(self, rho, th):
         rng = np.random.default_rng(self.seed)
@@ -325,10 +332,19 @@ class Mound:
         lev = base if self.level is None else np.maximum(self.level + self.lift, base)
         s = 1 - rho ** self.p
         z = lev + (self.mound + self.wobble * self._bump(rho, th)) * s
+        if self.shared is not None and self.edges is not None:
+            r = rho * self.rf
+            ang = np.minimum(np.mod(th - self.edges[0](r), 2 * np.pi), np.mod(self.edges[1](r) - th, 2 * np.pi))
+            w = np.clip(r * ang / self.blend, 0, 1)
+            w = w * w * (3 - 2 * w)
+            z_sh = lev + self.shared[0] * (1 - rho ** self.shared[1])
+            z = z_sh + (z - z_sh) * w
+        if self.relief:
+            z = z + self.relief * relief_noise(x, y, self.seed, self.relief_scale) * np.sqrt(s)
         z = np.maximum(z, base + 1e-4)
         return np.where(rho >= 1, base, z)
 
-    def piece(self, c: Container, th_a, th_b, n_r: int = 40, m: int = 48):
+    def piece(self, c: Container, th_a, th_b, n_r: int = 56, m: int = 64):
         """Closed mesh of the wedge th_a(r) <= theta <= th_b(r) (callables of local radius)."""
         rs = np.linspace(0, self.rf, n_r)
         u = np.linspace(0, 1, m)
@@ -339,6 +355,15 @@ class Mound:
         bot = np.stack([x, y, self.base(c, x, y)], -1)
         top[-1] = bot[-1]                      # the rim of the heap sits on the dish
         return grid_solid(top, bot)
+
+
+def relief_noise(x, y, seed: int, scale: float, n: int = 16):
+    """Isotropic lumpy field ~N(0, 1) in world x, y: random plane waves of wavelength ~scale."""
+    rng = np.random.default_rng(seed + 7)
+    a, lam, ph = rng.uniform(0, 2 * np.pi, n), scale * rng.uniform(0.6, 1.6, n), rng.uniform(0, 2 * np.pi, n)
+    x, y = np.asarray(x, float), np.asarray(y, float)
+    return sum(np.cos(2 * np.pi / l * (x * np.cos(t) + y * np.sin(t)) + p) for t, l, p in zip(a, lam, ph)) \
+        * np.sqrt(2 / n)
 
 
 def split_angles(rng: np.random.Generator, n: int, rf: float, min_gap: float = 1.2, amp: float = 0.15):

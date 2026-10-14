@@ -7,8 +7,9 @@ What v0 scenes lack and real meals have:
   - toppings lying on another food (sauce, cheese), fully inside it;
   - piles of 2-5 scans of one category (nuggets, cookies) dropped together;
   - non-food clutter on the table (cutlery, a mug, a napkin; label 253).
-Procedural pieces are closed meshes that never interpenetrate, so every volume stays
-exact. Same world / camera conventions as synth.spec.
+Procedural pieces are closed meshes that never interpenetrate; synth.mpm then settles them with
+the dropped items (soft food flows round them) and volumes are those of the settled meshes.
+Same world / camera conventions as synth.spec.
 """
 from __future__ import annotations
 
@@ -19,6 +20,7 @@ import numpy as np
 
 from .geometry import (Container, Mound, box_mesh, lathe_solid, mesh_volume, salad_sheets, sample_container,
                        split_angles, topping_mesh)
+from .looks import look, physics, shape
 from .spec import DISH_COLOURS, FILLS as V0_FILLS, intrinsics, orbit_poses, world_to_arkit
 
 # v0's fills plus Nutrition5k staples that render as amorphous heaps (synth/composition.py)
@@ -43,12 +45,14 @@ DISTRACTOR_ID = 253
 
 
 def _procedural(name: str, mesh: str, V: np.ndarray, F: np.ndarray, out: Path, col, rough: float,
-                source: str, shape: dict) -> dict:
+                source: str, shape: dict, rng: np.random.Generator) -> dict:
     np.savez_compressed(out / mesh, V=V.astype(np.float32), F=F.astype(np.int32))
     return {"name": name, "category": name, "source": source, "asset_id": None, "mesh": mesh, "fmt": "npz",
             "to_m": 1.0, "scale": 1.0, "volume_ml": mesh_volume(V, F) * 1e6, "mass_g": None, "dynamic": False,
             "fill": None, "color": list(col), "roughness": rough, "procedural": True, "generated": False,
-            "texture": True, "shape": shape}
+            "texture": True, "shape": shape,
+            # appearance and MPM material by consistency (synth.looks, synth.mpm)
+            "look": look(name, rng), "physics": physics(name)}
 
 
 REAL_PROPS = {"knife": ("032_knife",), "fork": ("030_fork",), "spoon": ("031_spoon",), "mug": ("mug", "cup")}
@@ -180,17 +184,20 @@ def sample_scene_hard(rng: np.random.Generator, assets: list[dict], out: Path, s
             centre = (float(off * np.cos(t)), float(off * np.sin(t)))
         n_pieces = int(rng.choice([1, 2, 3], p=[0.2, 0.5, 0.3]))
         fns = split_angles(rng, n_pieces, rf)
-        heap = []
-        for k, fi in enumerate(_similar(rng, n_pieces)):
-            mnd = Mound(rf=rf, level=lev, centre=centre, seed=int(rng.integers(1 << 31)),
-                        # a scoop on a plate is a dome a few cm high, not a smear
-                        mound=float(rng.uniform(0.005, 0.03) if c.kind == "bowl"
-                                    else min(rf * rng.uniform(0.35, 0.8), 0.05)),
-                        p=float(rng.uniform(2, 4)), wobble=float(rng.uniform(0, 0.004)))
-            name, col, rough = FILLS[fi]
+        foods = [FILLS[fi] for fi in _similar(rng, n_pieces)]
+        # the served shape (synth.mpm then lets it flow / slump / heap by consistency): liquids
+        # level out, purees mound, grains heap; near a seam both sides ease to the heap's mean
+        # profile, so a dome of rice meets a pool of curry, not a cliff
+        shapes = [shape(name, c.kind, rf, rng) for name, _, _ in foods]
+        shared = (float(np.mean([s["mound"] for s in shapes])), float(np.mean([s["p"] for s in shapes])))
+        for k, ((name, col, rough), sh) in enumerate(zip(foods, shapes)):
+            mnd = Mound(rf=rf, level=lev, centre=centre, seed=int(rng.integers(1 << 31)), mound=sh["mound"],
+                        p=sh["p"], wobble=sh["wobble"], relief=sh["relief"][0], relief_scale=sh["relief"][1],
+                        shared=shared if n_pieces > 1 else None, edges=(fns[k], fns[k + 1]),
+                        blend=float(rng.uniform(0.01, 0.02)))
             items.append(_procedural(name, f"piece_{k}.npz", *mnd.piece(c, fns[k], fns[k + 1]), out, col, rough,
                                      "procedural_piece", {"kind": "piece", "n_pieces": n_pieces, "rf": rf,
-                                                          "level": lev, "mound": mnd.mound, "centre": centre}))
+                                                          "level": lev, "mound": mnd.mound, "centre": centre}, rng))
             heap.append((len(items), mnd, fns[k], fns[k + 1]))
 
         # 2. toppings lying on a piece
@@ -199,10 +206,10 @@ def sample_scene_hard(rng: np.random.Generator, assets: list[dict], out: Path, s
             if site is None:
                 continue
             name, col, rough = TOPPINGS[rng.integers(len(TOPPINGS))]
-            Vt, Ft = topping_mesh(c, mnd, site[0], site[1], float(rng.uniform(0.002, 0.008)),
+            Vt, Ft = topping_mesh(c, mnd, site[0], site[1], float(rng.uniform(0.004, 0.01)),   # >= 3 particles deep
                                   seed=int(rng.integers(1 << 31)))
             items.append(_procedural(name, f"topping_{item_id}.npz", Vt, Ft, out, col, rough, "procedural_topping",
-                                     {"kind": "topping", "on_item": item_id, "radius": site[1]}))
+                                     {"kind": "topping", "on_item": item_id, "radius": site[1]}, rng))
 
     fit_r = c.well_r if c.kind == "plate" else c.r_at_height(c.floor + 0.5 * (c.H - c.floor))
 
@@ -285,7 +292,7 @@ def sample_scene_hard(rng: np.random.Generator, assets: list[dict], out: Path, s
         k = int(min(rng.integers(2, 6), max_items - len(items)))
         sel = [grp[j] for j in rng.choice(len(grp), k, replace=len(grp) < k)]
         spread = 0.6 * max(max(a["extent_m"][:2]) for a in sel)
-        ctr = spot(spread + 0.5 * max(max(a["extent_m"][:2]) for a in sel), on_heap=rng.random() < 0.3)
+        ctr = spot(spread + 0.5 * max(max(a["extent_m"][:2]) for a in sel), on_heap=rng.random() < 0.5)
         if ctr is not None:
             z = support_z(ctr) + 0.002        # a pile: stacked by bounding radius, settles into contact
             for a in sel:
@@ -297,7 +304,7 @@ def sample_scene_hard(rng: np.random.Generator, assets: list[dict], out: Path, s
     for _ in range(n_single):
         src = real if real and rng.random() < 0.8 else [a for a in pool if a["procedural"]]
         a = src[rng.integers(len(src))]
-        xy = spot(0.5 * max(a["extent_m"][:2]), on_heap=rng.random() < 0.25)
+        xy = spot(0.5 * max(a["extent_m"][:2]), on_heap=rng.random() < 0.5)   # sinks in (synth.mpm)
         if xy is not None:
             add(a, xy, support_z(xy) + rad_of(a) + 0.002, "single")
     for i, it in enumerate(items):
