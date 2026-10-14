@@ -23,7 +23,7 @@ import numpy as np
 
 from .assets import load_index
 from .collision import ensure as ensure_collision
-from .fetch_assets import SURFACES
+from .fetch_assets import HDRIS, SURFACES
 from .finalize import finalize
 from .spec import sample_scene
 from .spec_hard import sample_scene_hard
@@ -61,7 +61,8 @@ def main() -> None:
     cache = Path(args.collision_cache) if args.collision_cache else Path(args.assets).parent / "collision"
     online = Path(args.online_dir) if args.online_dir else Path(args.assets).resolve().parent.parent / "datasets" / "online"
     hdri_dir = Path(args.hdri_dir) if args.hdri_dir else (online / "polyhaven_hdri" if args.preset == "hard" else None)
-    hdris = sorted(str(p.resolve()) for p in hdri_dir.rglob("*.hdr")) if hdri_dir and hdri_dir.exists() else None
+    hdris = sorted(str(p.resolve()) for p in hdri_dir.rglob("*.hdr")
+                   if args.hdri_dir or p.parent.name in HDRIS) if hdri_dir and hdri_dir.exists() else None   # curated rooms
     surfaces = []                                  # PBR tabletops (hard preset)
     if (online / "sources.jsonl").exists():
         for line in (online / "sources.jsonl").read_text().splitlines():

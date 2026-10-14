@@ -141,4 +141,4 @@ def shape(name: str, container_kind: str, rf: float, rng: np.random.Generator) -
         # grains are shading (render.food_material); geometric relief only for clumps
         return {"mound": mound, "p": u(2, 4), "relief": (u(0.0002, 0.0005), u(0.008, 0.014)), "wobble": u(0, 0.004)}
     mound = u(0.005, 0.025) if container_kind == "bowl" else min(rf * u(0.25, 0.6), 0.04)
-    return {"mound": mound, "p": u(2, 4), "relief": (u(0.002, 0.0035), u(0.01, 0.016)), "wobble": u(0, 0.004)}
+    return {"mound": mound, "p": u(2, 4), "relief": (u(0.0008, 0.0015), u(0.01, 0.016)), "wobble": u(0, 0.004)}

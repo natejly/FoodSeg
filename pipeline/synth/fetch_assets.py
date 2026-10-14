@@ -60,7 +60,7 @@ HDRIS = ["aft_lounge", "anniversary_lounge", "bush_restaurant", "cabin", "cayley
          "lythwood_room", "old_room", "reading_room", "relax_inn_seaview_suite", "small_empty_room_1",
          "small_empty_room_3", "solitude_interior", "studio_kominka_01", "veranda", "warm_bar", "warm_restaurant",
          "warm_restaurant_night", "white_home_studio", "wooden_lounge", "brown_photostudio_02", "studio_small_03",
-         "photo_studio_01", "ferndale_studio_05", "provence_studio"]
+         "photo_studio_01", "provence_studio"]   # ferndale_studio_05: pink / purple lamps
 # Tabletops: kind -> Poly Haven texture ids
 SURFACES = {
     "wood": ["wood_table_001", "kitchen_wood", "coated_pine", "coated_pine_02", "plywood", "oak_veneer_02",
