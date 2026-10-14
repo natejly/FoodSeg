@@ -154,6 +154,57 @@ def index_mesh_dir(root: Path, source: str, meta: dict[tuple[str, str], dict] | 
     return recs
 
 
+# synth.fetch_assets ids -> food category; None = not usable as plated food
+ONLINE_CATEGORY = {
+    "bananas": None,                          # a 60 cm display bunch
+    "carrot_cake": "cake", "croissant": "croissant", "food_apple_01": "apple", "food_avocado_01": "avocado",
+    "food_ginger_01": "ginger", "food_kiwi_01": "kiwi", "food_lime_01": "lime", "food_lychee_01": "lychee",
+    "food_pears_asian_01": "pear", "food_pomegranate_01": "pomegranate", "hamburger_buns": "bread roll",
+    "lemon": "lemon", "strawberry_chocolate_cake": "cake", "sweet_potato": "sweet potato",
+    "yellow_onion": "onion", "011_banana": "banana", "012_strawberry": "strawberry", "013_apple": "apple",
+    "014_lemon": "lemon", "015_peach": "peach", "016_pear": "pear", "017_orange": "orange", "018_plum": "plum",
+}
+
+
+def online_mesh(d: Path) -> Path | None:
+    """The one textured mesh of a synth.fetch_assets model folder."""
+    for pat in ("*.gltf", "textured.obj", "model.obj"):
+        hits = sorted(d.rglob(pat))
+        if hits:
+            return hits[0]
+    return None
+
+
+def index_online(root: Path) -> list[dict]:
+    """Index synth.fetch_assets downloads (OUT/sources.jsonl). Food gets volume like any scan;
+    containers and clutter are recorded with their `role` so food sampling skips them.
+    glTF is Y up (Blender's importer converts it); YCB / GSO OBJ are Z up; all in metres."""
+    import trimesh
+    recs = []
+    for line in open(root / "sources.jsonl"):
+        s = json.loads(line)
+        p = online_mesh(root / s["source"] / s["id"])
+        cat = ONLINE_CATEGORY.get(s["id"], s["name"]) if s["role"] == "food" else s["id"]
+        if p is None or cat is None:
+            continue
+        m = trimesh.load(p, force="mesh")
+        m.merge_vertices(merge_tex=True, merge_norm=True)
+        if not m.is_watertight:
+            trimesh.repair.fill_holes(m)
+        wt = bool(m.is_watertight)
+        ext = m.extents if p.suffix != ".gltf" else m.extents[[0, 2, 1]]        # -> Z up
+        recs.append(_rec(id=f"{s['source']}_{s['id']}", source=s["source"], name=cat, category=cat,
+                         object=s["id"], path=str(p.resolve()), fmt=p.suffix.lower()[1:], to_m=1.0,
+                         up_axis="Z", role=s["role"], watertight=wt,
+                         volume_ml=float(abs(m.volume) * 1e6) if wt else float(m.convex_hull.volume * 1e6),
+                         volume_source="mesh_filled" if wt else "hull",
+                         volume_ok=wt or s["role"] != "food", extent_m=ext.tolist(), n_faces=int(len(m.faces)),
+                         licence=s["licence"], attribution=s["attribution"], url=s["url"]))
+    print(f"online: {len(recs)} models ({sum(r['role'] == 'food' for r in recs)} food, "
+          f"{sum(r['role'] == 'food' and r['volume_ok'] for r in recs)} with exact volume)")
+    return recs
+
+
 def load_metafood3d_meta(xlsx: Path) -> dict[tuple[str, str], dict]:
     """complete_dataset_nutrition_v2.xlsx: Object_name (category folder), Food_Type (object
     folder), FNDDS Food Code, Weight (g), Energy (Kcal), Protein/Fat/Carbs (g), Volume (mL)."""
@@ -183,6 +234,7 @@ def main() -> None:
     ap.add_argument("--metafood3d", default=None, help="MetaFood3D root (3D_Mesh/ + nutrition xlsx)")
     ap.add_argument("--omni", default=None, help="OmniObject3D raw_scans root (food categories only)")
     ap.add_argument("--mesh-dir", action="append", default=[], help="NAME=DIR, any other mesh folder")
+    ap.add_argument("--online", default=None, help="synth.fetch_assets output (Poly Haven / YCB / GSO)")
     ap.add_argument("--n-prim", type=int, default=6)
     ap.add_argument("--workers", type=int, default=8)
     args = ap.parse_args()
@@ -200,6 +252,8 @@ def main() -> None:
         recs += mf
     if args.omni:
         recs += index_mesh_dir(Path(args.omni), "omniobject3d", workers=args.workers)
+    if args.online:
+        recs += index_online(Path(args.online))
     for spec in args.mesh_dir:
         name, d = spec.split("=", 1)
         recs += index_mesh_dir(Path(d), name, workers=args.workers)

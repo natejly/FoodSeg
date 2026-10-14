@@ -113,6 +113,32 @@ Caveats / TODO
   copied back: Bullet's hull shape walks every vertex per contact query, and with the
   full 0.3-1.6 M-vertex scans one scene did not finish physics in 10 min.
 
+### Real online assets and physics (2026-10-13)
+
+- `synth.fetch_assets` downloads real scans with no account: Poly Haven food (CC0, glTF), YCB
+  (CC BY 4.0: cutlery, bowl, plate, mug, plastic fruit) and Google Scanned Objects (CC BY 4.0:
+  plates, bowls, ramekins, mugs) into `data/datasets/online/` with `sources.jsonl` (licence,
+  attribution). `assets.index_online` indexes them with a `role` (food / container / clutter);
+  index with everything: `data/synth/assets_v3.jsonl`. GSO zips keep the texture away from the
+  mesh, so the fetcher copies it next to `model.obj` (else dishes render magenta).
+- Hard preset: 40 % of scenes use a real scanned dish (those scenes hold only dropped items,
+  since procedural heaps are built on the analytic dish surface); clutter is 80 % real YCB
+  cutlery / GSO mugs.
+- **Compound colliders**: `synth.collision` decomposes each scan with CoACD (decimated to 20k
+  faces, <= 12 convex parts, ~7-10 s per asset, cached in `data/synth/collision/`); render.py
+  makes the scan a COMPOUND rigid body of hidden convex parts. Items now nest and lean on each
+  other instead of resting on one hull, and physics got faster (139 s vs ~520 s for the same
+  pile scene). Pile items are poured with random orientation; singles tilt up to ~0.3 rad.
+- **Cloth leafy greens**: 35 % of hard scenes get a salad portion (lettuce, spinach, arugula,
+  mixed greens, kale, radicchio): 6-16 leaf sheets dropped as one cloth object with
+  self-collision onto the settled scene, frozen and given 0.6 mm thickness; volume = the
+  thickened sheets. Stable settings came from a sweep (`simulate_cloth` docstring): mass
+  3 g / vertex, air damping 0.5, contact distance 0.6 mm, quality 15, 150 frames, leaf tips
+  >= 40 % of full width and leaves >= 3 cm (pointed tips or 2 cm leaves put vertices closer
+  than the contact distance and the cloth exploded). Leaves that slide over a small bowl's
+  rim are caught by `synth.manifest`'s `leaves_off_dish` flag (> 10 % of the salad's surface
+  off the dish) and dropped.
+
 ### Hard preset: the 3D segmentation stress test (`--preset hard`, `synth/spec_hard.py`)
 
 v0 scenes (and the `eval/mf3d_composite.py` scenes: separate scans on a flat plane, no

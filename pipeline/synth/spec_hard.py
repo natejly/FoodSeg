@@ -17,7 +17,8 @@ from pathlib import Path
 
 import numpy as np
 
-from .geometry import Mound, box_mesh, lathe_solid, mesh_volume, sample_container, split_angles, topping_mesh
+from .geometry import (Container, Mound, box_mesh, lathe_solid, mesh_volume, salad_sheets, sample_container,
+                       split_angles, topping_mesh)
 from .spec import DISH_COLOURS, FILLS as V0_FILLS, intrinsics, orbit_poses, world_to_arkit
 
 # v0's fills plus Nutrition5k staples that render as amorphous heaps (synth/composition.py)
@@ -27,6 +28,11 @@ FILLS = V0_FILLS + [
 ]
 
 # Foods that lie on another food: name, base colour (linear RGB), roughness.
+GREENS = [  # leafy greens (Nutrition5k: mixed greens, arugula, spinach, lettuce, kale ...)
+    ("lettuce", (0.45, 0.65, 0.18), 0.5), ("spinach (raw)", (0.10, 0.28, 0.06), 0.4),
+    ("arugula", (0.18, 0.38, 0.08), 0.45), ("mixed greens", (0.25, 0.45, 0.10), 0.5),
+    ("kale", (0.12, 0.25, 0.10), 0.6), ("radicchio", (0.35, 0.05, 0.12), 0.4),
+]
 TOPPINGS = [
     ("tomato sauce", (0.45, 0.06, 0.03), 0.25), ("melted cheese", (0.90, 0.65, 0.15), 0.35),
     ("gravy", (0.30, 0.17, 0.07), 0.2), ("pesto", (0.20, 0.35, 0.08), 0.4),
@@ -45,11 +51,27 @@ def _procedural(name: str, mesh: str, V: np.ndarray, F: np.ndarray, out: Path, c
             "texture": True, "shape": shape}
 
 
-def distractors(rng: np.random.Generator, out: Path, r_clear: float) -> list[dict]:
-    """1-3 of cutlery / mug / napkin on the table outside radius r_clear of the dish axis."""
+REAL_PROPS = {"knife": ("032_knife",), "fork": ("030_fork",), "spoon": ("031_spoon",), "mug": ("mug", "cup")}
+
+
+def distractors(rng: np.random.Generator, out: Path, r_clear: float, assets: list[dict] | None = None) -> list[dict]:
+    """1-3 of cutlery / mug / napkin on the table outside radius r_clear of the dish axis; 80 %
+    of them real scans (YCB cutlery, GSO / YCB mugs) when the asset index has them."""
     kinds = rng.choice(["knife", "fork", "spoon", "mug", "napkin"], size=int(rng.integers(1, 4)), replace=False)
+    props = [a for a in (assets or []) if a.get("role") == "clutter"]
     res, ang = [], rng.uniform(0, 2 * np.pi)
     for i, k in enumerate(kinds):
+        real = [a for a in props if any(t in a["id"].lower() for t in REAL_PROPS.get(str(k), ()))]
+        if real and rng.random() < 0.8:
+            a = real[rng.integers(len(real))]
+            half = 0.5 * max(a["extent_m"][:2])
+            dist = r_clear + (0.5 * min(a["extent_m"][:2]) if k != "mug" else half) + rng.uniform(0.02, 0.06)
+            ang_i = ang + i * rng.uniform(0.8, 1.4)
+            yaw = ang_i + np.pi / 2 if k != "mug" else rng.uniform(0, 2 * np.pi)   # cutlery tangent
+            res.append({"name": str(k), "mesh": a["path"], "fmt": a["fmt"], "up_axis": a.get("up_axis", "Z"),
+                        "asset_id": a["id"], "location": [float(dist * np.cos(ang_i)), float(dist * np.sin(ang_i)), 0.0],
+                        "euler": [0.0, 0.0, float(yaw)]})
+            continue
         if k == "mug":
             r, hgt = rng.uniform(0.035, 0.045), rng.uniform(0.08, 0.10)
             V, F = lathe_solid(np.array([[0, 0], [r, 0], [r, hgt], [r - 0.004, hgt], [r - 0.004, 0.006], [0, 0.006]]))
@@ -129,9 +151,25 @@ def sample_scene_hard(rng: np.random.Generator, assets: list[dict], out: Path, s
         "color": DISH_COLOURS[rng.integers(len(DISH_COLOURS))], "roughness": float(rng.uniform(0.05, 0.6))}}
     items: list[dict] = []
 
+    # 0. sometimes a real scanned dish (GSO / YCB). Heaps are built to fit the procedural
+    # dish's analytic surface, so real-dish scenes hold only physics-dropped items; `c`
+    # becomes an approximate stand-in used for placement radii and the off-dish check.
+    dishes = [a for a in assets if a.get("role") == "container"]
+    real_dish = dishes[rng.integers(len(dishes))] if dishes and rng.random() < 0.4 else None
+    if real_dish:
+        ext = real_dish["extent_m"]
+        w = float(min(ext[:2]))
+        kind = "bowl" if ext[2] > 0.25 * w else "plate"
+        c = Container(kind, R=0.45 * w, H=float(ext[2]), floor=0.006, q=2.5, well_r=0.3 * w, rim_w=0.05 * w)
+        spec["container"] = {**c.to_json(), "mesh": None, "capacity_ml": None,
+                             "asset": {"mesh": real_dish["path"], "fmt": real_dish["fmt"], "name": real_dish["id"],
+                                       "up_axis": real_dish.get("up_axis", "Z"),
+                                       "yaw": float(rng.uniform(0, 2 * np.pi))},
+                             "source": real_dish["source"], "licence": real_dish.get("licence")}
+
     heap: list = []                          # (item id, Mound, wedge start, wedge end)
     # 1. a heap split into touching wedges, each a different food
-    if rng.random() < 0.8:
+    if real_dish is None and rng.random() < 0.8:
         if c.kind == "bowl":
             lev = c.floor + rng.uniform(0.35, 0.8) * (c.H - c.floor)
             rf, centre = c.r_at_height(lev), (0.0, 0.0)
@@ -166,10 +204,33 @@ def sample_scene_hard(rng: np.random.Generator, assets: list[dict], out: Path, s
             items.append(_procedural(name, f"topping_{item_id}.npz", Vt, Ft, out, col, rough, "procedural_topping",
                                      {"kind": "topping", "on_item": item_id, "radius": site[1]}))
 
-    # 3. discrete items dropped onto whatever is there: a same-category pile and/or singles
     fit_r = c.well_r if c.kind == "plate" else c.r_at_height(c.floor + 0.5 * (c.H - c.floor))
-    pool = [a for a in assets if a.get("volume_ok", a["watertight"]) and not a.get("container_shaped")
-            and max(a["extent_m"][:2]) <= 2 * fit_r]
+
+    # 2b. leafy greens: thin leaves dropped as cloth (render.py), one item per portion
+    salad_spot = None
+    if len(items) < max_items and rng.random() < 0.35:
+        name, col, rough = GREENS[rng.integers(len(GREENS))]
+        t = rng.uniform(0, 2 * np.pi)
+        salad_spot = rng.uniform(0, 0.25 * fit_r) * np.array([np.cos(t), np.sin(t)])
+        top = max([float(np.load(out / it["mesh"])["V"][:, 2].max()) for it in items], default=c.H)
+        n_leaves = int(rng.integers(6, 17))
+        Vl, Fl = salad_sheets(rng, n_leaves, salad_spot, max(top, c.H) + 0.01, 0.015,
+                              "arugula" if name == "arugula" else "mixed")
+        np.savez_compressed(out / "salad.npz", V=Vl.astype(np.float32), F=Fl.astype(np.int32))
+        thick = 0.0006
+        a, b, cc = Vl[Fl[:, 0]], Vl[Fl[:, 1]], Vl[Fl[:, 2]]
+        area = 0.5 * np.linalg.norm(np.cross(b - a, cc - a), axis=1).sum()
+        items.append({"name": name, "category": name, "source": "procedural_leaves", "asset_id": None,
+                      "mesh": "salad.npz", "fmt": "npz", "to_m": 1.0, "scale": 1.0,
+                      "volume_ml": float(area * thick * 1e6),     # replaced by the simulated solid's volume
+                      "mass_g": None, "dynamic": False, "fill": None, "color": list(col), "roughness": rough,
+                      "procedural": True, "generated": False, "texture": True,
+                      "cloth": {"thickness_m": thick, "bending": float(rng.uniform(0.1, 1.0))},
+                      "shape": {"kind": "leaves", "n_leaves": n_leaves}})
+
+    # 3. discrete items dropped onto whatever is there: a same-category pile and/or singles
+    pool = [a for a in assets if a.get("role", "food") == "food" and a.get("volume_ok", a["watertight"])
+            and not a.get("container_shaped") and max(a["extent_m"][:2]) <= 2 * fit_r]
     real = [a for a in pool if not a["procedural"]]
     by_cat: dict[str, list[dict]] = {}
     for a in real:
@@ -178,9 +239,11 @@ def sample_scene_hard(rng: np.random.Generator, assets: list[dict], out: Path, s
     # Drop each single / pile just above the surface at its own spot (a high drop bounces off
     # the dish): spots don't overlap each other, and avoid the heap unless deliberately on it.
     mounds = [m for _, m, _, _ in heap]
-    placed: list[tuple[np.ndarray, float]] = []
+    placed: list[tuple[np.ndarray, float]] = [(salad_spot, 0.04)] if salad_spot is not None else []
 
     def support_z(xy: np.ndarray) -> float:
+        if real_dish:                         # surface unknown analytically: drop from above the rim
+            return c.H + 0.003
         z = float(c.z_in(np.hypot(*xy)))
         if mounds:
             z = max([z] + [float(m.top(c, xy[0], xy[1])) for m in mounds])
@@ -207,12 +270,14 @@ def sample_scene_hard(rng: np.random.Generator, assets: list[dict], out: Path, s
                       "mesh": a["path"], "fmt": a["fmt"], "to_m": a["to_m"], "scale": 1.0,
                       "volume_ml": a["volume_ml"], "mass_g": a.get("mass_g"), "dynamic": True, "fill": None,
                       "init_location": [float(xy[0]), float(xy[1]), float(z)],
-                      "init_euler": (rng.uniform(0, 2 * np.pi, 3) if a["procedural"] else
-                                     np.r_[rng.normal(0, 0.1, 2), rng.uniform(0, 2 * np.pi)]).tolist(),
+                      # pile pieces are poured: any orientation, so they tumble and interlock;
+                      # singles are set down roughly as served (scans rest on their scanned base)
+                      "init_euler": (rng.uniform(0, 2 * np.pi, 3) if a["procedural"] or kind == "pile" else
+                                     np.r_[rng.normal(0, 0.3, 2), rng.uniform(0, 2 * np.pi)]).tolist(),
                       "up_axis": a.get("up_axis", "Y"), "color": a.get("color"),
                       "roughness": float(rng.uniform(0.3, 0.8)), "procedural": a["procedural"],
                       "generated": a.get("generated", False), "texture": bool(a["procedural"]),
-                      "damping": 0.8, "shape": {"kind": kind}})
+                      "damping": 0.4 if kind == "pile" else 0.7, "shape": {"kind": kind}})
 
     rad_of = lambda a: float(np.linalg.norm(a["extent_m"])) / 2       # any rotation fits
     if small and max_items - len(items) >= 2 and rng.random() < 0.5:
@@ -242,7 +307,7 @@ def sample_scene_hard(rng: np.random.Generator, assets: list[dict], out: Path, s
     poses, times = orbit_poses(rng, n_views, centre=np.array([0, 0, c.H * 0.5]))
     spec.update({
         "items": items,
-        "distractors": distractors(rng, out, c.R + c.rim_w) if rng.random() < 0.7 else [],
+        "distractors": distractors(rng, out, c.R + c.rim_w, assets) if rng.random() < 0.7 else [],
         "table": table_look(rng),
         "lighting": {"hdri": (hdris[rng.integers(len(hdris))] if hdris else None),
                      "hdri_strength": float(rng.uniform(0.5, 1.5)),

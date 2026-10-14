@@ -377,6 +377,49 @@ def topping_mesh(c: Container, under: Mound, centre: tuple[float, float], radius
     return grid_solid(top, bot)
 
 
+def leaf_sheet(rng: np.random.Generator, length: float, width: float, n_u: int = 12, n_v: int = 5):
+    """One leaf as an open sheet (cloth-simulated in render.py, then given thickness):
+    tapered outline, cupped across the midrib, bent along it, ruffled edge. Leaf frame:
+    x along the midrib, z up. The tips stay > ~40 % of full width so no two vertices of a
+    leaf come closer than cloth self-collision's distance (a pointed tip made it explode)."""
+    u = np.linspace(0, 1, n_u)
+    v = np.linspace(-1, 1, n_v)
+    U, Vv = np.meshgrid(u, v, indexing="ij")
+    half_w = 0.5 * width * np.sin(np.pi * (0.12 + 0.76 * U)) ** 0.7
+    ruffle = 1 + 0.12 * np.sin(rng.uniform(6, 14) * np.pi * U + rng.uniform(0, 6)) * np.abs(Vv)
+    x = length * (U - 0.5)
+    y = half_w * Vv * ruffle
+    z = rng.uniform(0.1, 0.35) * half_w * Vv ** 2 + rng.uniform(-0.15, 0.15) * length * (U - 0.5) ** 2
+    P = np.stack([x, y, z], -1).reshape(-1, 3)
+    idx = np.arange(n_u * n_v).reshape(n_u, n_v)
+    q = np.stack([idx[:-1, :-1], idx[1:, :-1], idx[1:, 1:], idx[:-1, 1:]], -1).reshape(-1, 4)
+    return P, np.concatenate([q[:, [0, 1, 2]], q[:, [0, 2, 3]]])
+
+
+def salad_sheets(rng: np.random.Generator, n: int, centre, base_z: float, spread: float,
+                 kind: str = "mixed", gap: tuple[float, float] = (0.012, 0.016)) -> tuple[np.ndarray, np.ndarray]:
+    """n leaves stacked in a loose column above `centre` (they drape as cloth when simulated),
+    random yaw / tilt each. Returns one mesh of disconnected sheets. Leaves stay >= 3 cm:
+    shrinking them packs the 12 x 5 grid closer than cloth self-collision's distance and
+    the simulation explodes (tried: 2 cm leaves sized to small bowls scattered everywhere)."""
+    Vs, Fs, off, z = [], [], 0, base_z
+    for _ in range(n):
+        L = rng.uniform(0.035, 0.07) if kind != "arugula" else rng.uniform(0.03, 0.05)
+        W = L * (rng.uniform(0.5, 0.8) if kind != "arugula" else rng.uniform(0.25, 0.4))
+        P, F = leaf_sheet(rng, L, W)
+        # leaves must not intersect at the start (cloth self-collision explodes on that):
+        # mild tilt, and a vertical gap larger than a tilted leaf's height
+        a, t = rng.uniform(0, 2 * np.pi), rng.normal(0, 0.15)
+        Rz = np.array([[np.cos(a), -np.sin(a), 0], [np.sin(a), np.cos(a), 0], [0, 0, 1]])
+        Rx = np.array([[1, 0, 0], [0, np.cos(t), -np.sin(t)], [0, np.sin(t), np.cos(t)]])
+        z += rng.uniform(*gap)
+        P = P @ (Rz @ Rx).T + np.r_[np.asarray(centre) + rng.normal(0, spread / 2, 2), z]
+        Vs.append(P)
+        Fs.append(F + off)
+        off += len(P)
+    return np.concatenate(Vs), np.concatenate(Fs)
+
+
 def lathe_solid(profile: np.ndarray, n_theta: int = 48) -> tuple[np.ndarray, np.ndarray]:
     """Public alias for small props (mugs): lathe a closed (r, z) profile."""
     return lathe(profile, n_theta)

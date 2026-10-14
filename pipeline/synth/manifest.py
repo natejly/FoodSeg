@@ -19,7 +19,7 @@ from scipy.spatial import cKDTree
 
 TOUCH_M = 0.003          # GT surfaces closer than this touch (~1 mm sample spacing + collision margins)
 SIMILAR_RGB = 0.1        # mean colour difference (0-1 sRGB) below which neighbours look alike
-DROP = {"off_container", "barely_visible", "volume_mismatch", "fusion_misaligned"}
+DROP = {"off_container", "leaves_off_dish", "barely_visible", "volume_mismatch", "fusion_misaligned"}
 
 
 def _item_colours(scan: Path, n_items: int) -> dict[int, np.ndarray]:
@@ -56,6 +56,14 @@ def describe(scan: Path) -> dict:
     qc = []
     if any(it["off_container"] for it in items):
         qc.append("off_container")
+    # a salad's bbox centre stays on the dish even when leaves slid onto the table: check its surface
+    W2A = np.array(gt["world_to_arkit"])
+    r_dish = gt["container"]["R"] + gt["container"].get("rim_w", 0.0)
+    for i in by_id:
+        if (by_id[i].get("shape") or {}).get("kind") == "leaves" and len(pts[i]):
+            loc = (pts[i] - W2A[:3, 3]) @ W2A[:3, :3]
+            if (np.hypot(loc[:, 0], loc[:, 1]) > r_dish).mean() > 0.10:
+                qc.append("leaves_off_dish")
     if any(it["frames_visible"] < 3 for it in items):
         qc.append("barely_visible")
     if any(abs(it["scene_volume_ml"] - it["volume_ml"]) > 0.01 * it["volume_ml"] for it in items):

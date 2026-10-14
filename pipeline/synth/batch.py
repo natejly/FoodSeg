@@ -12,6 +12,7 @@ with --start set per task.
 from __future__ import annotations
 
 import argparse
+import json
 import shutil
 import subprocess
 import sys
@@ -21,6 +22,7 @@ from pathlib import Path
 import numpy as np
 
 from .assets import load_index
+from .collision import ensure as ensure_collision
 from .finalize import finalize
 from .spec import sample_scene
 from .spec_hard import sample_scene_hard
@@ -43,10 +45,13 @@ def main() -> None:
     ap.add_argument("--keep-raw", action="store_true")
     ap.add_argument("--keep-hr", action="store_true")
     ap.add_argument("--preset", choices=["v0", "hard"], default="v0", help="hard: see synth/spec_hard.py")
+    ap.add_argument("--collision-cache", default=None, help="CoACD parts cache (default: <assets dir>/collision)")
+    ap.add_argument("--hull-only", action="store_true", help="single convex hull per scan (old physics)")
     args = ap.parse_args()
 
     root = Path(args.root)
     assets = load_index(args.assets)
+    cache = Path(args.collision_cache) if args.collision_cache else Path(args.assets).parent / "collision"
     hdris = sorted(str(p.resolve()) for p in Path(args.hdri_dir).rglob("*.hdr")) if args.hdri_dir else None
     bproc = Path(sys.executable).with_name("blenderproc")
     for i in range(args.start, args.start + args.n):
@@ -56,8 +61,14 @@ def main() -> None:
             continue
         t0 = time.time()
         sampler = sample_scene_hard if args.preset == "hard" else sample_scene
-        sampler(np.random.default_rng([args.seed, i]), assets, sdir, sid, n_views=args.views,
-                res_scale=args.res_scale, hdris=hdris)
+        spec = sampler(np.random.default_rng([args.seed, i]), assets, sdir, sid, n_views=args.views,
+                       res_scale=args.res_scale, hdris=hdris)
+        if args.preset == "hard" and not args.hull_only:   # true-shape compound colliders for dropped scans
+            by_id = {a["id"]: a for a in assets}
+            for it in spec["items"]:
+                if it["dynamic"] and it["fmt"] != "npz" and it["asset_id"] in by_id:
+                    it["collision"] = str(ensure_collision(by_id[it["asset_id"]], cache).resolve())
+            (sdir / "spec.json").write_text(json.dumps(spec, indent=1, default=lambda o: o.tolist()))
         cmd = [str(bproc), "run", "--custom-blender-path", args.blender, str(RENDER),
                str(sdir / "spec.json"), str(rdir), "--spp", str(args.spp)]
         r = subprocess.run(cmd, capture_output=True, text=True)

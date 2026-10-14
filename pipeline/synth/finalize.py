@@ -93,8 +93,20 @@ def finalize(scene_dir: Path, raw_dir: Path, out: Path, seed: int = 0, keep_hr: 
     (out / "gt" / "masks" / "instances.json").write_text(json.dumps(inst, indent=1))
 
     c = container_from_json(spec["container"])
-    np.savez_compressed(out / "gt" / "container.npz", points=c.surface_points(rng=0),
-                        name=f"synthetic_{c.kind}")
+    if spec["container"].get("asset") and (raw_dir / "gt_points.npz").exists():
+        # real scanned dish: its own surface samples (dish frame: Z up, table at z = 0), not the
+        # analytic stand-in, plus a ring of table so the template registers like the procedural one
+        z = np.load(raw_dir / "gt_points.npz")
+        dish = z["xyz"][z["label"] == CONTAINER_ID].astype(np.float64)
+        trng = np.random.default_rng(0)
+        r, th = 0.15 * np.sqrt(trng.random(6000)), trng.random(6000) * 2 * np.pi
+        table = np.stack([r * np.cos(th), r * np.sin(th), np.zeros_like(r)], 1)
+        table = table[np.hypot(table[:, 0], table[:, 1]) > np.hypot(dish[:, 0], dish[:, 1]).max()]
+        np.savez_compressed(out / "gt" / "container.npz", points=np.concatenate([dish, table]),
+                            name=spec["container"]["asset"]["name"])
+    else:
+        np.savez_compressed(out / "gt" / "container.npz", points=c.surface_points(rng=0),
+                            name=f"synthetic_{c.kind}")
 
     by_id = {r["id"]: r for r in rmeta["items"]}
     items = []
@@ -106,6 +118,8 @@ def finalize(scene_dir: Path, raw_dir: Path, out: Path, seed: int = 0, keep_hr: 
                      | {"scene_volume_ml": r["scene_volume_ml"], "frames_visible": visible.get(it["id"], 0),
                         "off_container": bool(off), "pose_arkit": (W2A @ np.array(r["local2world"])).tolist(),
                         "fill": it.get("fill"), "shape": it.get("shape")})
+        if it.get("cloth"):        # leaves: the simulated, thickened sheets' own solid volume
+            items[-1]["volume_ml"] = r["scene_volume_ml"]
     if (raw_dir / "gt_points.npz").exists():     # per-point 3D labels, ARKit frame
         z = np.load(raw_dir / "gt_points.npz")
         xyz = z["xyz"].astype(np.float64) @ W2A[:3, :3].T + W2A[:3, 3]

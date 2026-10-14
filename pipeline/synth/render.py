@@ -36,12 +36,122 @@ def mesh_from_npz(path: Path, name: str):
     return obj
 
 
+def load_gltf(p: Path):
+    """Poly Haven glTF -> one mesh object in Blender's Z-up frame with its node transforms
+    baked in (the importer converts Y up; empties / parents are dropped)."""
+    before = set(bpy.data.objects)
+    bpy.ops.import_scene.gltf(filepath=str(p))
+    new = [o for o in bpy.data.objects if o not in before]
+    meshes = [o for o in new if o.type == "MESH"]
+    for o in meshes:
+        M = o.matrix_world.copy()
+        o.parent = None
+        o.matrix_world = M
+    for o in new:
+        if o.type != "MESH":
+            bpy.data.objects.remove(o, do_unlink=True)
+    objs = [bproc.types.MeshObject(o) for o in meshes]
+    obj = objs[0]
+    if len(objs) > 1:
+        obj.join_with_other_objects(objs[1:])
+    obj.persist_transformation_into_mesh()
+    return obj
+
+
+def simulate_cloth(cloth: list, obstacles: list, frames: int = 150) -> None:
+    """Drop thin sheets (leaves) as cloth onto the settled scene, freeze the last frame and give
+    them thickness: they drape over food and the dish and pile on each other (self collision)."""
+    scene = bpy.context.scene
+    for o in obstacles:
+        m = o.blender_obj.modifiers.new("synth_collision", "COLLISION")
+        o.blender_obj.collision.thickness_outer = 0.001
+        o.blender_obj.collision.cloth_friction = 20.0   # damp leaves grip food; at 8 they slid off domes
+    for it, o in cloth:
+        m = o.blender_obj.modifiers.new("synth_cloth", "CLOTH")
+        s = m.settings
+        # settings from a stability sweep (cm-scale cloth): lighter vertices barely fall against
+        # air drag, larger contact distances / pointed leaf tips made self-collision explode
+        s.quality = 15
+        s.mass = 0.003                                  # kg per vertex
+        s.tension_stiffness = s.compression_stiffness = s.shear_stiffness = 15.0
+        s.bending_stiffness = it["cloth"]["bending"]   # crisp lettuce vs limp spinach
+        s.air_damping = 0.5                             # 2.0 left leaves hanging mid-air after 120 frames
+        cs = m.collision_settings
+        cs.use_self_collision = True
+        cs.distance_min = 0.0006
+        cs.self_distance_min = 0.0006
+        cs.collision_quality = 4
+        cs.friction = 20.0
+        m.point_cache.frame_start, m.point_cache.frame_end = 1, frames
+    scene.frame_start, scene.frame_end = 1, frames
+    for f in range(1, frames + 1):
+        scene.frame_set(f)
+    dg = bpy.context.evaluated_depsgraph_get()
+    for it, o in cloth:
+        me = bpy.data.meshes.new_from_object(o.blender_obj.evaluated_get(dg))
+        o.blender_obj.modifiers.clear()
+        o.blender_obj.data = me
+        sol = o.blender_obj.modifiers.new("synth_solid", "SOLIDIFY")
+        sol.thickness, sol.offset, sol.use_rim = it["cloth"]["thickness_m"], 0.0, True
+        dg = bpy.context.evaluated_depsgraph_get()
+        me = bpy.data.meshes.new_from_object(o.blender_obj.evaluated_get(dg))
+        o.blender_obj.modifiers.clear()
+        o.blender_obj.data = me
+    for o in obstacles:
+        mod = o.blender_obj.modifiers.get("synth_collision")
+        if mod:
+            o.blender_obj.modifiers.remove(mod)
+    scene.frame_set(0)
+    scene.frame_start, scene.frame_end = 0, 0        # BlenderProc appends camera poses from frame_end
+
+
+def collision_parts(p: str) -> list:
+    """synth.collision cache: V (all part vertices), n (vertices per part)."""
+    z = np.load(p)
+    return np.split(z["V"].astype(float), np.cumsum(z["n"])[:-1])
+
+
+def compound_collider(obj, parts: list, c_local: np.ndarray, mass: float, damping: float) -> list:
+    """Compound rigid body: hidden convex-hull children (one per CoACD part, in the object's
+    mesh-local frame shifted by its origin move c_local); the visible mesh itself is not
+    simulated, so its resolution doesn't matter."""
+    kids = []
+    for k, P in enumerate(parts):
+        bm = bmesh.new()
+        for p in np.asarray(P, float) - c_local:
+            bm.verts.new(p)
+        bmesh.ops.convex_hull(bm, input=bm.verts)
+        kid = bproc.object.create_with_empty_mesh(f"{obj.get_name()}_part{k}")
+        bm.to_mesh(kid.get_mesh())
+        bm.free()
+        kid.blender_obj.parent = obj.blender_obj
+        kid.blender_obj.matrix_parent_inverse.identity()
+        kid.enable_rigidbody(True, collision_shape="CONVEX_HULL", collision_margin=0.0005)
+        kid.hide()
+        kids.append(kid)
+    obj.enable_rigidbody(True, collision_shape="COMPOUND", mass=mass, friction=0.8, linear_damping=damping,
+                         angular_damping=damping, collision_margin=0.0005)
+    return kids
+
+
+def place_on_table(obj, location, euler) -> None:
+    """Static prop: pose it, then lift it so its lowest point touches the table (z = 0)."""
+    obj.set_location(location)
+    obj.set_rotation_euler(euler)
+    bpy.context.view_layer.update()
+    zmin = float(np.array(obj.get_bound_box())[:, 2].min())
+    loc = np.array(obj.get_location())
+    obj.set_location([loc[0], loc[1], loc[2] - zmin + 0.0003])
+
+
 def load_mesh(item: dict, scene_dir: Path):
     p = Path(item["mesh"])
     if not p.is_absolute():
         p = scene_dir / p
     if item["fmt"] == "npz":
         return mesh_from_npz(p, item["name"])
+    if item["fmt"] in ("gltf", "glb"):
+        return load_gltf(p)
     up = item.get("up_axis", "Y")      # OBJ convention is Y up; MetaFood3D scans are Z up
     fwd = "Y" if up == "Z" else "NEGATIVE_Z"
     objs = bproc.loader.load_obj(str(p), forward_axis=fwd, up_axis=up)
@@ -176,15 +286,24 @@ def main() -> None:
 
     # container (static)
     c = spec["container"]
-    cont = mesh_from_npz(scene_dir / c["mesh"], "container")
-    flat_material(cont, "dish", c["color"], c["roughness"])
+    if c.get("asset"):                    # a real scanned plate / bowl (GSO / YCB), centred on the axis
+        cont = load_mesh(c["asset"], scene_dir)
+        cont.persist_transformation_into_mesh()
+        place_on_table(cont, [0, 0, 0], [0, 0, c["asset"].get("yaw", 0.0)])
+        bb = np.array(cont.get_bound_box())
+        loc = np.array(cont.get_location())
+        cont.set_location([loc[0] - bb[:, 0].mean(), loc[1] - bb[:, 1].mean(), loc[2]])
+    else:
+        cont = mesh_from_npz(scene_dir / c["mesh"], "container")
+        flat_material(cont, "dish", c["color"], c["roughness"])
     cont.set_cp("category_id", CONTAINER_ID)
     cont.enable_rigidbody(False, collision_shape="MESH", collision_margin=0.0005)
 
     # food
-    objs, proxies = [], []
+    objs, proxies, part_objs = [], [], {}
     for it in spec["items"]:
         o = load_mesh(it, scene_dir)
+        o.persist_transformation_into_mesh()       # importer axis conversion -> mesh (cached parts' frame)
         s = it["to_m"] * it["scale"]
         o.set_scale([s, s, s])
         if it.get("color") is not None or it["fmt"] == "npz":
@@ -198,17 +317,23 @@ def main() -> None:
         o.set_cp("category_id", it["id"])
         proxy = None
         if it["dynamic"]:
-            o.set_origin(mode="CENTER_OF_VOLUME")   # init_location is the centre, not the base
+            # init_location is the centre, not the base; mesh coords move by -c_local
+            org = np.array(o.set_origin(mode="CENTER_OF_VOLUME"))
+            c_local = org / s
             o.set_location(it["init_location"])
             o.set_rotation_euler(it["init_euler"])
             mass = (it["mass_g"] or it["volume_ml"]) / 1000.0      # kg; ~1 g/mL when unknown
-            # scans have up to ~1 M vertices and Bullet's hull shape walks all of them per
-            # contact query, so simulate a small hull of the same shape and copy its pose back
-            proxy = hull_proxy(o, f"proxy_{it['id']}")
-            (proxy or o).enable_rigidbody(True, collision_shape="CONVEX_HULL", mass=mass, friction=0.8,
-                                          linear_damping=it.get("damping", 0.3),
-                                          angular_damping=it.get("damping", 0.3), collision_margin=0.0005)
-        else:
+            damping = it.get("damping", 0.3)
+            if it.get("collision"):          # CoACD parts (synth.collision): true-shape contacts
+                part_objs[it["id"]] = compound_collider(o, collision_parts(it["collision"]), c_local, mass, damping)
+            else:
+                # scans have up to ~1 M vertices and Bullet's hull shape walks all of them per
+                # contact query, so simulate a small hull of the same shape and copy its pose back
+                proxy = hull_proxy(o, f"proxy_{it['id']}")
+                (proxy or o).enable_rigidbody(True, collision_shape="CONVEX_HULL", mass=mass, friction=0.8,
+                                              linear_damping=damping, angular_damping=damping,
+                                              collision_margin=0.0005)
+        elif not it.get("cloth"):            # cloth (leaves) is simulated after the rigid bodies settle
             o.enable_rigidbody(False, collision_shape="MESH", collision_margin=0.0005)
         objs.append((it, o))
         if proxy:
@@ -218,10 +343,15 @@ def main() -> None:
     # non-food clutter on the table (hard preset): static, its own label
     clutter = []
     for i, d in enumerate(spec.get("distractors", [])):
-        o = mesh_from_npz(scene_dir / d["mesh"], f"distractor_{i}")
-        o.set_location(d["location"])
-        o.set_rotation_euler(d["euler"])
-        textured_material(o, f"distractor_{i}", d["color"], d["roughness"], scale=40, metallic=d["metallic"])
+        if d.get("fmt"):                  # a real scanned prop (YCB / GSO): its own textures
+            o = load_mesh(d, scene_dir)
+            o.persist_transformation_into_mesh()
+            place_on_table(o, d["location"], d["euler"])
+        else:
+            o = mesh_from_npz(scene_dir / d["mesh"], f"distractor_{i}")
+            o.set_location(d["location"])
+            o.set_rotation_euler(d["euler"])
+            textured_material(o, f"distractor_{i}", d["color"], d["roughness"], scale=40, metallic=d["metallic"])
         o.set_cp("category_id", DISTRACTOR_ID)
         o.enable_rigidbody(False, collision_shape="MESH", collision_margin=0.0005)
         clutter.append(o)
@@ -235,6 +365,15 @@ def main() -> None:
         copy_pose(proxy, o)
         proxy.delete()
     bpy.context.view_layer.update()
+
+    cloth = [(it, o) for it, o in objs if it.get("cloth")]
+    if cloth:
+        # obstacles: table, dish, static food, and for dropped scans their convex parts (the
+        # full-resolution scan would make the cloth collision BVH huge)
+        obstacles = [table, cont] + [o for it, o in objs if not it.get("cloth") and it["id"] not in part_objs]
+        obstacles += [k for kids in part_objs.values() for k in kids]
+        simulate_cloth(cloth, obstacles)
+        print(f"[render] cloth done at {time.time() - t0:.0f}s", flush=True)
 
     # lighting
     L = spec["lighting"]
