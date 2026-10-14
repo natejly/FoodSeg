@@ -366,9 +366,11 @@ def relief_noise(x, y, seed: int, scale: float, n: int = 16):
         * np.sqrt(2 / n)
 
 
-def split_angles(rng: np.random.Generator, n: int, rf: float, min_gap: float = 1.2, amp: float = 0.15):
-    """n wavy radial boundaries splitting a disc into n wedges; returns callables th_k(r), k = 0..n
-    (th_n = th_0 + 2 pi), so wedge k spans [th_k, th_{k+1}]."""
+def split_angles(rng: np.random.Generator, n: int, rf: float, min_gap: float = 1.2, amp: float = 0.2,
+                 bend: float = 0.3):
+    """n wavy, curving radial boundaries splitting a disc into n wedges; returns callables th_k(r),
+    k = 0..n (th_n = th_0 + 2 pi), so wedge k spans [th_k, th_{k+1}]. Each boundary strays at most
+    amp + bend < min_gap / 2 from its base angle, so neighbours never cross."""
     if n == 1:
         a0 = rng.uniform(0, 2 * np.pi)
         return [lambda r, a=a0: np.full_like(r, a), lambda r, a=a0: np.full_like(r, a + 2 * np.pi)]
@@ -377,9 +379,11 @@ def split_angles(rng: np.random.Generator, n: int, rf: float, min_gap: float = 1
         if w.min() >= min_gap:
             break
     base = rng.uniform(0, 2 * np.pi) + np.r_[0, np.cumsum(w)[:-1]]
-    waves = [(rng.uniform(-amp, amp), rng.uniform(0.5, 1.5) * rf, rng.uniform(0, 2 * np.pi)) for _ in range(n)]
-    fns = [lambda r, b=b, a=a, lam=lam, ph=ph: b + a * np.sin(2 * np.pi * r / lam + ph) * (r / rf)
-           for b, (a, lam, ph) in zip(base, waves)]
+    waves = [(rng.uniform(-amp, amp), rng.uniform(0.5, 1.5) * rf, rng.uniform(0, 2 * np.pi), rng.uniform(-bend, bend))
+             for _ in range(n)]
+    # a curve (food pushed to one side) plus a wobble; both vanish at the centre
+    fns = [lambda r, b=b, a=a, lam=lam, ph=ph, cb=cb: b + cb * (r / rf) ** 1.5 + a * np.sin(2 * np.pi * r / lam + ph) * (r / rf)
+           for b, (a, lam, ph, cb) in zip(base, waves)]
     return fns + [lambda r, f=fns[0]: f(r) + 2 * np.pi]
 
 

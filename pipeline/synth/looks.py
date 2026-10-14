@@ -46,6 +46,23 @@ PHYSICS_BY_NAME = {   # within a kind
 }
 ITEM_PHYSICS = {"model": "rigid", "rho": 1000}   # scans: rigid bodies coupled to the continuum
 
+# Real small pieces scattered over a food's settled surface (render.scatter_pieces), so grains,
+# flakes and beans have geometry and silhouette instead of painted bumps. Per food a list of
+# (shape, per m^2 of upward-facing surface, size L x W x H mm, colour or None = the food's own
+# material, fraction of the piece's height sunk below the surface).
+PIECES = {
+    "white rice": [("rice", 9e4, (5.5, 2.2, 1.9), None, 0.35)],
+    "brown rice": [("rice", 9e4, (5.0, 2.3, 2.0), None, 0.35)],
+    "fried rice": [("rice", 8e4, (5.5, 2.2, 1.9), None, 0.35), ("pea", 2.5e3, (7, 7, 7), (0.18, 0.42, 0.06), 0.4),
+                   ("cube", 2.5e3, (5, 5, 5), (0.85, 0.32, 0.05), 0.4), ("flake", 2e3, (9, 7, 2), (0.95, 0.78, 0.2), 0.3)],
+    "quinoa": [("quinoa", 3e5, (2.2, 2.2, 1.2), None, 0.3)],
+    "oatmeal": [("flake", 3.5e4, (7, 5.5, 1.0), None, 0.6)],
+    "chili": [("bean", 5e3, (13, 7.5, 6), (0.28, 0.05, 0.04), 0.55)],
+    "lentil stew": [("lentil", 6e4, (4.5, 4.5, 1.8), (0.45, 0.28, 0.1), 0.5)],
+    "mac and cheese": [("macaroni", 1.4e4, (14, 6, 6), None, 0.45)],
+    "salsa": [("cube", 1.5e4, (5, 5, 5), (0.75, 0.08, 0.04), 0.5), ("cube", 6e3, (4, 4, 4), (0.9, 0.88, 0.75), 0.5)],
+}
+
 
 def physics(name: str) -> dict:
     return PHYSICS_BY_NAME.get(name, PHYSICS[kind_of(name)])
@@ -61,7 +78,7 @@ CHUNKS = {
 }
 # coloured bits mixed into grains: (colour, fraction of grains)
 SPECKLES = {
-    "fried rice": [((0.12, 0.35, 0.04), 0.06), ((0.8, 0.28, 0.04), 0.05), ((0.95, 0.75, 0.2), 0.08)],
+    # fried rice: peas / carrot / egg are real pieces now (PIECES), not painted cells
     "quinoa": [((0.35, 0.08, 0.05), 0.08), ((0.12, 0.08, 0.05), 0.05)],
     "brown rice": [((0.30, 0.18, 0.08), 0.15)],
 }
@@ -91,7 +108,7 @@ def look(name: str, rng: np.random.Generator) -> dict:
         L.update(swirl=(u(12, 30), u(0.4, 0.8)), lumps=(u(25, 50), 0.25), coat=u(0.3, 0.6) if glossy else 0.0,
                  sss=0.6 if glossy else 0.35, bump=0.45, tint_var=0.04)
     elif k == "liquid":
-        L.update(coat=u(0.5, 0.8), sss=0.15, bump=0.35, lumps=(u(25, 50), 0.2), swirl=(u(15, 30), 0.15))
+        L.update(coat=u(0.2, 0.4), sss=0.1, bump=0.35, lumps=(u(25, 50), 0.2), swirl=(u(15, 30), 0.15))
         if name in CHUNKS:
             col, (lo, hi), cover = CHUNKS[name]
             L.update(cells={"scale": 1 / u(lo, hi), "mode": "chunk", "jitter": 0.15, "crevice": 0.0,
@@ -100,6 +117,8 @@ def look(name: str, rng: np.random.Generator) -> dict:
         size = u(0.005, 0.008) if name == "mac and cheese" else u(0.008, 0.015)
         L.update(cells={"scale": 1 / size, "mode": "dome", "jitter": 0.1, "crevice": 0.3, "distort": 0.8},
                  coat=u(0.2, 0.4) if name == "mac and cheese" else 0.0, sss=0.35, bump=0.55)
+    if name in PIECES and L["cells"] and L["cells"]["mode"] in ("chunk", "flake"):
+        L["cells"], L["chunk_color"] = None, None     # real beans / flakes are scattered (PIECES): no painted ones
     return L
 
 

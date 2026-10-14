@@ -23,11 +23,13 @@ import numpy as np
 
 from .assets import load_index
 from .collision import ensure as ensure_collision
+from .fetch_assets import SURFACES
 from .finalize import finalize
 from .spec import sample_scene
 from .spec_hard import sample_scene_hard
 
 RENDER = Path(__file__).with_name("render.py")
+SURFACE_IDS = {i for ids in SURFACES.values() for i in ids}     # the curated list (some fetched sets were dropped)
 
 
 def main() -> None:
@@ -39,9 +41,11 @@ def main() -> None:
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--views", type=int, default=24)
     ap.add_argument("--res-scale", type=float, default=1.0)
-    ap.add_argument("--spp", type=int, default=64)
+    ap.add_argument("--spp", type=int, default=128)
     ap.add_argument("--blender", default=str(Path.home() / "blender" / "blender-4.2.1-linux-x64"))
-    ap.add_argument("--hdri-dir", default=None)
+    ap.add_argument("--hdri-dir", default=None, help="default (hard): <online>/polyhaven_hdri")
+    ap.add_argument("--online-dir", default=None,
+                    help="synth.fetch_assets output (HDRIs, tabletop textures); default <assets>/../../datasets/online")
     ap.add_argument("--keep-raw", action="store_true")
     ap.add_argument("--keep-hr", action="store_true")
     ap.add_argument("--preset", choices=["v0", "hard"], default="v0", help="hard: see synth/spec_hard.py")
@@ -55,7 +59,18 @@ def main() -> None:
     root = Path(args.root)
     assets = load_index(args.assets)
     cache = Path(args.collision_cache) if args.collision_cache else Path(args.assets).parent / "collision"
-    hdris = sorted(str(p.resolve()) for p in Path(args.hdri_dir).rglob("*.hdr")) if args.hdri_dir else None
+    online = Path(args.online_dir) if args.online_dir else Path(args.assets).resolve().parent.parent / "datasets" / "online"
+    hdri_dir = Path(args.hdri_dir) if args.hdri_dir else (online / "polyhaven_hdri" if args.preset == "hard" else None)
+    hdris = sorted(str(p.resolve()) for p in hdri_dir.rglob("*.hdr")) if hdri_dir and hdri_dir.exists() else None
+    surfaces = []                                  # PBR tabletops (hard preset)
+    if (online / "sources.jsonl").exists():
+        for line in (online / "sources.jsonl").read_text().splitlines():
+            r = json.loads(line)
+            d = online / r["source"] / r["id"]
+            if r.get("role") == "surface" and r["id"] in SURFACE_IDS and (d / "diffuse.jpg").exists():
+                dims = r.get("dimensions_mm") or [1000, 1000]
+                surfaces.append({"dir": str(d.resolve()), "kind": r["kind"], "tile_m": max(dims[:2]) / 1000.0})
+    print(f"{len(hdris or [])} HDRIs, {len(surfaces)} tabletop textures", flush=True)
     bproc = Path(sys.executable).with_name("blenderproc")
     for i in range(args.start, args.start + args.n):
         sid = f"s{i:06d}"
@@ -64,8 +79,9 @@ def main() -> None:
             continue
         t0 = time.time()
         sampler = sample_scene_hard if args.preset == "hard" else sample_scene
+        extra = {"surfaces": surfaces} if args.preset == "hard" else {}
         spec = sampler(np.random.default_rng([args.seed, i]), assets, sdir, sid, n_views=args.views,
-                       res_scale=args.res_scale, hdris=hdris)
+                       res_scale=args.res_scale, hdris=hdris, **extra)
         if args.preset == "hard" and not args.hull_only:   # true-shape compound colliders for dropped scans
             by_id = {a["id"]: a for a in assets}
             for it in spec["items"]:

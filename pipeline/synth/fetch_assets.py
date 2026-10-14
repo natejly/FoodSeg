@@ -8,9 +8,14 @@ Sources (licences checked 2026-10-13; see docs/dataset_curation.md):
              (tableware: bowl, mug, plate, fork, spoon, knife; food: plastic fruit replicas)
   gso        Google Scanned Objects, CC BY 4.0, OBJ zip   https://app.gazebosim.org/GoogleResearch
              (plates, bowls, mugs, cups, ramekins, saucers)
+  hdri       Poly Haven indoor HDRIs (homes, cafes, restaurants, a few studios), CC0, 2k .hdr:
+             the room light and reflections of a meal photographed indoors
+  surface    Poly Haven PBR texture sets for tabletops (wood, stone, laminate, cloth), CC0, 2k jpg
+             (colour, roughness, OpenGL normal)
 
 Each model lands in OUT/<source>/<id>/ with its files as published; OUT/sources.jsonl gets one
-line per model (source, id, role food / container / clutter, licence, attribution, url).
+line per model (source, id, role food / container / clutter / hdri / surface, licence, attribution,
+url), merged with the lines already there.
 Only meshes and textures are fetched (no .blend files, which can carry scripts).
 """
 from __future__ import annotations
@@ -46,6 +51,53 @@ GSO_EXCLUDE = ("plant", "planter", "dog", "shoe", "loafer", "venetian", "boat", 
 def get(url: str) -> bytes:
     with urllib.request.urlopen(urllib.request.Request(url, headers=UA), timeout=120) as r:
         return r.read()
+
+
+# Indoor HDRIs where people eat (Poly Haven ids; checked 2026-10-14): rooms, cafes, restaurants,
+# plus a few plain studios for even light. Not venues (ballrooms, chapels) or empty sheds.
+HDRIS = ["aft_lounge", "anniversary_lounge", "bush_restaurant", "cabin", "cayley_interior", "combination_room",
+         "comfy_cafe", "country_club", "en_suite", "fireplace", "hotel_room", "kiara_interior", "lythwood_lounge",
+         "lythwood_room", "old_room", "reading_room", "relax_inn_seaview_suite", "small_empty_room_1",
+         "small_empty_room_3", "solitude_interior", "studio_kominka_01", "veranda", "warm_bar", "warm_restaurant",
+         "warm_restaurant_night", "white_home_studio", "wooden_lounge", "brown_photostudio_02", "studio_small_03",
+         "photo_studio_01", "ferndale_studio_05", "provence_studio"]
+# Tabletops: kind -> Poly Haven texture ids
+SURFACES = {
+    "wood": ["wood_table_001", "kitchen_wood", "coated_pine", "coated_pine_02", "plywood", "oak_veneer_02",
+             "oak_veneer_03", "oak_veneer_05", "white_oak_veneer", "american_walnut_veneer", "black_walnut_veneer_01",
+             "european_walnut_veneer_04", "grey_oak_veneer_01", "washed_grey_oak_veneer", "bamboo_veneer",
+             "mocha_oak_veneer", "smoked_walnut_veneer"],
+    "stone": ["marble_01"],          # grey_cartago_*: floor tiles with seams and orange veins, not tabletops
+    "laminate": ["laminate_floor_02"],
+    "cloth": ["gingham_check", "fabric_pattern_05", "fabric_pattern_07", "waffle_pique_cotton", "book_pattern",
+              "stretch_poplin"],
+}
+SURFACE_MAPS = {"Diffuse": "diffuse.jpg", "Rough": "rough.jpg", "nor_gl": "normal_gl.jpg"}
+
+
+def hdris(res: str = "2k") -> list[dict]:
+    out = []
+    for aid in HDRIS:
+        f = json.loads(get(f"https://api.polyhaven.com/files/{aid}"))["hdri"][res]["hdr"]
+        out.append({"source": "polyhaven_hdri", "id": aid, "name": aid, "role": "hdri", "licence": "CC0",
+                    "attribution": "Poly Haven", "url": f"https://polyhaven.com/a/{aid}",
+                    "_files": {f"{aid}_{res}.hdr": f["url"]}})
+    return out
+
+
+def surfaces(res: str = "2k") -> list[dict]:
+    out = []
+    for kind, ids in SURFACES.items():
+        for aid in ids:
+            f = json.loads(get(f"https://api.polyhaven.com/files/{aid}"))
+            if "Diffuse" not in f:                    # patterned fabrics come in colourways: the first
+                f["Diffuse"] = f[sorted(k for k in f if k.startswith("col"))[0]]
+            info = json.loads(get(f"https://api.polyhaven.com/info/{aid}"))
+            out.append({"source": "polyhaven_surface", "id": aid, "name": aid, "role": "surface", "kind": kind,
+                        "licence": "CC0", "attribution": "Poly Haven", "url": f"https://polyhaven.com/a/{aid}",
+                        "dimensions_mm": info.get("dimensions"),        # real-world size of one texture tile
+                        "_files": {name: f[m][res]["jpg"]["url"] for m, name in SURFACE_MAPS.items()}})
+    return out
 
 
 def polyhaven(res: str = "2k") -> list[dict]:
@@ -117,25 +169,32 @@ def gso_texture_fix(d: Path) -> None:
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--out", required=True)
-    ap.add_argument("--sources", nargs="+", default=["polyhaven", "ycb", "gso"])
+    ap.add_argument("--sources", nargs="+", default=["polyhaven", "ycb", "gso", "hdri", "surface"])
     ap.add_argument("--list", action="store_true", help="only print what would be fetched")
     args = ap.parse_args()
     out = Path(args.out)
-    recs = [r for s in args.sources for r in {"polyhaven": polyhaven, "ycb": ycb, "gso": gso}[s]()]
+    srcs = {"polyhaven": polyhaven, "ycb": ycb, "gso": gso, "hdri": hdris, "surface": surfaces}
+    recs = [r for s in args.sources for r in srcs[s]()]
     for r in recs:
         print(f"{r['source']:<9} {r['role']:<9} {r['id']}")
     print(f"{len(recs)} models")
     if args.list:
         return
     out.mkdir(parents=True, exist_ok=True)
-    with open(out / "sources.jsonl", "w") as f:
-        for r in recs:
-            try:
-                fetch(r, out)
-            except Exception as e:  # noqa: BLE001
-                print(f"FAILED {r['source']}/{r['id']}: {e}")
-                continue
-            f.write(json.dumps({k: v for k, v in r.items() if not k.startswith("_")}) + "\n")
+    index = out / "sources.jsonl"
+    lines = {}                                     # (source, id) -> record; keeps other sources' lines
+    if index.exists():
+        for line in index.read_text().splitlines():
+            r = json.loads(line)
+            lines[(r["source"], r["id"])] = r
+    for r in recs:
+        try:
+            fetch(r, out)
+        except Exception as e:  # noqa: BLE001
+            print(f"FAILED {r['source']}/{r['id']}: {e}")
+            continue
+        lines[(r["source"], r["id"])] = {k: v for k, v in r.items() if not k.startswith("_")}
+    index.write_text("".join(json.dumps(r) + "\n" for r in lines.values()))
     print("done ->", out)
 
 
