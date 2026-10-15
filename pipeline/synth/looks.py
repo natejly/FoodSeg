@@ -86,14 +86,14 @@ ITEM_PHYSICS = {"model": "rigid", "rho": 1000}   # scans: rigid bodies coupled t
 # (shape, per m^2 of upward-facing surface, size L x W x H mm, colour or None = the food's own
 # material, fraction of the piece's height sunk below the surface).
 PIECES = {
-    "white rice": [("rice", 9e4, (5.5, 2.2, 1.9), None, 0.35)],
-    "brown rice": [("rice", 9e4, (5.0, 2.3, 2.0), None, 0.35)],
+    "white rice": [("rice", 9e4, (5.5, 2.2, 1.9), None, 0.35), ("rice", 2.5e4, (5.5, 2.2, 1.9), None, 0.05)],
+    "brown rice": [("rice", 9e4, (5.0, 2.3, 2.0), None, 0.35), ("rice", 2.5e4, (5.0, 2.3, 2.0), None, 0.05)],
     "fried rice": [("rice", 8e4, (5.5, 2.2, 1.9), None, 0.35), ("pea", 2.5e3, (7, 7, 7), (0.18, 0.42, 0.06), 0.4),
                    ("cube", 2.5e3, (5, 5, 5), (0.85, 0.32, 0.05), 0.4), ("flake", 2e3, (9, 7, 2), (0.95, 0.78, 0.2), 0.3)],
     "quinoa": [("quinoa", 3e5, (2.2, 2.2, 1.2), None, 0.3)],
     "oatmeal": [("flake", 3.5e4, (7, 5.5, 1.0), None, 0.6)],
     "chili": [("bean", 5e3, (13, 7.5, 6), (0.28, 0.05, 0.04), 0.55)],
-    "lentil stew": [("lentil", 6e4, (4.5, 4.5, 1.8), (0.45, 0.28, 0.1), 0.5)],
+    "lentil stew": [("lentil", 4e4, (4.5, 4.5, 1.8), (0.4, 0.24, 0.08), 0.6)],
     "mac and cheese": [("macaroni", 1.4e4, (14, 6, 6), None, 0.45)],
     "salsa": [("cube", 1.5e4, (5, 5, 5), (0.75, 0.08, 0.04), 0.5), ("cube", 6e3, (4, 4, 4), (0.9, 0.88, 0.75), 0.5)],
     # synth.meals.FOODS
@@ -101,14 +101,14 @@ PIECES = {
     "ramen": [("noodle", 1.0e4, (80, 2.5, 2.5), (0.85, 0.7, 0.35), 0.4), ("cube", 600, (12, 3, 3), (0.2, 0.42, 0.08), 0.2)],
     "penne in tomato sauce": [("penne", 6e3, (26, 8, 8), (0.88, 0.7, 0.36), 0.4)],
     "couscous": [("quinoa", 4e5, (1.6, 1.6, 1.0), None, 0.3)],
-    "dal": [("lentil", 3e4, (4, 4, 1.6), (0.85, 0.6, 0.12), 0.4)],
+    "dal": [("lentil", 2.4e4, (4, 4, 1.6), (0.62, 0.4, 0.08), 0.4)],
     # chicken pieces: rounded lumps stained by the sauce, mostly submerged (pale cubes read as paper)
     "chicken curry": [("chunk", 3e3, (13, 11, 9), (0.6, 0.36, 0.16), 0.6)],
     "green curry": [("chunk", 2.5e3, (13, 11, 9), (0.7, 0.62, 0.4), 0.6), ("pea", 2e3, (8, 8, 8), (0.2, 0.4, 0.05), 0.4)],
     "black beans": [("bean", 1.5e4, (8, 5.5, 4.5), (0.04, 0.03, 0.04), 0.45)],
     "baked beans": [("bean", 1.5e4, (9, 6, 5), (0.72, 0.42, 0.22), 0.45)],
     "congee": [("rice", 3e4, (5.5, 2.4, 2.0), None, 0.8)],
-    "risotto": [("rice", 6e4, (6, 2.8, 2.4), None, 0.5)],
+    "risotto": [("rice", 9e4, (6, 2.8, 2.4), None, 0.35)],
     "miso soup": [("cube", 1.5e3, (8, 8, 8), (0.9, 0.88, 0.8), 0.45), ("cube", 1.5e3, (10, 3, 3), (0.2, 0.42, 0.08), 0.2)],
     "cereal with milk": [("flake", 6e3, (16, 13, 2), (0.82, 0.55, 0.18), 0.2)],
     "granola": [("cluster", 2.5e4, (9, 7, 5), None, 0.35)],
@@ -125,15 +125,15 @@ PIECES = {
 #   film:   thin sauce film at the food / plate boundary: (mean reach m, drip count)
 EXTRAS = {
     "chicken curry": {"oil": ((1.25, 0.75, 0.25), 0.4), "brown": ((0.7, 0.55, 0.45), 0.3),
-                      "flecks": [((0.04, 0.12, 0.02), 0.05, 0.0025), ((0.45, 0.07, 0.015), 0.04, 0.0020),
+                      "flecks": [((0.10, 0.22, 0.05), 0.05, 0.0025), ((0.45, 0.07, 0.015), 0.04, 0.0020),
                                  ((0.9, 0.7, 0.3), 0.02, 0.0018)], "film": (0.006, 3)},
     "green curry": {"oil": ((1.3, 1.0, 0.3), 0.35), "brown": ((0.75, 0.75, 0.55), 0.2),
-                    "flecks": [((0.03, 0.14, 0.02), 0.07, 0.0025), ((0.5, 0.09, 0.02), 0.03, 0.0018),
+                    "flecks": [((0.10, 0.24, 0.05), 0.07, 0.0025), ((0.5, 0.09, 0.02), 0.03, 0.0018),
                                ((0.85, 0.8, 0.5), 0.03, 0.0015)], "film": (0.006, 3)},
     "curry sauce": {"oil": ((1.25, 0.8, 0.3), 0.4), "brown": ((0.75, 0.6, 0.4), 0.2),
                     "flecks": [((0.05, 0.12, 0.02), 0.05, 0.0025)], "film": (0.006, 2)},
     "dal": {"oil": ((1.3, 0.9, 0.3), 0.35), "brown": ((0.65, 0.5, 0.35), 0.3),
-            "flecks": [((0.10, 0.04, 0.015), 0.05, 0.002), ((0.04, 0.14, 0.02), 0.05, 0.0025),
+            "flecks": [((0.10, 0.04, 0.015), 0.05, 0.002), ((0.10, 0.24, 0.05), 0.05, 0.0025),
                        ((0.5, 0.06, 0.01), 0.03, 0.0018)], "film": (0.005, 2)},
     "lentil stew": {"oil": ((1.2, 0.85, 0.35), 0.25), "brown": ((0.65, 0.55, 0.4), 0.3),
                     "flecks": [((0.04, 0.12, 0.02), 0.04, 0.0025)], "film": (0.005, 2)},
@@ -229,6 +229,7 @@ def look(name: str, rng: np.random.Generator) -> dict:
                  sss=0.6 if glossy else 0.35, bump=0.45, tint_var=0.04)
     elif k == "liquid":
         L.update(coat=u(0.2, 0.4), sss=0.1, bump=0.35, lumps=(u(25, 50), 0.2), swirl=(u(15, 30), 0.15))
+        L["swirl"] = None          # sine bands on a pool read as brush strokes (liquids level out)
         if name in CHUNKS:
             col, (lo, hi), cover = CHUNKS[name]
             L.update(cells={"scale": 1 / u(lo, hi), "mode": "chunk", "jitter": 0.15, "crevice": 0.0,
@@ -248,9 +249,11 @@ def look(name: str, rng: np.random.Generator) -> dict:
     L["wet"] = dict(WET[k])
     L["wet"]["patch_scale"] = 30.0 + (sum(map(ord, name)) * 7) % 40       # no rng draw: keeps spec streams unchanged
     x = EXTRAS.get(name, {})
-    L["oil"], L["brown"], L["flecks"] = x.get("oil"), x.get("brown"), x.get("flecks", [])
+    L["oil"], L["brown"] = x.get("oil"), x.get("brown")
+    L["flecks"] = [(c_, f_ * 0.6, s_) for c_, f_, s_ in x.get("flecks", [])]
     L["film"] = x.get("film")
-    L["relief_mm"] = {"liquid": 0.0, "porridge": 1.2, "puree": 0.8, "curd": 1.2, "grain": 0.0}[k]
+    L["smooth_iter"] = {"liquid": 14, "porridge": 8, "puree": 5, "curd": 3, "grain": 3}[k]   # marching-cubes terraces
+    L["relief_mm"] = {"liquid": 0.0, "porridge": 1.2, "puree": 0.8, "curd": 1.2, "grain": 1.5}[k]
     L["ao"] = True                       # darken the paste between real grains
     if name in PIECES and L["cells"] and L["cells"]["mode"] in ("chunk", "flake"):
         L["cells"], L["chunk_color"] = None, None     # real beans / flakes are scattered (PIECES): no painted ones

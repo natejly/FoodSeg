@@ -270,7 +270,9 @@ def photo_texture(nt, links, coord, tex: dict, colour):
         return t.outputs["Color"]
 
     def rnd_rot():
-        return tuple(float(x) for x in rng.uniform(0, 6.28, 3))
+        # about Z only: a tilted rotation before the box projection stretched the tile into long streaks
+        # ("brush strokes") on every top-facing surface
+        return (0.0, 0.0, float(rng.uniform(0, 6.28)))
 
     mask_n = nt.new("ShaderNodeTexNoise")
     mask_n.inputs["Scale"].default_value = float(rng.uniform(14, 26))
@@ -509,8 +511,9 @@ def food_material(obj, name: str, color, roughness: float, L: dict) -> None:
             rf = nt.new("ShaderNodeSeparateColor")
             links.new(vf.outputs["Color"], rf.inputs["Color"])
             sel = math("MULTIPLY", math("LESS_THAN", rf.outputs["Green"], float(frac)),
-                       math("LESS_THAN", vf.outputs["Distance"], 0.42))
-            colour = mix(math("MULTIPLY", sel, 0.92), colour, list(np.clip(fc, 0, 1)))
+                       ramp(vf.outputs["Distance"], 0.5, 0.22, 0.0, 1.0))         # soft-edged bit
+            strength = math("MULTIPLY", sel, math("ADD", 0.45, math("MULTIPLY", rf.outputs["Blue"], 0.4)))
+            colour = mix(strength, colour, list(np.clip(fc, 0, 1)))
         # sauce pools in crevices: darker and more saturated (colour squared), and wet
         sq = nt.new("ShaderNodeMixRGB")
         sq.blend_type = "MULTIPLY"
@@ -1465,7 +1468,8 @@ def add_relief(o, it: dict, seed: int) -> bool:
     upward-facing vertices along their normal by lumps / the photo height map (synth.looks relief_mm)."""
     L = it.get("look") or {}
     amp = float(L.get("relief_mm", 0.0)) / 1000.0
-    if amp <= 0:
+    n_smooth = int(L.get("smooth_iter", 0))
+    if amp <= 0 and n_smooth <= 0:
         return False
     rng = np.random.default_rng(seed)
     nface = len(o.blender_obj.data.polygons)
@@ -1476,6 +1480,29 @@ def add_relief(o, it: dict, seed: int) -> bool:
     nt, links = tree.nodes, tree.links
     gin, gout = nt.new("NodeGroupInput"), nt.new("NodeGroupOutput")
     src = gin.outputs[0]
+    if n_smooth:         # marching-cubes terraces read as brush strokes under a glossy coat: relax the top surface
+        pos0, nrm0 = nt.new("GeometryNodeInputPosition"), nt.new("GeometryNodeInputNormal")
+        nz0 = nt.new("ShaderNodeSeparateXYZ")
+        links.new(nrm0.outputs[0], nz0.inputs[0])
+        topsel = nt.new("FunctionNodeCompare")
+        topsel.data_type, topsel.operation = "FLOAT", "GREATER_THAN"
+        links.new(nz0.outputs["Z"], topsel.inputs[0])
+        topsel.inputs[1].default_value = 0.35
+        blur = nt.new("GeometryNodeBlurAttribute")
+        blur.data_type = "FLOAT_VECTOR"
+        links.new(pos0.outputs[0], blur.inputs["Value"])
+        blur.inputs["Iterations"].default_value = n_smooth
+        blur.inputs["Weight"].default_value = 1.0
+        sp0 = nt.new("GeometryNodeSetPosition")
+        links.new(src, sp0.inputs["Geometry"])
+        links.new(topsel.outputs[0], sp0.inputs["Selection"])
+        links.new(blur.outputs["Value"], sp0.inputs["Position"])
+        src = sp0.outputs[0]
+    if amp <= 0:
+        links.new(src, gout.inputs[0])
+        mod = o.blender_obj.modifiers.new("relief", "NODES")
+        mod.node_group = tree
+        return True
     if level:
         sd = nt.new("GeometryNodeSubdivideMesh")
         sd.inputs["Level"].default_value = level
