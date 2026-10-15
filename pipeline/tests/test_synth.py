@@ -144,7 +144,8 @@ def test_hard_spec(tmp_path):
         spec = sample_scene_hard(np.random.default_rng([0, i]), assets, tmp_path / f"s{i}", f"s{i:06d}",
                                  n_views=4, res_scale=0.25)
         assert [it["id"] for it in spec["items"]] == list(range(1, len(spec["items"]) + 1))
-        assert len(spec["items"]) <= 8 and all(it["volume_ml"] > 0 for it in spec["items"])
+        # max_items default is 14: served portions are several copies (berries, nuggets), not one scan
+        assert len(spec["items"]) <= 14 and all(it["volume_ml"] > 0 for it in spec["items"])
         for it in spec["items"]:
             kinds.add(it["shape"]["kind"])
             if it["shape"]["kind"] == "topping":

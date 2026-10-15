@@ -116,6 +116,24 @@ TEMPLATES = [
 SOURCE_P = {"template": 0.45, "n5k": 0.3, "random": 0.25}
 
 
+SIDES = ["broccoli", "carrot", "cherry tomato", "green beans", "blueberries", "strawberry", "grapes", "yeast bread",
+         "boiled egg", "apple", "cucumber", "orange", "bread roll", "cauliflower"]
+FRUIT_SIDES = ["blueberries", "strawberry", "grapes", "kiwi", "pineapple", "orange", "melons"]
+
+
+def _enrich(rng, meal: dict) -> dict:
+    """Real plates hold two or three things: a meal with fewer gets a side (veg, fruit, bread) or
+    a second one. Soups / porridge in bowls stay one dish."""
+    if meal["dish"] == "bowl" and meal["source"] != "n5k":
+        return meal
+    n = len(meal["heap"]) + len(meal["scans"]) + bool(meal["pile"]) + bool(meal["greens"])
+    pool = FRUIT_SIDES if meal["cuisine"] in ("fruit", "dessert") else SIDES
+    while n < 2 or (n < 3 and rng.random() < 0.4):
+        meal["scans"].append(_pick(rng, pool))
+        n += 1
+    return meal
+
+
 def _pick(rng, options):
     return options[rng.integers(len(options))] if options else None
 
@@ -139,10 +157,10 @@ def sample_meal(rng: np.random.Generator, n5k: dict | None = None) -> dict:
                 if f:
                     heap.append(f)
         scans = [_pick(rng, opts) for opts, p in t["scans"] if rng.random() < p]
-        return {"source": "template", "name": t["name"], "cuisine": t["cuisine"], "dish": t["dish"], "heap": heap,
-                "layout": t["layout"], "top": t["top"],
-                "toppings": list(t["toppings"]), "greens": _pick(rng, t["greens"]) if rng.random() < t["p_greens"] else None,
-                "pile": _pick(rng, t["pile"]) if rng.random() < t["p_pile"] else None, "scans": scans}
+        return _enrich(rng, {"source": "template", "name": t["name"], "cuisine": t["cuisine"], "dish": t["dish"],
+                "heap": heap, "layout": t["layout"], "top": t["top"], "toppings": list(t["toppings"]),
+                "greens": _pick(rng, t["greens"]) if rng.random() < t["p_greens"] else None,
+                "pile": _pick(rng, t["pile"]) if rng.random() < t["p_pile"] else None, "scans": scans})
     from .composition import sample_dish
     vis = sample_dish(rng, n5k["dishes"], n5k["mapping"], renderable_only=False)
     heap, toppings, scans, greens = [], [], [], None
@@ -155,5 +173,6 @@ def sample_meal(rng: np.random.Generator, n5k: dict | None = None) -> dict:
             scans.append(_pick(rng, m[1]))
         elif m == ("gap", "leafy"):
             greens = ing                           # spec_hard falls back to mixed greens
-    return {"source": "n5k", "name": " + ".join(n for n, _, _ in vis), "cuisine": "cafeteria (n5k)", "dish": "any",
-            "heap": heap, "toppings": toppings, "greens": greens, "pile": None, "scans": scans}
+    return _enrich(rng, {"source": "n5k", "name": " + ".join(n for n, _, _ in vis), "cuisine": "cafeteria (n5k)",
+                         "dish": "any", "heap": heap, "toppings": toppings, "greens": greens, "pile": None,
+                         "scans": scans})
