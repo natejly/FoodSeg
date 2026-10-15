@@ -102,8 +102,15 @@ def label_metrics(a, b, seg):
     return out
 
 
-def cam_matrices(root: Path, sid: str):
+def cam_matrices(root: Path, sid: str, pose_source: str = "frames"):
+    """frame dicts with intrinsics + ARKit transform. pose_source "spec": the TRUE poses from the spec
+    (world_to_arkit @ camera c2w; exported frames.jsonl poses may carry drift noise)."""
     fr = [json.loads(l) for l in open(root / "scans" / sid / "frames.jsonl")]
+    if pose_source == "spec":
+        sp = json.load(open(root / "specs" / sid / "spec.json"))
+        W = np.array(sp["world_to_arkit"])
+        for f, c in zip(fr, sp["camera"]["c2w"]):
+            f["transform"] = (W @ np.array(c)).tolist()
     return fr
 
 
@@ -125,8 +132,8 @@ def reproject(fi, fj, di, dj, sc):
     return uj.reshape(h, w), vj.reshape(h, w), zj.reshape(h, w)
 
 
-def view_consistency(orig_root, ref_root, sid, ks, pairs=None):
-    fr = cam_matrices(orig_root, sid)
+def view_consistency(orig_root, ref_root, sid, ks, pairs=None, pose_source="frames", food_only=False):
+    fr = cam_matrices(orig_root, sid, pose_source)
     ims = {}
     for k in ks:
         a, b = load(orig_root, sid, k), load(ref_root, sid, k)
@@ -142,7 +149,7 @@ def view_consistency(orig_root, ref_root, sid, ks, pairs=None):
         aj, bj, sj, dj = ims[j]
         uj, vj, zj = reproject(fr[i], fr[j], di, dj, sc)
         h, w = di.shape
-        ok = (di > 0.05) & (si > 0) & (uj >= 1) & (uj < w - 2) & (vj >= 1) & (vj < h - 2) & (zj > 0.05)
+        ok = (di > 0.05) & ((si > 0) & (si <= 252) if food_only else (si > 0)) & (uj >= 1) & (uj < w - 2) & (vj >= 1) & (vj < h - 2) & (zj > 0.05)
         m = np.zeros_like(ok)
         zs = cv2.remap(dj, uj.astype(np.float32), vj.astype(np.float32), cv2.INTER_NEAREST)
         ss = cv2.remap(sj, uj.astype(np.float32), vj.astype(np.float32), cv2.INTER_NEAREST)
@@ -173,6 +180,8 @@ def main():
     ap.add_argument("--scans", nargs="*")
     ap.add_argument("--frames", nargs="*", type=int, default=[0, 1, 2, 3, 4, 5, 6, 7])
     ap.add_argument("--json")
+    ap.add_argument("--pose-source", default="spec", choices=["frames", "spec"])
+    ap.add_argument("--food-only", action="store_true", help="view consistency over food pixels only")
     a = ap.parse_args()
     o, r = Path(a.orig), Path(a.ref)
     sids = a.scans or sorted(p.name for p in (r / "scans").iterdir())
@@ -187,7 +196,7 @@ def main():
             seg, _ = raw(o, sid, k)
             bm.append(boundary_metrics(A, B, seg))
             lm.append(label_metrics(A, B, seg))
-        res[sid] = dict(boundary=bm, label=lm, views=view_consistency(o, r, sid, ks) if len(ks) > 1 else None)
+        res[sid] = dict(boundary=bm, label=lm, views=view_consistency(o, r, sid, ks, pose_source=a.pose_source, food_only=a.food_only) if len(ks) > 1 else None)
         print(sid, "done", flush=True)
     if a.json:
         json.dump(res, open(a.json, "w"))

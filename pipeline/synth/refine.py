@@ -50,7 +50,8 @@ def load_pipe(offload: bool = True):
     pipe = StableDiffusionControlNetImg2ImgPipeline.from_pretrained(
         MODEL, controlnet=cn, torch_dtype=dt, safety_checker=None, requires_safety_checker=False)
     pipe.scheduler = UniPCMultistepScheduler.from_config(pipe.scheduler.config)
-    pipe.enable_attention_slicing()
+    os.environ.setdefault("PYTORCH_CUDA_ALLOC_CONF", "expandable_segments:True")
+    pipe.enable_attention_slicing("max")   # fits next to a Blender job on a 6 GB card
     pipe.vae.enable_tiling()
     if offload:
         pipe.enable_model_cpu_offload()
