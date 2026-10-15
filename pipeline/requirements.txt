@@ -1,6 +1,6 @@
-open3d
-numpy
-opencv-python-headless
-pillow
-tqdm
-scipy
+open3d==0.20.0
+numpy==1.26.4
+opencv-python-headless==4.10.0.84
+pillow==12.3.0
+tqdm==4.70.1
+scipy==1.14.1

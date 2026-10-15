@@ -21,7 +21,7 @@ plausibly. `develop` + `apply` are the older cheap path (kept for non-HDR frames
 """
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 
 import numpy as np
 from scipy import ndimage
@@ -83,9 +83,10 @@ class PhoneCamera:
     nr_chroma: float = 1.8          # chroma denoise sigma, px at 1920
     sharpen_sigma: float = 1.0
     motion_p: float = 0.35          # share of frames with visible hand-shake blur
+    degraded: bool = False          # a poor capture (low light / shaky hands): wide blur and noise ranges
 
     @classmethod
-    def sample(cls, rng: np.random.Generator) -> "PhoneCamera":
+    def sample(cls, rng: np.random.Generator, p_degraded: float = 0.2) -> "PhoneCamera":
         base = dict(noise_sigma=float(rng.uniform(0.5, 3.0)), blur_px_max=float(rng.uniform(0.5, 4.0)),
                     defocus_p=float(rng.uniform(0.0, 0.3)), jpeg_quality=int(rng.integers(84, 96)),
                     ev_bias=float(rng.normal(0, 0.35)), vignette=float(rng.uniform(0.08, 0.3)),
@@ -93,7 +94,7 @@ class PhoneCamera:
         # illuminant error lives mostly on the blue-amber axis (what AWB gets wrong), a little green-magenta
         ba, gm = rng.normal(0, 0.055), rng.normal(0, 0.025)
         base["wb_gain"] = (float(np.exp(ba + gm)), 1.0, float(np.exp(-ba + gm)))
-        return cls(**base,
+        cam = cls(**base,
                    ae_target=float(np.exp(rng.normal(0, 0.12))), ae_follow=float(rng.uniform(0.15, 0.55)),
                    ae_drift_ev=float(rng.uniform(0.04, 0.2)),
                    ae_phase=tuple(float(v) for v in rng.uniform(0, 6.28, 4)),
@@ -106,6 +107,13 @@ class PhoneCamera:
                    vibrance=float(rng.uniform(0.0, 0.15)), nr_luma=float(rng.uniform(0.25, 0.8)),
                    nr_chroma=float(rng.uniform(2.5, 4.0)), sharpen_sigma=float(rng.uniform(0.8, 1.3)),
                    motion_p=float(rng.uniform(0.15, 0.5)))
+        # a minority of scans are poor captures: blur up to 6 px, noise (legacy sigma) up to 5 and ISO to 2000.
+        # Drawn last so the draws above (and so most of a scan's look) do not depend on it.
+        if rng.random() < p_degraded:
+            cam = replace(cam, degraded=True, blur_px_max=float(rng.uniform(4.0, 6.0)), noise_sigma=float(rng.uniform(3.0, 5.0)),
+                          iso=float(np.exp(rng.uniform(np.log(600), np.log(2000)))), motion_p=float(rng.uniform(0.5, 0.9)),
+                          nr_luma=float(rng.uniform(0.5, 0.9)))
+        return cam
 
     @classmethod
     def from_json(cls, d: dict) -> "PhoneCamera":

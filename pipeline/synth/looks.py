@@ -50,7 +50,7 @@ KIND = {
     "penne in tomato sauce": "liquid", "dal": "liquid", "chicken curry": "liquid", "green curry": "liquid",
     "black beans": "liquid", "baked beans": "liquid", "tomato soup": "liquid", "pumpkin soup": "liquid",
     "miso soup": "liquid", "ramen": "liquid", "cereal with milk": "liquid",
-    "spaghetti": "curd",
+    "spaghetti": "curd", "roasted eggplant": "curd",
 }
 
 # MPM constitutive model per consistency (synth.mpm), SI units. Values are softer / less
@@ -118,6 +118,9 @@ PIECES = {
 }
 
 
+OIL_SHEEN_P = 0.3
+
+
 def physics(name: str) -> dict:
     return PHYSICS_BY_NAME.get(name, PHYSICS[kind_of(name)])
 
@@ -140,6 +143,16 @@ SPECKLES = {
 
 def kind_of(name: str) -> str:
     return KIND.get(name, "curd")
+
+
+TRANSLUCENT_WORDS = ("soup", "congee", "yogurt", "sour cream", "oatmeal", "porridge", "hummus", "guacamole",
+                     "mashed potato", "cereal with milk", "polenta", "risotto", "pudding", "custard", "ice cream")
+
+
+def is_translucent(name: str) -> bool:
+    """Puree / porridge / soup-like foods: subsurface scattering delays the LiDAR return (synth.lidar)."""
+    n = str(name).lower().replace("_", " ")
+    return kind_of(n) in ("puree", "porridge") or any(w in n for w in TRANSLUCENT_WORDS)
 
 
 def look(name: str, rng: np.random.Generator) -> dict:
@@ -179,6 +192,13 @@ def look(name: str, rng: np.random.Generator) -> dict:
                         "strength": {"puree": 0.7, "liquid": 0.8, "porridge": 0.8}.get(k, 1.0),
                         "relief": u(1.0, 1.8) if k in ("grain", "curd") else u(0.5, 1.0)}
             L["tint_var"] = min(L["tint_var"], 0.04)
+    # mild micro-bump + oil sheen on smooth mounds (purees, porridge, curds, grains stay as they are):
+    # a thin glossy film breaks the clean mound into small specular glints, as a spoon-smoothed surface does
+    if k in ("puree", "porridge", "curd") and name not in ("yogurt", "sour cream") and rng.random() < OIL_SHEEN_P:
+        L["micro_bump"] = u(0.05, 0.15)               # added to `bump` (render.food_material reads bump + coat only)
+        L["bump"] = float(min(0.8, L["bump"] + L["micro_bump"]))
+        L["coat"] = float(min(0.7, L.get("coat", 0.0) + u(0.1, 0.25)))
+        L["oil_sheen"] = True
     L["ao"] = name in PIECES                        # darken the paste between real grains
     if name in PIECES and L["cells"] and L["cells"]["mode"] in ("chunk", "flake"):
         L["cells"], L["chunk_color"] = None, None     # real beans / flakes are scattered (PIECES): no painted ones

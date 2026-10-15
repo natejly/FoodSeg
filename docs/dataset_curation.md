@@ -53,6 +53,13 @@ Plan:
   1.1 % topping, **21.2 % gap**; **62.6 % of dishes render in full** (was 43.9 %). Left:
   leafy greens 1,476 components, unmapped tail 1,121, corn kernels / radishes 111,
   sliced meat 75.
+- **After the composition fixes** (assets_v3 index; leafy greens counted as renderable because
+  `spec_hard.GREENS` serves them; corn and eggplant are procedural fills, ham a scan, noodles /
+  pasta the spaghetti fill, cheese melted only in pizza / quesadilla / nachos-like dishes and
+  cubes otherwise, ~50 more ingredients and condiments mapped): 70.0 % scan / primitive,
+  14.4 % fill, 0.8 % topping, 11.6 % leaf, **3.2 % gap** (all unmapped tail);
+  **92.2 % of dishes render in full** (71.0 % if leafy greens are still counted as a gap, the
+  basis of the 62.6 % above).
 - Keep a share (~20 %) of uniform random compositions so models don't learn the cafeteria
   prior only.
 
@@ -135,7 +142,7 @@ plus an "effective number" = exp(entropy): how many equally common categories it
 | meal source | `synth.meals`: cuisine template 45 %, real Nutrition5k dish 30 %, random 25 % | keep random >= 20 % (hard cases, no cafeteria prior) |
 | cuisine | 11 groups: South / East / Southeast Asian, Latin American, Middle Eastern, Italian, Western breakfast / lunch / dinner, fruit, dessert (cuisine sampled first, then a template) | no group > 15 % of template scenes; add West African, Korean, Ethiopian next |
 | food consistency | grain, porridge, puree, liquid (stews, curries, soups), curd, leaves, rigid scans | every consistency >= 5 % of items |
-| foods | 33 procedural foods (rice, noodles, curries, soups, beans, hummus, granola ...) + 135 scanned categories | effective number of foods >= 50 per 1,000 scenes |
+| foods | 34 procedural foods (rice, noodles, curries, soups, beans, hummus, granola ...) + 124 food categories (scans and primitives; assets_v3) | effective number of foods >= 50 per 1,000 scenes |
 | arrangement | heap layouts: side by side 35 %, sauce poured over 25 %, patches 20 %, wedges 20 %; piles; toppings; leaves | >= 30 % of scenes with touching foods of different kinds |
 | dish | procedural plate / bowl (glazed, rim bands), scanned GSO / YCB dishes; soups only in bowls | >= 15 % scanned dishes |
 | scene | 31 indoor HDRIs, 25 tabletop textures (wood, marble, laminate, cloth), cutlery / mug / napkin clutter | no room > 8 % of scenes |
@@ -146,7 +153,7 @@ annotations, not yet downloaded):
 
 | source | what | licence | access | status |
 |---|---|---|---|---|
-| MetaFood3D | 617 usable scans, ~108 categories, with weights | CC BY-NC 4.0 | have | in use |
+| MetaFood3D | 637 scans in 108 categories (617 usable in 105 after volume / container QA), 634 with weights | CC BY-NC 4.0 | have | in use |
 | Poly Haven | 12 food models | CC0 | have | in use |
 | YCB / GSO | fruit replicas, dishes, cutlery, mugs | CC BY 4.0 | have | in use |
 | **Objaverse-LVIS (food)** | 3,504 objects in 104 food categories; **712 are photogrammetry scans** (tags / descriptions) under CC BY / BY-SA / CC0, 95 categories, **~19 GB** | mostly CC BY (attribution) | public, no account (`objaverse` package) | **next: needs a go-ahead for the 19 GB download**; not metric, so each needs a real-world size from a per-category size table, plus a QC render (stylised models slip through tags) |

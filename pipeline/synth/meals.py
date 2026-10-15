@@ -28,6 +28,7 @@ FOODS = {
     "ramen": ((0.6, 0.42, 0.18), 0.15), "cereal with milk": ((0.9, 0.9, 0.86), 0.2),
     "granola": ((0.55, 0.36, 0.14), 0.7), "corn": ((0.92, 0.72, 0.12), 0.45),
     "mixed vegetables": ((0.35, 0.3, 0.12), 0.5),
+    "roasted eggplant": ((0.16, 0.07, 0.05), 0.4),          # Nutrition5k eggplant: dark, glossy, soft cubes
 }
 # Too runny for a plate: only served in bowls.
 BOWL_ONLY = {"tomato soup", "pumpkin soup", "miso soup", "ramen", "cereal with milk", "congee"}
@@ -181,12 +182,18 @@ def _no_whole_produce(meal: dict) -> dict:
     if meal["cuisine"] == "fruit" or meal["source"] == "random":
         return meal
     out = []
+    gs = (meal.get("grams") or {}).get("scans")
+    new_g: dict = {}
     for k in meal["scans"]:
-        k = str(k).lower().replace("_", " ")
-        k = REPLACE[k] if k in REPLACE else k
+        k0 = str(k).lower().replace("_", " ")
+        k = REPLACE[k0] if k0 in REPLACE else k0
+        if k and gs and k0 in gs:
+            new_g[k] = new_g.get(k, 0.0) + gs[k0]
         if k and k not in out:
             out.append(k)
     meal["scans"] = out
+    if gs is not None:
+        meal["grams"]["scans"] = new_g
     if meal["pile"] and str(meal["pile"]).lower() in REPLACE:
         meal["pile"] = REPLACE[str(meal["pile"]).lower()]
     return meal
@@ -221,16 +228,26 @@ def sample_meal(rng: np.random.Generator, n5k: dict | None = None) -> dict:
                 "pile": _pick(rng, t["pile"]) if rng.random() < t["p_pile"] else None, "scans": scans}))
     from .composition import sample_dish
     vis = sample_dish(rng, n5k["dishes"], n5k["mapping"], renderable_only=False)
-    heap, toppings, scans, greens = [], [], [], None
-    for ing, grams, m in vis:
-        if m[0] == "fill" and m[1] not in heap and len(heap) < 3:
-            heap.append(m[1])
+    heap, toppings, scans, leaves = [], [], [], []
+    grams: dict = {"heap": {}, "scans": {}, "toppings": {}, "greens": {}}
+    for ing, g, m in vis:
+        if m[0] == "fill" and (m[1] in heap or len(heap) < 3):
+            if m[1] not in heap:
+                heap.append(m[1])
+            grams["heap"][m[1]] = grams["heap"].get(m[1], 0.0) + g
         elif m[0] == "topping":
-            toppings.append(m[1])
-        elif m[0] == "asset":
-            scans.append(_pick(rng, m[1]))
-        elif m == ("gap", "leafy"):
-            greens = ing                           # spec_hard falls back to mixed greens
+            if m[1] not in toppings:
+                toppings.append(m[1])
+            grams["toppings"][m[1]] = grams["toppings"].get(m[1], 0.0) + g
+        elif m[0] == "asset" and m[1]:
+            c_ = _pick(rng, m[1]).lower().replace("_", " ")
+            scans.append(c_)
+            grams["scans"][c_] = grams["scans"].get(c_, 0.0) + g
+        elif m[0] == "leaf":                       # every leafy ingredient is kept (spec_hard serves up to 3)
+            if m[1] not in leaves:
+                leaves.append(m[1])
+            grams["greens"][m[1]] = grams["greens"].get(m[1], 0.0) + g
+    leaves.sort(key=lambda n: -grams["greens"][n])
     return _no_whole_produce(_enrich(rng, {"source": "n5k", "name": " + ".join(n for n, _, _ in vis), "cuisine": "cafeteria (n5k)",
-                         "dish": "any", "heap": heap, "toppings": toppings, "greens": greens, "pile": None,
-                         "scans": scans}))
+                         "dish": "any", "heap": heap, "toppings": toppings, "greens": leaves[0] if leaves else None,
+                         "greens_all": leaves[:3], "pile": None, "scans": scans, "grams": grams}))

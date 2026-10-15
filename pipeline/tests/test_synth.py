@@ -161,7 +161,10 @@ def test_hard_spec(tmp_path):
                                  n_views=4, res_scale=0.25)
         assert [it["id"] for it in spec["items"]] == list(range(1, len(spec["items"]) + 1))
         # max_items default is 14: served portions are several copies (berries, nuggets), not one scan
-        assert len(spec["items"]) <= 14 and all(it["volume_ml"] > 0 for it in spec["items"])
+        # same-category piles (up to 25 pieces) have their own budget (PILES_TOTAL per scene)
+        n_pile = sum(it["shape"]["kind"] == "pile" for it in spec["items"])
+        assert len(spec["items"]) - n_pile <= 16 and n_pile <= 34
+        assert all(it["volume_ml"] > 0 for it in spec["items"])
         for it in spec["items"]:
             kinds.add(it["shape"]["kind"])
             if it["shape"]["kind"] == "topping":

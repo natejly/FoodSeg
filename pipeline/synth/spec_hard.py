@@ -23,7 +23,8 @@ import numpy as np
 from .geometry import (Container, Mound, box_mesh, ellipsoid_mesh, lathe_solid, mesh_volume, salad_sheets, sample_container,
                        split_angles, topping_mesh)
 from .looks import PIECES, kind_of, look, physics, shape
-from .meals import BOWL_ONLY, FOODS, SCAN_FOR_FILL, SCAN_P, WHOLE_RAW, sample_meal
+from .density import density_for
+from .meals import BOWL_ONLY, FOODS, SCAN_FOR_FILL, SCAN_P, SIDES, WHOLE_RAW, sample_meal
 
 # whole fruit that may lie on a fruit plate
 FRUIT_PLATE_OK = {"apple", "orange", "banana", "peach", "pear", "plum", "kiwi", "mango"}
@@ -58,8 +59,11 @@ DISTRACTOR_ID = 253
 def _procedural(name: str, mesh: str, V: np.ndarray, F: np.ndarray, out: Path, col, rough: float,
                 source: str, shape: dict, rng: np.random.Generator) -> dict:
     np.savez_compressed(out / mesh, V=V.astype(np.float32), F=F.astype(np.int32))
+    vol_ml = mesh_volume(V, F) * 1e6
+    rho = density_for(name, shape.get("kind"))       # as-served bulk density, g/mL (synth.density)
     return {"name": name, "category": name, "source": source, "asset_id": None, "mesh": mesh, "fmt": "npz",
-            "to_m": 1.0, "scale": 1.0, "volume_ml": mesh_volume(V, F) * 1e6, "mass_g": None, "dynamic": False,
+            "to_m": 1.0, "scale": 1.0, "volume_ml": vol_ml, "mass_g": float(vol_ml * rho), "mass_source": "density",
+            "density_g_ml": float(rho), "dynamic": False,
             "fill": None, "color": list(col), "roughness": rough, "procedural": True, "generated": False,
             "texture": True, "shape": shape,
             # appearance and MPM material by consistency (synth.looks, synth.mpm)
@@ -684,10 +688,31 @@ def _pack(rng: np.random.Generator, radii: list[float], R_lim: float, gap: float
     return [np.zeros(2)] * len(radii), radii
 
 
+MIN_FILL = 0.35          # projected footprint of the food as a share of the dish well
+POUR = ("french fry", "tortilla chips")     # long-ish pieces that are still poured in a heap
+PILES_TOTAL = 32         # pile pieces in a whole scene (on top of the max_items budget)
+PILE_MAX = 25            # pieces in one same-category pile (labels stay far below 252..255)
+
+
 def sample_scene_hard(rng: np.random.Generator, assets: list[dict], out: Path, scene_id: str,
                       n_views: int = 24, res_scale: float = 1.0, max_items: int = 14,
                       hdris: list[str] | None = None, surfaces: list[dict] | None = None,
                       n5k: dict | None = None) -> dict:
+    """One hard scene spec. A plate whose food covers less than MIN_FILL of the dish (after the
+    in-scene top-up of extra scans / piles) is redrawn, up to 3 times (`redraws` in the meal log)."""
+    for attempt in range(4):
+        spec = _sample_scene_hard(rng, assets, out, scene_id, n_views, res_scale, max_items, hdris, surfaces, n5k)
+        if spec["fill_fraction"] >= MIN_FILL or attempt == 3:
+            break
+    spec["meal"]["redraws"] = attempt
+    (out / "spec.json").write_text(json.dumps(spec, indent=1, default=lambda o: o.tolist()))
+    return spec
+
+
+def _sample_scene_hard(rng: np.random.Generator, assets: list[dict], out: Path, scene_id: str,
+                       n_views: int = 24, res_scale: float = 1.0, max_items: int = 14,
+                       hdris: list[str] | None = None, surfaces: list[dict] | None = None,
+                       n5k: dict | None = None) -> dict:
     out.mkdir(parents=True, exist_ok=True)
     # what is served (synth.meals): a cuisine template, a real Nutrition5k dish, or random
     meal = sample_meal(rng, n5k)
@@ -773,24 +798,40 @@ def sample_scene_hard(rng: np.random.Generator, assets: list[dict], out: Path, s
                  and (c.kind == "bowl" or n not in BOWL_ONLY)][:3]
     if real_dish is not None:
         foods = []
-    greens = (GREENS[rng.integers(len(GREENS))] if rng.random() < 0.35 else None) if meal["source"] == "random" \
-        else (next((g for g in GREENS if g[0] == meal["greens"]), GREENS[3]) if meal["greens"] else None)   # [3] mixed greens
+    if meal["source"] == "random":
+        greens_list = [GREENS[rng.integers(len(GREENS))]] if rng.random() < 0.35 else []
+    else:                                           # every leafy ingredient of the meal (n5k: up to 3), else the one
+        names = list(dict.fromkeys(meal.get("greens_all") or ([meal["greens"]] if meal["greens"] else [])))
+        greens_list = [next((g for g in GREENS if g[0] == n_), GREENS[3]) for n_ in names]   # [3] mixed greens
+        greens_list = list({g[0]: g for g in greens_list}.values())
+    greens = greens_list[0] if greens_list else None
+    gm = meal.get("grams") or {}
 
     groups: list[dict] = []
     requested: list[str] = []
     unresolved: list[str] = []
+    unfulfilled: list[dict] = []                     # requested by the meal, not in the scene: {name, reason}
 
     def add_group(name: str, copies: int | None = None, assets_: list[dict] | None = None, **extra) -> None:
         requested.append(str(name))
         grp = assets_ or resolve_cat(name)
         if not grp:
             unresolved.append(str(name))
+            unfulfilled.append({"name": str(name), "reason": "no_asset"})
             return
+        key = str(name).lower().replace("_", " ")
         ext = float(np.median([max(a_["extent_m"]) for a_ in grp]))
-        n = copies if copies is not None else n_copies(rng, str(name).lower().replace("_", " "), ext,
-                                                       grp[0].get("serving_copies"))
+        pile = copies is None and (ext < 0.065 or key in POUR)
+        n = copies if copies is not None else n_copies(rng, key, ext, grp[0].get("serving_copies"))
+        grams_ = (gm.get("scans") or {}).get(key) if copies is None else None
+        masses = [a_["mass_g"] for a_ in grp if a_.get("mass_g")]
+        if grams_ and masses:                          # Nutrition5k grams -> number of pieces
+            n = int(np.clip(round(grams_ / float(np.median(masses))), 1, PILE_MAX if pile else 8))
+        elif pile and n > 1 and rng.random() < 0.5:    # piles run from a few pieces to a heap of 25
+            n = int(np.clip(round(np.exp(rng.uniform(np.log(2), np.log(PILE_MAX)))), 2, PILE_MAX))
+        n = min(n, PILE_MAX if pile else 8)
         groups.append({"cat": str(name), "assets": [grp[j] for j in rng.integers(len(grp), size=n)], "ext": ext,
-                       **extra})
+                       "pile": pile and n > 1, **extra})
 
     # scanned portions in place of procedural mounds: real rice / mash / mac / pasta / stew / omelet
     # scans are rigid but photographic; with p = SCAN_P a soft food of the meal is served as one
@@ -830,20 +871,30 @@ def sample_scene_hard(rng: np.random.Generator, assets: list[dict], out: Path, s
         for _ in range(2):
             a_ = (real or pool)[rng.integers(len(real or pool))]
             add_group(a_["category"], 1 if max(a_["extent_m"]) > 0.06 else None, [a_])
-    reserve = 2 * len(foods) + (1 if greens else 0)         # soft pieces + toppings + leaves
+    reserve = 2 * len(foods) + len(greens_list)             # soft pieces + toppings + leaves
     budget = max(max_items - reserve, 3)
     trimmed = 0
-    while sum(len(g["assets"]) for g in groups) > budget:
-        big = max(groups, key=lambda g: len(g["assets"]))
+    singles = lambda: [g for g in groups if not g["pile"]]  # same-category piles have their own (PILE_MAX) budget
+    while sum(len(g["assets"]) for g in singles()) > budget:
+        big = max(singles(), key=lambda g: len(g["assets"]))
         if len(big["assets"]) > 1:
             big["assets"].pop()
             trimmed += 1
-        else:
-            groups.pop()
+        else:                                               # drop the smallest (garnish), never the main item
+            gone = min(singles(), key=lambda g: g["ext"])
+            groups.remove(gone)
+            unfulfilled.append({"name": gone["cat"], "reason": "budget"})
             trimmed += 1
+    piles_ = lambda: [g for g in groups if g["pile"]]
+    while sum(len(g["assets"]) for g in piles_()) > PILES_TOTAL:       # keeps the physics drop affordable
+        big = max(piles_(), key=lambda g: len(g["assets"]))
+        if len(big["assets"]) <= 2:
+            break
+        big["assets"].pop()
+        trimmed += 1
     foot = lambda a_: 0.7 * float(np.prod(sorted(a_["extent_m"])[-2:]))     # resting footprint, m^2
     # footprint of the scans on the dish; a small-item pile is poured in a heap, it covers ~half its items' sum
-    A_s = sum(foot(a_) * g.get("scale", 1.0) ** 2 * (0.5 if (g["ext"] < 0.065 and len(g["assets"]) > 1) else 1.0)
+    A_s = sum(foot(a_) * g.get("scale", 1.0) ** 2 * (0.5 if g["pile"] else 1.0)
               for g in groups for a_ in g["assets"])
 
     # size a procedural plate to the meal: a snack gets a smaller plate, a big spread a larger one
@@ -855,6 +906,13 @@ def sample_scene_hard(rng: np.random.Generator, assets: list[dict], out: Path, s
             k = float(np.sqrt(A_s / (np.pi * rng.uniform(0.6, 0.95))) / W)     # real plates are 50-85 % covered (scan footprints overestimate irregular items)
         elif A_s > 0.35 * np.pi * W * W:
             k = float(np.sqrt(A_s / (0.35 * np.pi)) / W)
+        if gm.get("heap") or gm.get("scans") or gm.get("toppings"):
+            # Nutrition5k grams: the dish scales with the volume actually served
+            v_ml = sum(g_ / density_for(n_, "piece") for n_, g_ in (gm.get("heap") or {}).items()) \
+                + sum(g_ / density_for(n_, "topping") for n_, g_ in (gm.get("toppings") or {}).items()) \
+                + sum(g_ / density_for(n_, "leaves") for n_, g_ in (gm.get("greens") or {}).items()) \
+                + sum(a_["volume_ml"] * g.get("scale", 1.0) ** 3 for g in groups for a_ in g["assets"])
+            k = max(k, float(np.clip((v_ml / 350.0) ** 0.4, 0.75, 1.45)))
         k = float(np.clip(c.R * np.clip(k, 0.6, 1.45), 0.08, 0.14) / c.R)
         if abs(k - 1) > 0.02:
             c = replace(c, R=c.R * k, well_r=c.well_r * k, foot_r=c.foot_r * k)
@@ -864,6 +922,18 @@ def sample_scene_hard(rng: np.random.Generator, assets: list[dict], out: Path, s
             spec["container"]["capacity_ml"] = c.capacity_ml()
 
     heap: list = []                          # (item id, Mound, wedge start, wedge end)
+
+    def heap_fractions() -> np.ndarray:
+        """Volume share of each soft food: Nutrition5k grams / bulk density when every food has grams
+        (a little jitter), else a random split."""
+        n_ = len(foods)
+        gv = [(gm.get("heap") or {}).get(f_[0]) for f_ in foods]
+        if n_ > 1 and all(gv):
+            v = np.array([g_ / density_for(f_[0], "piece") for g_, f_ in zip(gv, foods)])
+            v = v * rng.lognormal(0, 0.08, n_)
+            return v / v.sum()
+        return rng.dirichlet(np.ones(n_) * 4)
+
     # 1. soft foods. Bowl: one heap split into touching wedges (re-partitioned by synth.mpm). Plate: either
     # that, or (usually) each food its own mound at its own place on the dish, like a served plate
     n_pieces = len(foods)
@@ -884,7 +954,7 @@ def sample_scene_hard(rng: np.random.Generator, assets: list[dict], out: Path, s
             W = c.well_r
             scan_cov = A_s / (np.pi * W * W)
             total = max(0.3, rng.uniform(0.6, 0.9) - 0.85 * scan_cov)   # fraction of the well the soft foods cover
-            fr = rng.dirichlet(np.ones(n_pieces) * 4) if n_pieces > 1 else np.ones(1)
+            fr = heap_fractions() if n_pieces > 1 else np.ones(1)
             radii = [float(np.clip(W * np.sqrt(total * f), 0.025, 0.8 * W)) for f in fr]
             order = np.argsort(radii)[::-1]
             cents, radii_o = _pack(rng, [radii[i] for i in order], 1.02 * W)
@@ -925,21 +995,22 @@ def sample_scene_hard(rng: np.random.Generator, assets: list[dict], out: Path, s
                 ids = sorted(ids, key=lambda i: (items[i - 1]["name"] == top, -rank[kind_of(items[i - 1]["name"])]))
             spec["heap"] = {"layout": layout, "items": ids, "rf": rf, "centre": list(centre),
                             "seed": int(rng.integers(1 << 31)),
-                            "fractions": rng.dirichlet(np.ones(n_pieces) * 4).tolist(),
+                            "fractions": heap_fractions().tolist(),
                             "top_thick": float(rng.uniform(0.005, 0.012)), "top_r": float(rng.uniform(0.45, 0.85) * rf)}
 
         # 2. toppings lying on a piece
         for item_id, mnd, fa, fb in heap:
             menu = TOPPINGS if meal["source"] == "random" else [t for t in TOPPINGS if t[0] in meal["toppings"]]
-            p_top = 0.35 if meal["source"] == "random" else 0.5
-            site = _topping_site(rng, mnd.rf, mnd.centre, fa, fb) if menu and rng.random() < p_top else None
-            if site is None:
-                continue
-            name, col, rough = menu[rng.integers(len(menu))]
-            Vt, Ft = topping_mesh(c, mnd, site[0], site[1], float(rng.uniform(0.004, 0.01)),   # >= 3 particles deep
-                                  seed=int(rng.integers(1 << 31)))
-            items.append(_procedural(name, f"topping_{item_id}.npz", Vt, Ft, out, col, rough, "procedural_topping",
-                                     {"kind": "topping", "on_item": item_id, "radius": site[1]}, rng))
+            p_top = 0.35 if meal["source"] == "random" else 0.55
+            for j_ in range(2 if (menu and rng.random() < 0.25) else 1):      # a second blob on some wedges
+                site = _topping_site(rng, mnd.rf, mnd.centre, fa, fb) if menu and rng.random() < p_top else None
+                if site is None:
+                    continue
+                name, col, rough = menu[rng.integers(len(menu))]
+                Vt, Ft = topping_mesh(c, mnd, site[0], site[1], float(rng.uniform(0.004, 0.01)),   # >= 3 particles deep
+                                      seed=int(rng.integers(1 << 31)))
+                items.append(_procedural(name, f"topping_{item_id}_{j_}.npz", Vt, Ft, out, col, rough, "procedural_topping",
+                                         {"kind": "topping", "on_item": item_id, "radius": site[1]}, rng))
 
     fit_r = c.well_r if c.kind == "plate" else c.r_at_height(c.floor + 0.5 * (c.H - c.floor))
     mounds = [m for _, m, _, _ in heap]
@@ -960,11 +1031,17 @@ def sample_scene_hard(rng: np.random.Generator, assets: list[dict], out: Path, s
                 z = max(z, zt)
         return z
 
-    def free_spot(r_xy: float, lim: float, tries: int = 60, compact: bool = False) -> np.ndarray:
-        """A spot on the dish clear of the heaps and of what is placed (items may lean a little on
-        each other); when the dish is full, the roomiest spot found, so items rest on others.
-        compact: the spot that touches what is already there and stays near the middle, so a meal
-        is one served cluster, not items scattered over an empty plate."""
+    def clearance(xy: np.ndarray, r_xy: float) -> float:
+        return min([np.linalg.norm(xy - p) - r - r_xy for p, r, _ in placed]
+                   + [np.linalg.norm(xy - np.asarray(m.centre)) - m.rf - 0.25 * r_xy for m in mounds] + [1.0])
+
+    def free_spot(r_xy: float, lim: float, tries: int = 60, compact: bool = False, tol: float = 0.25,
+                  accept_best: float | None = None) -> np.ndarray | None:
+        """A spot on the dish clear of the heaps and of what is placed (items may overlap neighbours by
+        up to tol x r_xy and lean on them). compact: the spot that touches what is already there and
+        stays near the middle, so a meal is one served cluster, not items scattered over an empty plate.
+        When nothing is that free the roomiest spot found is returned if its overlap is within
+        accept_best x r_xy (None: always), else None."""
         best = (-9.0, None)
         feas = []
         if compact:
@@ -975,9 +1052,8 @@ def sample_scene_hard(rng: np.random.Generator, assets: list[dict], out: Path, s
                 rr = max(lim - r_xy, 0) * np.sqrt(rng.random())
                 th = rng.uniform(0, 2 * np.pi)
                 xy = np.array([rr * np.cos(th), rr * np.sin(th)])
-                cl = min([np.linalg.norm(xy - p) - r - r_xy for p, r, _ in placed]
-                         + [np.linalg.norm(xy - np.asarray(m.centre)) - m.rf - 0.25 * r_xy for m in mounds] + [1.0])
-                if cl >= -0.3 * r_xy:                       # may lean on a neighbour, never bury it
+                cl = clearance(xy, r_xy)
+                if cl >= -(tol + 0.05) * r_xy:              # may lean on a neighbour, never bury it
                     cands.append((max(cl, 0) + 0.25 * np.linalg.norm(xy - anchor) + rng.uniform(0, 0.01), xy))
             if cands:
                 cands.sort(key=lambda t: t[0])
@@ -986,13 +1062,25 @@ def sample_scene_hard(rng: np.random.Generator, assets: list[dict], out: Path, s
             rr = max(lim - r_xy, 0) * np.sqrt(rng.random())
             th = rng.uniform(0, 2 * np.pi)
             xy = np.array([rr * np.cos(th), rr * np.sin(th)])
-            cl = min([np.linalg.norm(xy - p) - r - r_xy for p, r, _ in placed]
-                     + [np.linalg.norm(xy - np.asarray(m.centre)) - m.rf - 0.25 * r_xy for m in mounds] + [1.0])
-            if cl >= -0.25 * r_xy:
+            cl = clearance(xy, r_xy)
+            if cl >= -tol * r_xy:
                 feas.append(xy)
             if cl > best[0]:
                 best = (cl, xy)
-        return feas[rng.integers(len(feas))] if feas else best[1]
+        if feas:
+            return feas[rng.integers(len(feas))]
+        if best[1] is not None and (accept_best is None or best[0] >= -accept_best * r_xy):
+            return best[1]
+        return None
+
+    def spot(r_xy: float, lim: float, compact: bool = False) -> np.ndarray | None:
+        """free_spot with retries: a smaller footprint and more overlap with what is placed (the
+        physics drop resolves it: items settle on one another) before giving up (None)."""
+        for shrink, tol, acc in ((1.0, 0.25, 0.8), (0.8, 0.45, 1.5), (0.65, 0.8, 6.0)):
+            xy = free_spot(r_xy * shrink, lim, compact=compact, tol=tol, accept_best=acc)
+            if xy is not None:
+                return xy
+        return None
 
     def heap_spot() -> np.ndarray:
         w = np.array([m.rf ** 2 for m in mounds])
@@ -1000,35 +1088,61 @@ def sample_scene_hard(rng: np.random.Generator, assets: list[dict], out: Path, s
         a, rr = rng.uniform(0, 2 * np.pi), 0.5 * m.rf * np.sqrt(rng.random())
         return np.asarray(m.centre) + rr * np.array([np.cos(a), np.sin(a)])
 
-    # 2b. leafy greens: thin leaves dropped as cloth (render.py), one item per portion; beside the
-    # heaps or heaped over one of them
-    if len(items) < max_items and greens:
-        name, col, rough = greens
-        salad_spot = heap_spot() if (mounds and rng.random() < 0.3) else free_spot(0.05, 0.6 * fit_r)
+    occ: list[tuple[np.ndarray, float]] = []         # (xy, equal-area radius) of every food footprint on the dish
+
+    def fill_frac() -> float:
+        """Share of the dish well (disc fit_r) covered by the food seen from above: heaps, leaves,
+        and every dropped piece as a disc of its resting-footprint area."""
+        gx = np.linspace(-fit_r, fit_r, 101)
+        GX, GY = np.meshgrid(gx, gx)
+        disc = np.hypot(GX, GY) < fit_r
+        cov = np.zeros_like(disc)
+        for m_ in mounds:
+            cov |= np.hypot(GX - m_.centre[0], GY - m_.centre[1]) < m_.rf
+        for xy_, r_ in occ:
+            cov |= np.hypot(GX - xy_[0], GY - xy_[1]) < r_
+        return float((cov & disc).sum() / disc.sum())
+
+    # 2b. leafy greens: thin leaves dropped as cloth (render.py), one item per portion (up to 3 kinds,
+    # as in a mixed Nutrition5k dish); beside the heaps or heaped over one of them
+    for gi, (name, col, rough) in enumerate(greens_list):
+        if len(items) >= max_items + 2:
+            break
+        salad_spot = heap_spot() if (mounds and rng.random() < 0.3) else spot(0.05, 0.6 * fit_r)
+        if salad_spot is None:
+            unfulfilled.append({"name": name, "reason": "no_fit"})
+            continue
         ring = [salad_spot] + [salad_spot + 0.03 * np.array([np.cos(a), np.sin(a)]) for a in np.linspace(0, 2 * np.pi, 8, endpoint=False)]
         top = max(support_z(p) for p in ring) + 0.003
         n_leaves = int(rng.integers(8, 19))
         Vl, Fl = salad_sheets(rng, n_leaves, salad_spot, top + 0.01, 0.012,   # tight column: stays on
                               "arugula" if name == "arugula" else "mixed")
-        np.savez_compressed(out / "salad.npz", V=Vl.astype(np.float32), F=Fl.astype(np.int32))
+        mesh_name = "salad.npz" if gi == 0 else f"salad_{gi}.npz"
+        np.savez_compressed(out / mesh_name, V=Vl.astype(np.float32), F=Fl.astype(np.int32))
         thick = 0.0006
         a, b, cc = Vl[Fl[:, 0]], Vl[Fl[:, 1]], Vl[Fl[:, 2]]
         area = 0.5 * np.linalg.norm(np.cross(b - a, cc - a), axis=1).sum()
         items.append({"name": name, "category": name, "source": "procedural_leaves", "asset_id": None,
-                      "mesh": "salad.npz", "fmt": "npz", "to_m": 1.0, "scale": 1.0,
+                      "mesh": mesh_name, "fmt": "npz", "to_m": 1.0, "scale": 1.0,
                       "volume_ml": float(area * thick * 1e6),     # replaced by the simulated solid's volume
-                      "mass_g": None, "dynamic": False, "fill": None, "color": list(col), "roughness": rough,
+                      "mass_g": None, "mass_source": "density", "density_g_ml": density_for(name, "leaves"),
+                      "dynamic": False, "fill": None, "color": list(col), "roughness": rough,
                       "procedural": True, "generated": False, "texture": True,
                       "cloth": {"thickness_m": thick, "bending": float(rng.uniform(0.1, 1.0)), "grid": [12, 5]},
                       "shape": {"kind": "leaves", "n_leaves": n_leaves}})
         placed.append((np.asarray(salad_spot), 0.05, top + 0.02))
+        occ.append((np.asarray(salad_spot), 0.045))
 
     # 3. discrete items dropped onto whatever is there: each group is a cluster of copies; they
     # start at their own spots (a high drop bounces off the dish) and pile / lean on what is there
     def add(a: dict, xy: np.ndarray, z: float, kind: str, s: float, extra: dict | None = None) -> None:
+        if a.get("mass_g"):                           # a scan's mass scales with its volume
+            mass_g, msrc = float(a["mass_g"]) * s ** 3, "asset"
+        else:                                         # primitives / unweighed scans: volume x bulk density
+            mass_g, msrc = float(a["volume_ml"] * s ** 3 * density_for(a["category"], "piece")), "density"
         items.append({"name": a["name"], "category": a["category"], "source": a["source"], "asset_id": a["id"],
                       "mesh": a["path"], "fmt": a["fmt"], "to_m": a["to_m"], "scale": s,
-                      "volume_ml": a["volume_ml"] * s ** 3, "mass_g": a.get("mass_g"), "dynamic": True, "fill": None,
+                      "volume_ml": a["volume_ml"] * s ** 3, "mass_g": mass_g, "mass_source": msrc, "dynamic": True, "fill": None,
                       "init_location": [float(xy[0]), float(xy[1]), float(z)],
                       # pile pieces are poured: any orientation, so they tumble and interlock;
                       # singles are set down roughly as served (scans rest on their scanned base)
@@ -1038,10 +1152,13 @@ def sample_scene_hard(rng: np.random.Generator, assets: list[dict], out: Path, s
                       "roughness": float(rng.uniform(0.3, 0.8)), "procedural": a["procedural"],
                       "generated": a.get("generated", False), "texture": bool(a["procedural"]),
                       "damping": 0.4 if kind == "pile" else 0.7, "shape": {"kind": kind, **(extra or {})}})
+        foot_a = 0.7 * float(np.prod(sorted(a["extent_m"])[-2:])) * s ** 2         # resting footprint, m^2
+        occ.append((np.asarray(xy[:2], float), float(np.sqrt(foot_a / np.pi)) * (0.8 if kind == "pile" else 1.0)))
 
     lim_ext = (1.7 if c.kind == "plate" else 2.0) * fit_r         # largest item footprint that sits on the dish
     rad_of = lambda a, s: s * float(np.linalg.norm(a["extent_m"])) / 2       # any rotation fits
-    for g in sorted(groups, key=lambda g: -g["ext"] * len(g["assets"]) ** 0.5):
+
+    def place_group(g: dict) -> None:
         ext_max = max(max(a_["extent_m"]) for a_ in g["assets"])
         s = g.get("scale", 1.0)
         if ext_max * s > lim_ext:
@@ -1050,10 +1167,13 @@ def sample_scene_hard(rng: np.random.Generator, assets: list[dict], out: Path, s
         extra = {"portion": g["portion"]} if g.get("portion") else None      # a scan served instead of a mound
         r_i = float(np.median([0.5 * max(a_["extent_m"][:2]) for a_ in g["assets"]])) * s
         lim = 0.88 * fit_r
-        if g["ext"] < 0.065 and n > 1:                  # a small-item pile: poured in one place, packed
+        if g["pile"]:                                   # a small-item pile: poured in one place, packed
             r_cl = min(r_i * np.sqrt(n) * 1.1, 0.5 * fit_r)
             on_heap = bool(mounds) and rng.random() < 0.2 and r_cl < 0.7 * max(m.rf for m in mounds)
-            ctr = heap_spot() if on_heap else free_spot(r_cl, lim, compact=True)
+            ctr = heap_spot() if on_heap else spot(r_cl, lim, compact=True)
+            if ctr is None:
+                unfulfilled.append({"name": g["cat"], "reason": "no_fit"})
+                return
             base = support_z(ctr, r_cl)
             per = max(2, int(round(np.sqrt(n))))
             for i, a_ in enumerate(g["assets"]):
@@ -1066,7 +1186,10 @@ def sample_scene_hard(rng: np.random.Generator, assets: list[dict], out: Path, s
             for a_ in g["assets"]:
                 r_a = 0.5 * max(a_["extent_m"][:2]) * s
                 if prev is None:
-                    xy = heap_spot() if on_heap else free_spot(r_a, lim, compact=True)
+                    xy = heap_spot() if on_heap else spot(r_a, lim, compact=True)
+                    if xy is None:
+                        unfulfilled.append({"name": g["cat"], "reason": "no_fit"})
+                        return
                 else:
                     ang = rng.uniform(0, 2 * np.pi)
                     xy = prev[0] + (prev[1] + r_a) * rng.uniform(0.45, 0.9) * np.array([np.cos(ang), np.sin(ang)])
@@ -1077,7 +1200,54 @@ def sample_scene_hard(rng: np.random.Generator, assets: list[dict], out: Path, s
                 add(a_, xy, z, "single", s, extra)
                 placed.append((xy, r_a, z + 0.8 * rad))
                 prev = (xy, r_a)
-    # footprint estimate (union of discs of everything on the dish / dish well) for calibration against real photos
+
+    # toppings of a meal with no soft food (a sauce over scans): a thin puddle on the dish, laid down
+    # first so the scans are dropped onto / beside it (physics settles them; part of it stays visible)
+    puddle = None
+    if not mounds and real_dish is None and meal["source"] != "random" and meal.get("toppings"):
+        menu_ = [t_ for t_ in TOPPINGS if t_[0] in meal["toppings"]]
+        if menu_:
+            name, col, rough = menu_[rng.integers(len(menu_))]
+            rad = min(float(rng.uniform(0.025, 0.045)), 0.3 * fit_r)
+            lim_p = 0.7 * fit_r
+            for _ in range(40):
+                xy = rng.uniform(-1, 1, 2) * lim_p
+                if np.hypot(*xy) <= lim_p - rad and clearance(xy, 1.2 * rad) >= -0.5 * rad:
+                    break
+            else:
+                xy = None
+            if xy is None:
+                unfulfilled.append({"name": name, "reason": "no_fit"})
+            else:
+                class _Dish:                          # topping_mesh lays the sheet on the dish surface
+                    def top(self, c_, x_, y_):
+                        return c_.z_in(np.hypot(x_, y_))
+                Vt, Ft = topping_mesh(c, _Dish(), (float(xy[0]), float(xy[1])), rad, float(rng.uniform(0.003, 0.006)),
+                                      seed=int(rng.integers(1 << 31)))
+                items.append(_procedural(name, "topping_dish.npz", Vt, Ft, out, col, rough, "procedural_topping",
+                                         {"kind": "topping", "on_item": None, "on": "dish", "radius": rad}, rng))
+                placed.append((xy, 0.6 * rad, c.floor + 0.008))
+                occ.append((xy, rad))
+                puddle = name
+
+    # requested scans first, biggest item first, then the small-item piles / garnish
+    key_ = lambda g: -g["ext"] * len(g["assets"]) ** 0.5
+    for g in sorted([g for g in groups if not g["pile"]], key=key_) + sorted([g for g in groups if g["pile"]], key=key_):
+        place_group(g)
+    # minimum fill: a sparse dish gets another scan / pile from the meal (templates: its own slots, else a side)
+    topups = 0
+    while fill_frac() < MIN_FILL and topups < 3 and meal["source"] != "random" and real_dish is None:
+        topups += 1
+        pool_ = [k_ for k_ in list(meal["scans"]) + ([meal["pile"]] if meal["pile"] else []) + SIDES
+                 if resolve_cat(k_)]
+        if not pool_:
+            break
+        n0 = len(groups)
+        add_group(pool_[rng.integers(len(pool_))])
+        if len(groups) > n0:
+            place_group(groups[-1])
+    fill_fraction = fill_frac()
+    # (legacy) footprint estimate (union of discs of everything on the dish / dish well)
     gx = np.linspace(-fit_r, fit_r, 101)
     GX, GY = np.meshgrid(gx, gx)
     disc = np.hypot(GX, GY) < fit_r
@@ -1090,9 +1260,12 @@ def sample_scene_hard(rng: np.random.Generator, assets: list[dict], out: Path, s
             if a_ is not None:
                 r_ = 0.5 * max(a_["extent_m"][:2]) * it["scale"] * (0.8 if it["shape"]["kind"] == "pile" else 1.0)
                 cov |= np.hypot(GX - it["init_location"][0], GY - it["init_location"][1]) < r_
-    spec_meal_log = {"requested": len(requested), "dropped": unresolved, "trimmed_copies": trimmed,
+    spec_meal_log = {"requested": len(requested), "dropped": unresolved, "meal_unfulfilled": unfulfilled,
+                     "trimmed_copies": trimmed, "topups": topups, "dish_puddle": puddle,
                      "n_groups": len(groups), "scan_portions": portions,
+                     "pile_sizes": [len(g["assets"]) for g in groups if g["pile"]],
                      "est_coverage": float((cov & disc).sum() / disc.sum())}
+    assert len(items) < 252, "labels 252..255 are reserved (distractor 253, container 254)"
     for i, it in enumerate(items):
         it["id"] = i + 1                      # mask label; 0 = background
 
@@ -1102,6 +1275,7 @@ def sample_scene_hard(rng: np.random.Generator, assets: list[dict], out: Path, s
     meal.update(spec_meal_log)
     spec.update({
         "meal": meal,
+        "fill_fraction": fill_fraction,
         "items": items,
         "distractors": distractors(rng, out, r_out, assets, style),
         "table": table_look(rng, surfaces, style),
