@@ -37,6 +37,7 @@ import argparse
 import fnmatch
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -184,9 +185,9 @@ zucchini|3|5|I|plated|6
 """
 
 
-def _parse_expected() -> dict[str, dict]:
+def _parse_expected(txt: str = EXPECTED_TXT) -> dict[str, dict]:
     out = {}
-    for line in EXPECTED_TXT.strip().splitlines():
+    for line in txt.strip().splitlines():
         p = line.split("|")
         out[p[0]] = dict(lo=float(p[1]), hi=float(p[2]), kind={"I": "item", "P": "portion"}[p[3]], serve=p[4],
                          copies=int(p[5]), ctx=p[6] if len(p) > 6 else None)
@@ -644,6 +645,591 @@ def report(recs: list[dict]) -> tuple[str, dict]:
     return "\n".join(lines), data
 
 
+# ---------------------------------------------------------------------------------------------------------
+# Objaverse photogrammetry scans (synth.fetch_assets --sources objaverse) -> assets_v5.jsonl
+#
+#   python -m synth.asset_qa --objaverse --in ../data/synth/assets_v4.jsonl --out ../data/synth/assets_v5.jsonl \
+#       --obj-sources ../data/datasets/objaverse/sources.jsonl --qa-dir ../data/synth/qa_v5 [--no-thumbs]
+#
+# v5 = v4 (rows copied unchanged) + one row per downloaded Objaverse model.  Objaverse models are NOT metric:
+# the scale comes from OBJ_EXPECTED_TXT (typical size of ONE served item of the category; the model's largest
+# extent is set to the geometric middle of [lo, hi]) -> `to_m`, `scale_source: "category_norm"`.  The category is
+# decided from the model's name / description (NAME_RULES; LVIS tags are far too noisy: "zucchini" contains rice,
+# "radish" a pomegranate), then every thumbnail was inspected and the verdicts are in OBJ_VERDICT.
+# glTF is Y up: extent_m is in Blender's Z-up order, `fmt` is "gltf" (also for .glb files, so that
+# synth.collision / synth.mpm apply the Y-up -> Z-up conversion; render.load_gltf and Blender read .glb by suffix).
+# ---------------------------------------------------------------------------------------------------------
+# key | lo_cm | hi_cm | kind | serve | copies [| ctx]   (overrides / additions to EXPECTED for Objaverse assets)
+OBJ_EXPECTED_TXT = """
+apricot|4|5.5|I|whole_produce|1|tray
+mandarin|5|7.5|I|whole_produce|1|tray
+grapefruit|9|12.5|I|whole_produce|1|bowl
+fig|4|6.5|I|whole_produce|1|tray
+pineapple whole|24|32|I|whole_produce|1|bowl
+watermelon|22|32|I|whole_produce|1|bowl
+melon|12|18|I|whole_produce|1|bowl
+papaya whole|14|25|I|whole_produce|1|bowl
+mango slice|7|12|I|plated|2
+kiwi slice|4.5|7|I|plated|3
+lime slice|4|6|I|plated|3
+lemon slice|5|8|I|plated|3
+grapefruit slice|8|11|I|plated|2
+coconut|11|15|I|whole_produce|1|bowl
+walnut|2.8|4|I|snack|5
+potato raw|5|10|I|whole_produce|1|bowl
+sweet potato raw|10|18|I|whole_produce|1|bowl
+cucumber whole|15|22|I|whole_produce|1|bowl
+zucchini whole|15|22|I|whole_produce|1|bowl
+butternut squash|14|22|I|whole_produce|1|bowl
+carrot whole|14|20|I|whole_produce|1|bowl
+broccoli head|9|14|I|whole_produce|1|bowl
+cauliflower head|11|16|I|whole_produce|1|bowl
+cabbage head|15|22|I|whole_produce|1|bowl
+artichoke|8|12|I|whole_produce|1|bowl
+bell pepper whole|8|12|I|whole_produce|1|bowl
+chili pepper|6|12|I|whole_produce|1|bowl
+eggplant|14|22|I|whole_produce|1|bowl
+mushroom|4|9|I|whole_produce|1|bowl
+corn|15|22|I|plated|1
+beet|6|9|I|whole_produce|1|bowl
+radish|7|12|I|whole_produce|1|bowl
+baguette|35|50|I|platter|1
+bread loaf|17|26|I|platter|1
+bread slice|9|12|I|plated|2
+pain au chocolat|9|13|I|plated|1
+pretzel|11|16|I|plated|1
+flatbread|16|26|I|plated|1
+pastry|7|13|I|dessert|1
+cupcake|6|9|I|dessert|1
+cream puff|5|8|I|dessert|2
+whole cake|16|24|I|platter|1
+whole pie|20|27|I|platter|1
+whole pizza|26|35|I|platter|1
+cracker|8|15|I|snack|2
+spring roll|9|16|I|plated|1
+wrap|15|24|I|plated|1
+sub sandwich|15|25|I|plated|1
+toast|11|15|I|plated|1
+grilled fish|12|28|I|plated|1
+"""
+OBJ_EXPECTED = {**EXPECTED, **_parse_expected(OBJ_EXPECTED_TXT)}
+
+# (regex on the lower-cased model name -> (category in our naming, key into OBJ_EXPECTED)); first match wins, dishes
+# before fruit ("lemon meringue pie" is a pie).  A second pass tries the description and tags with the same rules.
+_R = [
+    (r"sushi|nigiri|maki\b|golden roll", "sushi"),
+    (r"pain au chocolat", "pain au chocolat"),
+    (r"croissant|curason", "croissant"),
+    (r"baguet", "baguette"),
+    (r"pretzel|brezel|bretzel", "pretzel"),
+    (r"bagel", "bagel"),
+    (r"pizza", "whole pizza"),
+    (r"slice of sourdough|sliced bread$|bread slice", "bread slice"),
+    (r"melonpan|メロンパン|danish|cinnamon swirl|bebe pastry|meat bun|macaron|\bpastry\b", "pastry"),
+    (r"roll\b|bun\b|semmel|br[oö]tchen|mohnzopf", "bread roll"),
+    (r"challah|bread|loaf", "bread loaf"),
+    (r"muffin", "muffin"), (r"cupcake", "cupcake"), (r"cream puff", "cream puff"),
+    (r"doughnut|donut|oliebol", "doughnut"),
+    (r"brownie", "brownies"),
+    (r"crispbread|cracker", "cracker"), (r"cookie|biscuit", "cookies"),
+    (r"tiramisu|gateau|gâteau|ガトーショコラ|piece of cake|cake slice", "cake slice"),
+    (r"pie\b|tart\b|tarte|galette|pistachio cake|pistache|ピスターシュ", "whole pie"),
+    (r"cake|kuchen|colomba|shortcake", "whole cake"),
+    (r"waffle|whaffle", "waffle"), (r"pancake|panqueca|crepe", "pancake"), (r"omelet|omelette", "omelet"),
+    (r"taco", "taco"), (r"quesadilla", "quesadilla"), (r"burrito", "burrito"),
+    (r"kebab|shawarma|wrap\b", "wrap"), (r"burger|big mac", "burger"),
+    (r"toast hawaii", "toast"), (r"sandwich|turkey melt|\bsub\b", "sandwich"),
+    (r"spring roll|egg roll", "spring roll"), (r"pita|flatbread", "flatbread"),
+    (r"spaghetti|pasta", "pasta mixed dishes"),
+    (r"salmon|sardine|trout", "grilled fish"), (r"steak|boeuf|beef", "steak"), (r"sausage|kielbasa", "sausages"),
+    (r"chicken", "whole chicken"), (r"crab", "crab"), (r"egg\b", "egg"), (r"chocolate", "chocolate"),
+    (r"grapefruit|citrus maxima|paleo", "grapefruit"),
+    (r"mikan|mandarin|tangerine|clementine|iyokan|dekopon|ponkan|ポンカン|amanatsu|dekokponn|siranuhi|sumo", "mandarin"),
+    (r"orange|naranja", "orange"), (r"lemon|limone|lim[aã]o|lemmon", "lemon"), (r"lime\b", "lime"),
+    (r"pineapple|ananas|piña|pina!", "pineapple"), (r"apricot", "apricot"),
+    (r"peach|nectarine|nektarin|saucer", "peach"), (r"apple", "apple"),
+    (r"pear|pera\b|la france|ラ・フランス|kosui|poire|truval", "pear"),
+    (r"kiwi", "kiwi"), (r"\bfig\b", "fig"), (r"avocado|palta|\bavo\b|avacado", "avocado"), (r"banan", "banana"),
+    (r"mango", "mango"), (r"papaya", "papaya"), (r"strawberr|ichigo|fraise", "strawberry"),
+    (r"grape|muscat", "grapes"), (r"pomegran", "pomegranate"), (r"watermelon|suika|water melon", "watermelon"),
+    (r"melon", "melon"), (r"coconut", "coconut"), (r"walnut|nuez", "walnut"),
+    (r"sweet potato|yam\b|yakiimo|batata", "sweet potato"), (r"potato", "potato"), (r"onion|zwiebel", "onion"),
+    (r"tomato", "tomato"), (r"cucumber|pepino", "cucumber"), (r"zucchini|squash", "zucchini"),
+    (r"butternut", "butternut squash"), (r"carrot", "carrot"), (r"broccoli|romanesco|broccolo", "broccoli"),
+    (r"cauliflower|culiflower|カリフラワー", "cauliflower"), (r"cabbage|kohl|kochsalat", "cabbage"),
+    (r"artichoke", "artichoke"), (r"paprika|bell pepper|capsicum|sweet long pepper|green pepper", "bell pepper"),
+    (r"chil+i|fresno|red pepper", "chili pepper"), (r"eggplant|aubergine", "eggplant"),
+    (r"mushroom|bolete|boletus", "mushroom"), (r"corn|milho|maize", "corn"),
+    (r"beterraba|beet", "beet"), (r"radish", "radish"),
+]
+NAME_RULES = [(re.compile(p, re.I), c) for p, c in _R]
+# category -> key into OBJ_EXPECTED (default: the category itself); slices / halves by name
+NORM_KEY = {"pineapple": "pineapple whole", "papaya": "papaya whole", "potato": "potato raw",
+            "sweet potato": "sweet potato raw", "cucumber": "cucumber whole", "zucchini": "zucchini whole",
+            "carrot": "carrot whole", "broccoli": "broccoli head", "cauliflower": "cauliflower head",
+            "cabbage": "cabbage head", "bell pepper": "bell pepper whole"}
+SLICE_RE = re.compile(r"slice|half|halves|cut |sliced", re.I)
+SLICEABLE = {"kiwi": "kiwi slice", "lime": "lime slice", "lemon": "lemon slice", "mango": "mango slice",
+             "grapefruit": "grapefruit slice", "whole pizza": "pizza", "whole pie": "pie", "whole cake": "cake slice"}
+# models that are not food / not a single plateable item, from the name alone (before any rule)
+NOT_FOOD = re.compile(
+    r"\b(rock|stone|fossil|gorget|bead|brick|towel|hummer|doggie|nokia|flower|coral|vase|jar|campbell|tropicana|"
+    r"nisshin|raoh|can|bowl|plate|molde|alabastron|statue|sculpture|candle|pillow|squeaky|toy|pysanka|easter|auk|"
+    r"merganser|agaric|seedpod|pod|spider|snail|tesia|piranha|leaves|leaf|cactus|acorn|celery|tree|hand|echinoid|"
+    r"clypeaster|eupatagus|jicama|ceramic|truck|seed|custard|rotten|crumbled|carved|failed?|roast pig|christmas fruit|"
+    r"raisins?|comparison|pot|tower|decorative|zipper|ear1|lars|cuisine|bento|duomo|natto)\b"
+    r"|\(fail\)|bad photoscan|low ?poly|low tria|lowpoli", re.I)
+
+FLAT_CATS = {"pizza", "whole pizza", "bread slice", "cookies", "waffle", "pancake", "whole pie", "cracker", "flatbread",
+             "omelet", "whole cake", "cake slice", "pastry", "wrap", "toast", "doughnut", "mango slice", "kiwi slice",
+             "lime slice", "lemon slice", "grapefruit slice", "sandwich"}
+LOWPOLY_FACES = 1500         # below this: retopologised game-ready / stylised, not a scan
+MIN_FACES_NOTE = 5000         # below: flagged `lowish` only
+
+# visual verdicts from the thumbnails.  uid prefix (8 chars) -> category | "!code: reason" (exclude) | "~category"
+# (keep, but the name rules gave a wrong / no category).  Filled in by hand after viewing qa_v5/sheets.
+OBJ_VERDICT: dict[str, str] = {
+    "16c995f4": "!container: plate / board / bowl / tray / mat / wrapping paper baked into the scan",
+    "3a55aabc": "!container: plate / board / bowl / tray / mat / wrapping paper baked into the scan",
+    "0ee4f66b": "!container: plate / board / bowl / tray / mat / wrapping paper baked into the scan",
+    "449c75ac": "!container: plate / board / bowl / tray / mat / wrapping paper baked into the scan",
+    "effa9692": "!container: plate / board / bowl / tray / mat / wrapping paper baked into the scan",
+    "af514ae1": "!container: plate / board / bowl / tray / mat / wrapping paper baked into the scan",
+    "b6dd89da": "!container: plate / board / bowl / tray / mat / wrapping paper baked into the scan",
+    "dcefb9b9": "!container: plate / board / bowl / tray / mat / wrapping paper baked into the scan",
+    "e3fbea5e": "!container: plate / board / bowl / tray / mat / wrapping paper baked into the scan",
+    "e8bfd53d": "!container: plate / board / bowl / tray / mat / wrapping paper baked into the scan",
+    "f7fdd802": "!container: plate / board / bowl / tray / mat / wrapping paper baked into the scan",
+    "90769b46": "!container: plate / board / bowl / tray / mat / wrapping paper baked into the scan",
+    "acf21b61": "!container: plate / board / bowl / tray / mat / wrapping paper baked into the scan",
+    "da0f3082": "!container: plate / board / bowl / tray / mat / wrapping paper baked into the scan",
+    "33d98be6": "!container: plate / board / bowl / tray / mat / wrapping paper baked into the scan",
+    "260a3301": "!container: plate / board / bowl / tray / mat / wrapping paper baked into the scan",
+    "c1137353": "!container: plate / board / bowl / tray / mat / wrapping paper baked into the scan",
+    "74bd33d4": "!container: plate / board / bowl / tray / mat / wrapping paper baked into the scan",
+    "a922e2c7": "!container: plate / board / bowl / tray / mat / wrapping paper baked into the scan",
+    "271f05a2": "!container: plate / board / bowl / tray / mat / wrapping paper baked into the scan",
+    "0e013d28": "!container: plate / board / bowl / tray / mat / wrapping paper baked into the scan",
+    "4b2990b0": "!container: plate / board / bowl / tray / mat / wrapping paper baked into the scan",
+    "e7d3f8fd": "!container: plate / board / bowl / tray / mat / wrapping paper baked into the scan",
+    "25f6eb11": "!container: plate / board / bowl / tray / mat / wrapping paper baked into the scan",
+    "108fbe18": "!container: plate / board / bowl / tray / mat / wrapping paper baked into the scan",
+    "9753fcce": "!container: plate / board / bowl / tray / mat / wrapping paper baked into the scan",
+    "b5709832": "!container: plate / board / bowl / tray / mat / wrapping paper baked into the scan",
+    "89f8295a": "!container: plate / board / bowl / tray / mat / wrapping paper baked into the scan",
+    "0a741a4d": "!container: plate / board / bowl / tray / mat / wrapping paper baked into the scan",
+    "f959f5e9": "!container: plate / board / bowl / tray / mat / wrapping paper baked into the scan",
+    "26225729": "!container: plate / board / bowl / tray / mat / wrapping paper baked into the scan",
+    "3916a122": "!container: plate / board / bowl / tray / mat / wrapping paper baked into the scan",
+    "0e6df6c6": "!container: plate / board / bowl / tray / mat / wrapping paper baked into the scan",
+    "260d3873": "!container: plate / board / bowl / tray / mat / wrapping paper baked into the scan",
+    "6ec3ad35": "!container: plate / board / bowl / tray / mat / wrapping paper baked into the scan",
+    "d5b66f6c": "!container: plate / board / bowl / tray / mat / wrapping paper baked into the scan",
+    "fa508767": "!container: plate / board / bowl / tray / mat / wrapping paper baked into the scan",
+    "29832125": "!container: plate / board / bowl / tray / mat / wrapping paper baked into the scan",
+    "077d22b7": "!container: plate / board / bowl / tray / mat / wrapping paper baked into the scan",
+    "4f0dc7ef": "!container: plate / board / bowl / tray / mat / wrapping paper baked into the scan",
+    "8334ff04": "!container: plate / board / bowl / tray / mat / wrapping paper baked into the scan",
+    "feb91b2c": "!container: plate / board / bowl / tray / mat / wrapping paper baked into the scan",
+    "611af31c": "!container: plate / board / bowl / tray / mat / wrapping paper baked into the scan",
+    "192b9d5b": "!container: plate / board / bowl / tray / mat / wrapping paper baked into the scan",
+    "a1b7c76f": "!container: plate / board / bowl / tray / mat / wrapping paper baked into the scan",
+    "af3cc997": "!container: plate / board / bowl / tray / mat / wrapping paper baked into the scan",
+    "ecc33fdd": "!container: plate / board / bowl / tray / mat / wrapping paper baked into the scan",
+    "5b42cc3b": "!container: plate / board / bowl / tray / mat / wrapping paper baked into the scan",
+    "7d1cac05": "!container: plate / board / bowl / tray / mat / wrapping paper baked into the scan",
+    "7fc9800c": "!container: plate / board / bowl / tray / mat / wrapping paper baked into the scan",
+    "8327c239": "!container: plate / board / bowl / tray / mat / wrapping paper baked into the scan",
+    "9b2530fa": "!container: plate / board / bowl / tray / mat / wrapping paper baked into the scan",
+    "b43ef95c": "!container: plate / board / bowl / tray / mat / wrapping paper baked into the scan",
+    "b4a41eae": "!container: plate / board / bowl / tray / mat / wrapping paper baked into the scan",
+    "bb3f527e": "!container: plate / board / bowl / tray / mat / wrapping paper baked into the scan",
+    "c01b7abb": "!container: plate / board / bowl / tray / mat / wrapping paper baked into the scan",
+    "cfcd4baf": "!container: plate / board / bowl / tray / mat / wrapping paper baked into the scan",
+    "e9044276": "!container: plate / board / bowl / tray / mat / wrapping paper baked into the scan",
+    "f76a0a6c": "!container: plate / board / bowl / tray / mat / wrapping paper baked into the scan",
+    "6fcaca01": "!container: plate / board / bowl / tray / mat / wrapping paper baked into the scan",
+    "09af8624": "!container: plate / board / bowl / tray / mat / wrapping paper baked into the scan",
+    "0e21faea": "!container: plate / board / bowl / tray / mat / wrapping paper baked into the scan",
+    "523b1fa6": "!container: plate / board / bowl / tray / mat / wrapping paper baked into the scan",
+    "c4423e51": "!container: plate / board / bowl / tray / mat / wrapping paper baked into the scan",
+    "e0b03a1b": "!container: plate / board / bowl / tray / mat / wrapping paper baked into the scan",
+    "b3a8b0a9": "!container: plate / board / bowl / tray / mat / wrapping paper baked into the scan",
+    "e9fa19e6": "!container: plate / board / bowl / tray / mat / wrapping paper baked into the scan",
+    "1d3ed42e": "!container: plate / board / bowl / tray / mat / wrapping paper baked into the scan",
+    "7aeeaa23": "!container: plate / board / bowl / tray / mat / wrapping paper baked into the scan",
+    "b91d421a": "!container: plate / board / bowl / tray / mat / wrapping paper baked into the scan",
+    "848ad9fa": "!container: plate / board / bowl / tray / mat / wrapping paper baked into the scan",
+    "d5afc8ea": "!container: plate / board / bowl / tray / mat / wrapping paper baked into the scan",
+    "f6ef4190": "!container: plate / board / bowl / tray / mat / wrapping paper baked into the scan",
+    "8dc2b2b3": "!container: plate / board / bowl / tray / mat / wrapping paper baked into the scan",
+    "e27442a7": "!container: plate / board / bowl / tray / mat / wrapping paper baked into the scan",
+    "dd1fbf71": "!packaging: sandwich wrapper baked in",
+    "507ddc56": "!packaging: Campbell's can",
+    "0400821f": "!packaging: retail pack",
+    "d3b46595": "!not_food: succulent plant",
+    "0a1ee08e": "!not_food: decorative artichoke statue",
+    "46f65621": "!not_food: sandstone",
+    "53a51432": "!not_food: crab specimen",
+    "fb448aab": "!not_food: crab specimen",
+    "fdebdabc": "!not_food: crab specimen",
+    "48f5e505": "!bad_mesh: messy fragments",
+    "dc7d087c": "!bad_mesh: broken render",
+    "9eb45ccb": "!damaged: bitten apple",
+    "4b88c020": "!bad_mesh: shapeless lump",
+    "5907e9c9": "!bad_mesh: stick-like fragment",
+    "aa7e5d9e": "!novelty: drawn-on face",
+    "bccf270c": "!novelty: drawn-on face",
+    "3b73d7d5": "!cluster: two halves in one mesh",
+    "56b71e48": "!damaged: lemon with a hole",
+    "bb650241": "!damaged: deformed lemon",
+    "b75c5534": "!bad_mesh: hand in the scan",
+    "c384f15c": "!cluster: two pears",
+    "d3f5697b": "!not_plateable: bitter melon half",
+    "dc883f9b": "!bad_mesh: messy muffin",
+    "550f0b8f": "!no_category: pumpkin",
+    "62954f4d": "!no_category: pumpkin",
+    "5809e2f6": "!scale: mini pineapple",
+    "fbe5dfc5": "!odd_colour: near-black pineapple",
+    "4f629ada": "!odd_colour: grey corn",
+    "fda2d273": "!odd_colour: near-black croissant",
+    "c2e916b6": "!odd_colour: dark brown roll",
+    "5ca6da60": "!bad_mesh: shapeless patty",
+    "b9f516c5": "!bad_mesh: partial scan, torn edges",
+    "9fe0f5f3": "!odd_colour: pale green roll",
+    "a00977e4": "!novelty: decorated bunny cupcake",
+    "7b81d735": "!not_plateable: watermelon half",
+    "3c718d25": "!not_plateable: squash half",
+    "bfdc0641": "!not_plateable: squash half",
+    "105da0b0": "!cluster: fruit pack",
+    "ab86d68d": "!unclear: cut bun / orange?",
+    "8e7f843c": "!damaged: shrivelled avocado",
+    "4dcb9fcf": "~flatbread",
+    "5846b28f": "~flatbread",
+    "db4af5ff": "~flatbread",
+    "6ec22c4c": "~cracker",
+    "4e5abbed": "~lime",
+    "7f64d677": "~lime",
+    "5adb70c1": "~lemon slice",
+    "d9c7f3d0": "~watermelon",
+    "0ac51fc2": "~kiwi slice",
+    "16d913f9": "~kiwi slice",
+    "a075f9b3": "~sub sandwich",
+    "ae4982aa": "~cake slice",
+    "c96ec380": "~cake slice",
+    "b4fb5eca": "~pastry",
+    "c65f5d6c": "~pastry",
+    "3be54641": "~pastry",
+    "af77f3a0": "~pastry",
+    "e20c3851": "~pastry",
+    "c276f133": "~whole pie",
+    "1897a2f4": "~bread roll",
+    "2656ffb5": "~butternut squash",
+    "2c0a2a23": "~orange",
+    "459556bb": "~corn",
+    "a2650310": "~sandwich",
+    "c0877c26": "~strawberry",
+    "c7aa636f": "~banana",
+    "d8400af9": "~cabbage", "cfe9b27e": "!container: plate / stand baked in", "5fb8bc0a": "~whole pie",
+    "efb5f769": "~chili pepper",
+    "79af8a0b": "~mandarin",
+}
+
+
+def glb_meta(path: str) -> dict:
+    """Cheap GLB header parse: texture / vertex-colour / extension info."""
+    import struct
+    with open(path, "rb") as f:
+        head = f.read(20)
+        if head[:4] != b"glTF":
+            return {"err": "not glb"}
+        ln, kind = struct.unpack("<II", head[12:20])
+        js = json.loads(f.read(ln))
+    prims = [p for m in js.get("meshes", []) for p in m.get("primitives", [])]
+    # base colour map: metallic-roughness baseColorTexture or (older Sketchfab exports) specular-glossiness diffuseTexture
+    base = [m.get("pbrMetallicRoughness", {}).get("baseColorTexture")
+            or m.get("extensions", {}).get("KHR_materials_pbrSpecularGlossiness", {}).get("diffuseTexture")
+            for m in js.get("materials", [])]
+    img = [i for i in js.get("images", [])]
+    return {"n_prims": len(prims), "n_mat": len(js.get("materials", [])), "n_base_tex": sum(b is not None for b in base),
+            "n_images": len(img), "vcol": any("COLOR_0" in p.get("attributes", {}) for p in prims),
+            "ext": js.get("extensionsUsed", []), "n_nodes": len(js.get("nodes", []))}
+
+
+def _geo_obj(job):
+    """Geometry of one GLB in Blender's Z-up frame (glTF x, y, z -> x, -z, y), raw (unscaled) units."""
+    uid, path = job
+    import trimesh
+    from scipy import ndimage
+    o: dict = {"meta": glb_meta(path)}
+    try:
+        sc = trimesh.load(path, force="scene", skip_materials=True)
+        parts = sc.dump(concatenate=False) if hasattr(sc, "dump") else [sc]
+        Vs, Fs, off = [], [], 0
+        for p in parts:
+            if not hasattr(p, "faces") or len(p.faces) == 0:         # point clouds / line paths in the scene
+                continue
+            Vs.append(np.asarray(p.vertices, np.float64))
+            Fs.append(np.asarray(p.faces, np.int64) + off)
+            off += len(p.vertices)
+        if not Vs:
+            raise ValueError("no triangle mesh (point cloud only)")
+        V = np.concatenate(Vs)
+        V = np.stack([V[:, 0], -V[:, 2], V[:, 1]], 1)
+        m = trimesh.Trimesh(V, np.concatenate(Fs), process=False)
+        o["n_faces"] = int(len(m.faces))
+        m.merge_vertices()
+        lo, hi = np.percentile(m.vertices, 0.5, 0), np.percentile(m.vertices, 99.5, 0)
+        o["ext"] = m.extents.tolist()
+        o["rext"] = (hi - lo).tolist()
+        o["hull"] = float(m.convex_hull.volume)
+        o["wt"] = bool(m.is_watertight)
+        vol, src = None, None
+        if o["wt"]:
+            vol, src = abs(float(m.volume)), "mesh"
+        else:
+            m2 = m.copy()
+            trimesh.repair.fill_holes(m2)
+            if m2.is_watertight:
+                vol, src = abs(float(m2.volume)), "mesh_filled"
+        if vol is None or vol < 0.2 * o["hull"]:           # open scans (cut off at the turntable / table)
+            mm = m
+            if len(mm.faces) > 200000:
+                mm = mm.simplify_quadric_decimation(face_count=150000)
+            pitch = float(max(mm.extents)) / 96
+            vox = mm.voxelized(pitch).fill()
+            M = vox.matrix
+            v3 = float(M.sum()) * pitch ** 3
+            filled = np.maximum.accumulate(M, axis=2) & np.maximum.accumulate(M[:, :, ::-1], axis=2)[:, :, ::-1]
+            vcol = float(filled.sum()) * pitch ** 3
+            if vol is None or v3 > vol:
+                vol, src = v3, "voxel_fill"
+            if vol < 0.35 * o["hull"]:
+                vol, src = vcol, "voxel_column"
+        o["vol"], o["vol_src"] = vol, src
+        lab = trimesh.graph.connected_components(m.edges_sorted, nodes=np.arange(len(m.vertices)), min_len=1)
+        vl = np.zeros(len(m.vertices), int)
+        for k, c in enumerate(lab):
+            vl[c] = k
+        cnt = np.bincount(vl[m.faces[:, 0]], minlength=len(lab))
+        o["ncomp_big"] = int((cnt > 0.03 * len(m.faces)).sum())
+        o["main_frac"] = float(cnt.max() / len(m.faces))
+    except Exception as e:  # noqa: BLE001
+        o["err"] = f"{type(e).__name__}: {e}"
+    return uid, o
+
+
+def geometry_obj(recs: list[dict], cache: Path, workers: int) -> dict:
+    cur = json.loads(cache.read_text()) if cache.exists() else {}
+    todo = sorted((r for r in recs if r["id"] not in cur), key=lambda r: -(r.get("glb_bytes") or 0))
+    if todo:
+        from multiprocessing import Pool
+        with Pool(workers, maxtasksperchild=1) as p:
+            for k, (uid, o) in enumerate(p.imap_unordered(_geo_obj, [(r["id"], r["path"]) for r in todo])):
+                cur[uid] = o
+                if k % 20 == 19:
+                    cache.write_text(json.dumps(cur))
+                    print(f"geometry {k + 1}/{len(todo)}", flush=True)
+        cache.parent.mkdir(parents=True, exist_ok=True)
+        cache.write_text(json.dumps(cur))
+    return cur
+
+
+def obj_category(r: dict) -> tuple[str | None, str | None]:
+    """(category, why-not): category from the name rules, else description / tags, else None."""
+    name = str(r.get("name") or "")
+    if NOT_FOOD.search(name):
+        return None, "not_food: " + name[:40]
+    for rx, c in NAME_RULES:
+        if rx.search(name):
+            return c, None
+    extra = " ".join([str(r.get("description") or "")[:200]] + list(r.get("tags") or []))
+    for rx, c in NAME_RULES:
+        if rx.search(extra) and not NOT_FOOD.search(extra):
+            return c, None
+    return None, "unrecognised_name"
+
+
+def reorient_flat(path: str, uid: str, ext_zup: np.ndarray, out_dir: Path) -> str | None:
+    """A clearly flat food (disc / sheet) whose thin axis is not up in Blender's frame: write a copy of the GLB
+    rotated so that it lies flat (glTF is Y up; Blender x = gX, y = -gZ, z = gY).  Returns the new path or None."""
+    import trimesh
+    t = int(np.argmin(ext_zup))
+    if t == 2 or ext_zup[t] > 0.5 * np.delete(ext_zup, t).min():
+        return None
+    T = trimesh.transformations.rotation_matrix(-np.pi / 2 if t == 1 else np.pi / 2, [1, 0, 0] if t == 1 else [0, 0, 1])
+    out_dir.mkdir(parents=True, exist_ok=True)
+    dst = out_dir / f"{uid}.glb"
+    if not dst.exists():
+        sc = trimesh.load(path, force="scene")
+        sc.apply_transform(T)
+        dst.write_bytes(sc.export(file_type="glb"))
+    return str(dst.resolve())
+
+
+def audit_obj(srcs: list[dict], geo: dict, reorient_dir: Path | None = None) -> list[dict]:
+    out = []
+    for s in srcs:
+        uid = s["id"]
+        g = geo.get(uid) or {}
+        key8 = uid[:8]
+        raw_name = s.get("name")
+        verdict = OBJ_VERDICT.get(key8)
+        cat, why = obj_category(s)
+        if verdict and verdict.startswith("~"):
+            cat, why = verdict[1:], None
+        elif verdict and not verdict.startswith("!"):
+            cat, why = verdict, None
+        flags: list[str] = []
+        ex = None                                              # (code, reason)
+        if verdict and verdict.startswith("!"):
+            code, _, reason = verdict[1:].partition(":")
+            ex = (code.strip(), reason.strip())
+        elif why:
+            ex = (why.split(":")[0], why)
+        if ex is None and (g.get("err") or "ext" not in g):
+            ex = ("bad_mesh", g.get("err", "no geometry"))
+        meta = glb_meta(s["path"])
+        nf = s.get("face_count") or g.get("n_faces") or 0
+        if ex is None and nf < LOWPOLY_FACES:
+            ex = ("lowpoly", f"{nf} faces (retopologised / stylised)")
+        if ex is None and nf < MIN_FACES_NOTE:
+            flags.append("lowish")
+        if ex is None and meta.get("n_base_tex", 0) == 0:
+            ex = ("untextured", "no base-colour texture" + (" (vertex colours only)" if meta.get("vcol") else ""))
+        if ex is None and g["ncomp_big"] > 3 and g["main_frac"] < 0.6:
+            ex = ("cluster", f"{g['ncomp_big']} separate big pieces")
+        if ex is None and max(g["ext"]) / max(max(g["rext"]), 1e-9) > 1.9:
+            ex = ("stray_geometry", "floating geometry far from the body")
+
+        r = dict(id=f"objaverse_{uid}", source="objaverse", name=cat or str(raw_name), category=cat or "unknown",
+                 object=uid, path=s["path"], fmt="gltf", role="food", procedural=False, generated=False, color=None,
+                 mass_g=None, container_shaped=False, up_axis="Z", licence=s["licence"], attribution=s["attribution"],
+                 url=s["url"], uid=uid, lvis_category=s.get("lvis_category"), raw_name=raw_name,
+                 description=(s.get("description") or "")[:200], n_faces=int(nf), kind="item", quality="scan")
+        r["qa_exclude"], r["qa_reason"], r["qa_flags"] = False, None, flags
+        if "ext" in g:
+            ext_raw = np.asarray(g["ext"])
+            body = np.asarray(g["rext"])                        # 0.5 .. 99.5 % extent: the body without strays
+            V = g["vol"]
+            if cat == "bread loaf" and sorted(body)[2] > 3.0 * max(sorted(body)[1], 1e-9):
+                cat = r["category"] = r["name"] = "baguette"          # long thin loaf
+            key = SLICE_RE.search(str(raw_name)) and cat in SLICEABLE and SLICEABLE[cat] or cat
+            if key != cat:
+                r["category"] = r["name"] = key
+            nk = NORM_KEY.get(key, key)
+            E = OBJ_EXPECTED.get(nk) or (OBJ_EXPECTED.get(r["category"]))
+            if E is None:
+                E = dict(lo=0, hi=1e9, kind="item", serve="plated", copies=1, ctx=None)
+                if ex is None:
+                    ex = ("no_norm", f"no size norm for {r['category']!r}")
+            size_units = float(max(body) if max(ext_raw) / max(max(body), 1e-9) > 1.25 else max(ext_raw))
+            target_cm = float(np.sqrt(E["lo"] * E["hi"])) if E["hi"] < 1e8 else 0.0
+            to_m = target_cm / 100 / size_units if size_units > 0 else 1.0
+            r.update(to_m=to_m, scale_source="category_norm", size_target_cm=round(target_cm, 2),
+                     extent_m=(ext_raw * to_m).tolist(), volume_ml=float(V * to_m ** 3 * 1e6),
+                     volume_source=g["vol_src"], volume_ok=True, watertight=bool(g["wt"]),
+                     hull_ml=float(g["hull"] * to_m ** 3 * 1e6), raw_extent_units=ext_raw.tolist(),
+                     raw_max_units=size_units, expected_size_cm=[E["lo"], E["hi"]], norm_key=nk, kind=E["kind"],
+                     serve=E["serve"], whole_context=E["ctx"], plate_ok=E["serve"] not in ("whole_produce", "platter"),
+                     serving_copies=1 if E["kind"] == "portion" else E["copies"])
+            if g["vol_src"] not in ("mesh", "mesh_filled"):
+                flags.append("volume_" + g["vol_src"])
+            if V < 0.12 * g["hull"]:
+                flags.append("thin_shell")
+            if r["category"] in FLAT_CATS and ext_raw[2] > 0.75 * min(ext_raw[0], ext_raw[1]):
+                flags.append("tilted")                      # a flat food (pizza, slice of bread ...) not lying flat in the file
+                if not r["qa_exclude"] and ex is None and reorient_dir is not None:
+                    fixed = reorient_flat(s["path"], uid, ext_raw, reorient_dir)
+                    if fixed:
+                        r["path_orig"], r["path"] = s["path"], fixed
+                        r["extent_m"] = [r["extent_m"][i] for i in (0, 2, 1)] if np.argmin(ext_raw) == 1 else \
+                            [r["extent_m"][i] for i in (2, 1, 0)]
+                        flags.append("reoriented")
+            if E["serve"] in ("whole_produce", "platter"):
+                flags.append(E["serve"])
+        else:
+            r.update(to_m=1.0, scale_source="none", extent_m=[0.0, 0.0, 0.0], volume_ml=0.0, volume_source="none",
+                     volume_ok=False, watertight=False, expected_size_cm=[0, 0], serve="plated", whole_context=None,
+                     plate_ok=True, serving_copies=1)
+        if ex:
+            r["qa_exclude"], r["qa_reason"] = True, f"{ex[0]}: {ex[1]}"
+            flags.append(ex[0])
+        out.append(r)
+    return out
+
+
+def contact_sheets_obj(recs: list[dict], thumbs: Path, out_dir: Path, per: int = 60, cols: int = 10) -> list[Path]:
+    from PIL import Image, ImageDraw
+    out_dir.mkdir(parents=True, exist_ok=True)
+    cells = sorted(recs, key=lambda r: (str(r["category"]), r["uid"]))
+    W, TH = 164, 164
+    paths = []
+    for si in range(0, len(cells), per):
+        chunk = cells[si:si + per]
+        rows = (len(chunk) + cols - 1) // cols
+        sheet = Image.new("RGB", (cols * W, rows * (TH + 34)), (28, 28, 30))
+        dr = ImageDraw.Draw(sheet)
+        for k, r in enumerate(chunk):
+            x, y = (k % cols) * W, (k // cols) * (TH + 34)
+            try:
+                im = Image.open(thumbs / f"{r['id']}.jpg").convert("RGB").resize((TH - 4, TH - 4))
+            except Exception:  # noqa: BLE001
+                im = Image.new("RGB", (TH - 4, TH - 4), (90, 0, 90))
+            col = (200, 40, 40) if r["qa_exclude"] else ((70, 120, 230) if r["serve"] in ("whole_produce", "platter")
+                                                         else (50, 170, 70))
+            dr.rectangle([x, y, x + W - 2, y + TH - 2], outline=col, width=2)
+            sheet.paste(im, (x + 2, y + 2))
+            dr.text((x + 2, y + TH), f"{r['uid'][:8]} {str(r['category'])[:14]}", fill=(255, 255, 0))
+            dr.text((x + 2, y + TH + 11), f"{max(r['extent_m']) * 100:.0f}cm f={r['n_faces'] // 1000}k " +
+                    " ".join(f for f in r["qa_flags"][:2]), fill=(255, 255, 255) if not r["qa_exclude"] else (255, 120, 120))
+            dr.text((x + 2, y + TH + 22), str(r["raw_name"])[:26], fill=(170, 200, 255))
+        p = out_dir / f"obj_{si // per:02d}.jpg"
+        sheet.save(p, quality=84)
+        paths.append(p)
+    return paths
+
+
+def report_obj(recs: list[dict]) -> str:
+    use = [r for r in recs if not r["qa_exclude"]]
+    reasons = Counter(r["qa_reason"].split(":")[0] for r in recs if r["qa_exclude"])
+    per = defaultdict(lambda: [0, 0])
+    for r in recs:
+        per[r["category"]][1 if r["qa_exclude"] else 0] += 1
+    lines = [f"objaverse models: {len(recs)}  kept: {len(use)}  excluded: {len(recs) - len(use)}",
+             f"exclusion reasons: {dict(reasons)}", f"kept by serve: {dict(Counter(r['serve'] for r in use))}",
+             f"kept plate_ok: {sum(r['plate_ok'] for r in use)}", f"licences (kept): {dict(Counter(r['licence'] for r in use))}",
+             f"flags (kept): {dict(Counter(f for r in use for f in r['qa_flags']))}",
+             f"volume_source (kept): {dict(Counter(r['volume_source'] for r in use))}", "", "per category (kept / excluded):"]
+    for k in sorted(per):
+        lines.append(f"  {k:24s} {per[k][0]:3d} / {per[k][1]:3d}")
+    return "\n".join(lines)
+
+
+def main_objaverse(args) -> None:
+    v4 = [json.loads(line) for line in Path(args.inp).read_text().splitlines() if line.strip()]
+    srcs = [json.loads(line) for line in Path(args.obj_sources).read_text().splitlines() if line.strip()]
+    srcs = [s for s in srcs if s["source"] == "objaverse" and os.path.exists(s.get("path", ""))]
+    qa = Path(args.qa_dir)
+    qa.mkdir(parents=True, exist_ok=True)
+    geo = geometry_obj(srcs, qa / "cache_geo_obj.json", args.workers)
+    rows = audit_obj(srcs, geo, Path(args.reorient_dir))
+    if not args.no_thumbs:
+        render_thumbs([dict(id=r["id"], path=r["path"], fmt="gltf") for r in rows], qa / "thumbs_obj", args.blender,
+                      n_proc=args.thumb_procs)
+        paths = contact_sheets_obj(rows, qa / "thumbs_obj", qa / "sheets_obj")
+        kept = contact_sheets_obj([r for r in rows if not r["qa_exclude"]], qa / "thumbs_obj", qa / "sheets_obj_kept")
+        print("kept-only contact sheets:", *kept, sep="\n  ")
+        print("contact sheets:", *paths, sep="\n  ")
+    with open(args.out, "w") as f:
+        for r in v4 + rows:
+            f.write(json.dumps(r) + "\n")
+    txt = report_obj(rows)
+    (qa / "report_obj.txt").write_text(txt + "\n")
+    print(txt)
+    print(f"wrote {args.out}: {len(v4)} v4 rows + {len(rows)} objaverse rows")
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--in", dest="inp", default="../data/synth/assets_v3.jsonl")
@@ -653,7 +1239,14 @@ def main() -> None:
     ap.add_argument("--blender", default=os.path.expanduser("~/blender/blender-4.2.1-linux-x64/blender"))
     ap.add_argument("--no-thumbs", action="store_true", help="skip Blender thumbnails / contact sheets")
     ap.add_argument("--workers", type=int, default=10)
+    ap.add_argument("--objaverse", action="store_true", help="v4 + Objaverse scans -> assets_v5 (see the Objaverse section)")
+    ap.add_argument("--obj-sources", default="../data/datasets/objaverse/sources.jsonl")
+    ap.add_argument("--thumb-procs", type=int, default=6)
+    ap.add_argument("--reorient-dir", default="../data/datasets/objaverse/reoriented",
+                    help="GLB copies of flat foods that were not lying flat")
     args = ap.parse_args()
+    if args.objaverse:
+        return main_objaverse(args)
 
     recs = [json.loads(line) for line in Path(args.inp).read_text().splitlines() if line.strip()]
     qa = Path(args.qa_dir)

@@ -1,6 +1,7 @@
 """Download real scanned food and tableware models from open sources (no account needed).
 
     python -m synth.fetch_assets --out ../data/datasets/online [--list] [--sources polyhaven ycb gso]
+    python -m synth.fetch_assets --out ../data/datasets/objaverse --sources objaverse [--list]
 
 Sources (licences checked 2026-10-13; see docs/dataset_curation.md):
   polyhaven  food scans, CC0, glTF at 2k textures       https://polyhaven.com (api.polyhaven.com)
@@ -12,6 +13,14 @@ Sources (licences checked 2026-10-13; see docs/dataset_curation.md):
              the room light and reflections of a meal photographed indoors
   surface    Poly Haven PBR texture sets for tabletops (wood, stone, laminate, cloth), CC0, 2k jpg
              (colour, roughness, OpenGL normal)
+
+  objaverse  photogrammetry food scans from Objaverse (Sketchfab; CC BY / CC BY-SA / CC0 only; GLB).  The candidate
+             list (uid -> LVIS category; objects tagged photogrammetry / scan with those licences) is
+             OUT/objaverse_food_scans.json.  Use a SEPARATE --out (data/datasets/objaverse): GLBs land in
+             OUT/hf-objaverse-v1/glbs/*/<uid>.glb (the objaverse package layout), the index (with author, uri,
+             licence, name, face count) in OUT/sources.jsonl.  Needs the `objaverse` package (synth env).
+             Downloads in chunks and stops below MIN_FREE_GB of free disk.  Objaverse models are not metric:
+             synth.asset_qa --objaverse assigns the scale (category size norms) and QA.
 
 Each model lands in OUT/<source>/<id>/ with its files as published; OUT/sources.jsonl gets one
 line per model (source, id, role food / container / clutter / hdri / surface, licence, attribution,
@@ -138,6 +147,78 @@ def gso() -> list[dict]:
     return out
 
 
+OBJAVERSE_SKIP = {"gourd", "pumpkin", "garlic"}           # raw produce-only categories the library already has
+OBJAVERSE_CAP = {"banana": 10}                            # whole bananas: a few is enough
+OBJAVERSE_RAW = {"banana", "pear", "pineapple", "apple", "clementine", "onion", "cantaloup", "avocado", "potato",
+                 "zucchini", "artichoke", "watermelon", "orange_(fruit)", "peach", "strawberry", "fig_(fruit)",
+                 "lettuce", "lime", "mandarin_orange", "apricot", "bell_pepper", "edible_corn", "papaya",
+                 "sweet_potato", "chili_(vegetable)", "lemon", "melon", "cauliflower", "nut", "date_(fruit)",
+                 "mushroom", "kiwi_fruit", "tomato", "pepper", "cucumber", "carrot", "raspberry", "blackberry",
+                 "eggplant", "coconut", "grape", "turnip", "radish", "blueberry", "green_bean", "brussels_sprouts",
+                 "broccoli"}                              # fetched last (cooked dishes, bread, pastry first)
+MIN_FREE_GB = 15.0
+
+
+def objaverse_setup(out: Path):
+    """Point the objaverse package at OUT/hf-objaverse-v1 (its annotation / path caches are linked in)."""
+    import os
+    import objaverse
+    v = out / "hf-objaverse-v1"
+    v.mkdir(parents=True, exist_ok=True)
+    for f in ("lvis-annotations.json.gz", "metadata", "object-paths.json.gz"):
+        src = Path(os.path.expanduser("~/.objaverse/hf-objaverse-v1")) / f
+        if src.exists() and not (v / f).exists() and not (v / f).is_symlink():
+            (v / f).symlink_to(src)
+    objaverse._VERSIONED_PATH = str(v)
+    return objaverse, v
+
+
+def objaverse_recs(out: Path) -> list[dict]:
+    cand = json.loads((out / "objaverse_food_scans.json").read_text())          # uid -> LVIS category
+    objaverse, v = objaverse_setup(out)
+    ann = objaverse.load_annotations(list(cand))
+    by: dict[str, list[str]] = {}
+    for u, c in cand.items():
+        if c not in OBJAVERSE_SKIP:
+            by.setdefault(c, []).append(u)
+    recs = []
+    for c, us in by.items():
+        us = sorted(us, key=lambda u: ann[u].get("archives", {}).get("glb", {}).get("size", 0))[:OBJAVERSE_CAP.get(c, 10 ** 6)]
+        for u in us:
+            a = ann[u]
+            user = a.get("user") or {}
+            recs.append({"source": "objaverse", "id": u, "name": a.get("name"), "role": "food", "lvis_category": c,
+                         "licence": {"by": "CC BY 4.0", "by-sa": "CC BY-SA 4.0", "cc0": "CC0"}.get(a.get("license"), a.get("license")),
+                         "attribution": f"{user.get('displayName') or user.get('username')} ({user.get('profileUrl')})",
+                         "url": a.get("viewerUrl"), "description": (a.get("description") or "")[:300],
+                         "face_count": a.get("faceCount"), "glb_bytes": a.get("archives", {}).get("glb", {}).get("size", 0),
+                         "texture_count": a.get("archives", {}).get("glb", {}).get("textureCount"),
+                         "texture_res": a.get("archives", {}).get("glb", {}).get("textureMaxResolution"),
+                         "tags": [t["name"] for t in a.get("tags", [])][:12], "_objaverse": u})
+    recs.sort(key=lambda r: r["lvis_category"] in OBJAVERSE_RAW)
+    return recs
+
+
+def fetch_objaverse(recs: list[dict], out: Path, procs: int = 8, chunk: int = 40) -> list[dict]:
+    """Download the GLBs in chunks, checking the free disk space between them; returns the records fetched."""
+    import shutil
+    objaverse, v = objaverse_setup(out)
+    done = []
+    for i in range(0, len(recs), chunk):
+        free = shutil.disk_usage(out).free / 1e9
+        if free < MIN_FREE_GB:
+            print(f"STOP: {free:.1f} GB free < {MIN_FREE_GB} GB after {len(done)} models")
+            break
+        part = recs[i:i + chunk]
+        paths = objaverse.load_objects([r["_objaverse"] for r in part], download_processes=procs)
+        for r in part:
+            if r["_objaverse"] in paths and Path(paths[r["_objaverse"]]).exists():
+                r["path"] = str(Path(paths[r["_objaverse"]]).resolve())
+                done.append(r)
+        print(f"objaverse {i + len(part)}/{len(recs)}  free {free:.1f} GB", flush=True)
+    return done
+
+
 def fetch(rec: dict, out: Path) -> None:
     d = out / rec["source"] / rec["id"]
     if (d / ".done").exists():
@@ -173,11 +254,15 @@ def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--out", required=True)
     ap.add_argument("--sources", nargs="+", default=["polyhaven", "ycb", "gso", "hdri", "surface"])
+    ap.add_argument("--procs", type=int, default=8, help="objaverse download processes")
     ap.add_argument("--list", action="store_true", help="only print what would be fetched")
     args = ap.parse_args()
     out = Path(args.out)
     srcs = {"polyhaven": polyhaven, "ycb": ycb, "gso": gso, "hdri": hdris, "surface": surfaces}
-    recs = [r for s in args.sources for r in srcs[s]()]
+    ovs = "objaverse" in args.sources
+    recs = [r for s in args.sources if s != "objaverse" for r in srcs[s]()]
+    if ovs:
+        recs += objaverse_recs(out)
     for r in recs:
         print(f"{r['source']:<9} {r['role']:<9} {r['id']}")
     print(f"{len(recs)} models")
@@ -190,6 +275,11 @@ def main() -> None:
         for line in index.read_text().splitlines():
             r = json.loads(line)
             lines[(r["source"], r["id"])] = r
+    if ovs:
+        got = fetch_objaverse([r for r in recs if r["source"] == "objaverse"], out, args.procs)
+        for r in got:
+            lines[(r["source"], r["id"])] = {k: v for k, v in r.items() if not k.startswith("_")}
+        recs = [r for r in recs if r["source"] != "objaverse"]
     for r in recs:
         try:
             fetch(r, out)
