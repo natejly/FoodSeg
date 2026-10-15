@@ -236,6 +236,80 @@ def textured_material(obj, name: str, color, roughness: float, scale: float, met
     obj.replace_materials(mat)
 
 
+def photo_texture(nt, links, coord, tex: dict, colour):
+    """Real food photo texture (synth.food_textures bank) in object space (metres).
+
+    The tile is an albedo ratio (mean 1 after x2) and a height map from a top-down render of a
+    textured MetaFood3D scan; `tile_m` is its real width. Box-projected (works on mounds and
+    sides), looked up twice at different rotation / scale / offset and mixed by a sharp noise
+    mask so the tiling never shows. Returns (colour * ratio, height ~0, luminance 0..1)."""
+    rng = np.random.default_rng(int(tex.get("seed", 0)))
+    sc = float(tex.get("scale", 1.0)) / float(tex["tile_m"])
+    imgs = {}
+    for key, cs in (("albedo", "Non-Color"), ("height", "Non-Color")):
+        im = bpy.data.images.load(tex[key], check_existing=True)
+        im.colorspace_settings.name = cs
+        imgs[key] = im
+
+    def lookup(key, rot, scale, loc):
+        mp = nt.new("ShaderNodeMapping")
+        mp.vector_type = "POINT"
+        mp.inputs["Scale"].default_value = (scale, scale, scale)
+        mp.inputs["Rotation"].default_value = rot
+        mp.inputs["Location"].default_value = loc
+        links.new(coord, mp.inputs["Vector"])
+        t = nt.new("ShaderNodeTexImage")
+        t.image = imgs[key]
+        t.projection = "BOX"
+        t.projection_blend = 0.25
+        t.interpolation = "Cubic"
+        links.new(mp.outputs["Vector"], t.inputs["Vector"])
+        return t.outputs["Color"]
+
+    def rnd_rot():
+        return tuple(float(x) for x in rng.uniform(0, 6.28, 3))
+
+    mask_n = nt.new("ShaderNodeTexNoise")
+    mask_n.inputs["Scale"].default_value = float(rng.uniform(14, 26))
+    mask_n.inputs["Detail"].default_value = 2.0
+    links.new(coord, mask_n.inputs["Vector"])
+    m = nt.new("ShaderNodeMapRange")
+    m.inputs["From Min"].default_value, m.inputs["From Max"].default_value = 0.46, 0.54
+    links.new(mask_n.outputs["Fac"], m.inputs["Value"])
+    fac = m.outputs["Result"]
+    outs = []
+    for key in ("albedo", "height"):
+        la = lookup(key, rnd_rot(), sc, tuple(float(x) for x in rng.uniform(0, 1, 3)))
+        lb = lookup(key, rnd_rot(), sc * 0.77, tuple(float(x) for x in rng.uniform(0, 1, 3)))
+        mx = nt.new("ShaderNodeMixRGB")
+        links.new(fac, mx.inputs["Fac"])
+        links.new(la, mx.inputs["Color1"])
+        links.new(lb, mx.inputs["Color2"])
+        outs.append(mx.outputs["Color"])
+    alb, hgt = outs
+    gain = nt.new("ShaderNodeVectorMath")      # stored ratio / 2 -> ratio
+    gain.operation = "SCALE"
+    links.new(alb, gain.inputs[0])
+    gain.inputs["Scale"].default_value = 2.0 * float(tex.get("contrast", 1.0))
+    soft = nt.new("ShaderNodeMixRGB")          # strength < 1 pulls the ratio towards 1 (less contrast)
+    soft.inputs["Fac"].default_value = float(tex.get("strength", 1.0))
+    soft.inputs["Color1"].default_value = (1.0, 1.0, 1.0, 1.0)
+    links.new(gain.outputs["Vector"], soft.inputs["Color2"])
+    mul = nt.new("ShaderNodeMixRGB")
+    mul.blend_type, mul.inputs["Fac"].default_value = "MULTIPLY", 1.0
+    links.new(colour, mul.inputs["Color1"])
+    links.new(soft.outputs["Color"], mul.inputs["Color2"])
+    lum = nt.new("ShaderNodeRGBToBW")
+    links.new(alb, lum.inputs["Color"])
+    h = nt.new("ShaderNodeRGBToBW")
+    links.new(hgt, h.inputs["Color"])
+    hm = nt.new("ShaderNodeMath")
+    hm.operation = "SUBTRACT"
+    links.new(h.outputs["Val"], hm.inputs[0])
+    hm.inputs[1].default_value = 0.5
+    return mul.outputs["Color"], hm.outputs[0], lum.outputs["Val"]
+
+
 def food_material(obj, name: str, color, roughness: float, L: dict) -> None:
     """Procedural food by consistency (synth.looks). Voronoi cells in object space (metres) are
     grains (rounded, dark crevices), oat flakes (pale plateaus in paste) or chunks in a liquid;
@@ -299,7 +373,8 @@ def food_material(obj, name: str, color, roughness: float, L: dict) -> None:
     colour = mix(ramp(patch.outputs["Fac"], 0.3, 0.7), (c * (1 - tv)).tolist(), (c * (1 + tv)).tolist())
     height = None
 
-    cells = L.get("cells")
+    tex = L.get("tex")
+    cells = L.get("cells") if not tex or L.get("speckles") else None   # (photo texture replaces painted grains)
     if cells:
         # domain warp so cells aren't regular polygons
         warp = node("ShaderNodeTexNoise", Scale=float(cells["scale"]) / 3, Detail=2.0)
@@ -337,10 +412,15 @@ def food_material(obj, name: str, color, roughness: float, L: dict) -> None:
                      math("LESS_THAN", rnd.outputs["Green"], lo + frac))
             colour = mix(m, colour, list(sc))
             lo += frac
-        if cells.get("crevice"):
+        if tex:                                              # only the speckles survive; the photo is the grain
+            height = None
+        elif cells.get("crevice"):
             colour = mix(math("MULTIPLY", math("SUBTRACT", 1.0, height), cells["crevice"]), colour,
                          (c * 0.45).tolist())
 
+    tex_h = None
+    if tex:
+        colour, tex_h, tex_lum = photo_texture(nt, links, coord, tex, colour)
     # solids in a wet food (beans, oat flakes) are matte; only the liquid between them shines
     solid = height if cells and cells["mode"] in ("chunk", "flake") else None
     lump_scale, lump_w = L.get("lumps", (50.0, 0.15))
@@ -356,6 +436,9 @@ def food_material(obj, name: str, color, roughness: float, L: dict) -> None:
         height = math("ADD", height, math("MULTIPLY", wave.outputs["Fac"], sw_w))
 
     bump = node("ShaderNodeBump", Strength=float(L.get("bump", 0.4)), Distance=0.0015)
+    if tex_h is not None:           # relief of the real scan on top of the lumps / swirls
+        height = math("ADD", math("MULTIPLY", height, 0.5), math("MULTIPLY", tex_h, float(tex.get("relief", 1.6))))
+        bump.inputs["Distance"].default_value = 0.0025
     links.new(height, bump.inputs["Height"])
     links.new(bump.outputs["Normal"], bsdf.inputs["Normal"])
     if L.get("ao"):                    # paste between scattered grains sits in their shadow
@@ -372,12 +455,15 @@ def food_material(obj, name: str, color, roughness: float, L: dict) -> None:
         colour = dark.outputs["Color"]
     links.new(colour, bsdf.inputs["Base Color"])
     bsdf.inputs["Roughness"].default_value = float(roughness)
+    if tex:                         # bright specks in the photo are wet / glossy, dark crevices rough
+        rough = math("SUBTRACT", float(roughness) + 0.08, math("MULTIPLY", tex_lum, 0.16))
+        links.new(rough, bsdf.inputs["Roughness"])
     bsdf.inputs["Subsurface Weight"].default_value = float(L.get("sss", 0.2))
     bsdf.inputs["Subsurface Radius"].default_value = (1.0, 0.6, 0.35)
     bsdf.inputs["Subsurface Scale"].default_value = 0.002          # metres: food scatters over ~mm
     bsdf.inputs["Coat Weight"].default_value = float(L.get("coat", 0.0))
     bsdf.inputs["Coat Roughness"].default_value = 0.08
-    if solid is not None:
+    if solid is not None and not tex:
         links.new(math("ADD", float(roughness), math("MULTIPLY", solid, 0.35)), bsdf.inputs["Roughness"])
         links.new(math("MULTIPLY", float(L.get("coat", 0.0)), math("SUBTRACT", 1.0, solid)), bsdf.inputs["Coat Weight"])
     obj.replace_materials(mat)

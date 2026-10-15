@@ -16,6 +16,26 @@ from __future__ import annotations
 
 import numpy as np
 
+from . import food_textures
+
+# food -> (real texture group from synth.food_textures, tile scale, relief, strength).
+# Colour comes from the spec colour, the photo adds grain / crumb / sauce texture and relief.
+TEX = {
+    "white rice": ("rice", 1.0), "brown rice": ("rice", 1.0), "quinoa": ("rice", 0.4), "couscous": ("rice", 0.3),
+    "fried rice": ("fried_rice", 1.0),
+    "mashed potato": ("mash", 1.0), "yogurt": ("applesauce", 1.0), "sour cream": ("applesauce", 1.0),
+    "melted cheese": ("applesauce", 1.0), "hummus": ("mash", 1.0), "refried beans": ("mash", 1.0),
+    "guacamole": ("guacamole", 1.0),
+    "mac and cheese": ("mac", 1.0), "spaghetti": ("pasta", 1.0), "penne in tomato sauce": ("stew", 1.0),
+    "scrambled eggs": ("omelet", 1.0), "egg whites": ("omelet", 1.0),
+    "oatmeal": ("cottage", 1.0), "risotto": ("cottage", 1.0), "polenta": ("mash", 1.0), "congee": ("cottage", 1.0),
+    "chili": ("stew", 1.0), "lentil stew": ("stew", 1.0), "dal": ("stew", 1.0), "chicken curry": ("stew", 1.0),
+    "green curry": ("stew", 1.0), "curry sauce": ("stew", 1.0), "baked beans": ("stew", 1.0),
+    "black beans": ("stew", 1.0), "gravy": ("stew", 1.0), "tomato sauce": ("stew", 1.0),
+    "tomato soup": ("soup", 1.0), "pumpkin soup": ("soup", 1.0), "miso soup": ("soup", 1.0), "ramen": ("soup", 1.0),
+    "salsa": ("stew", 1.0), "pesto": ("guacamole", 1.0),
+}
+
 KIND = {
     "white rice": "grain", "fried rice": "grain", "brown rice": "grain", "quinoa": "grain",
     "oatmeal": "porridge",
@@ -151,6 +171,14 @@ def look(name: str, rng: np.random.Generator) -> dict:
         size = u(0.005, 0.008) if name == "mac and cheese" else u(0.008, 0.015)
         L.update(cells={"scale": 1 / size, "mode": "dome", "jitter": 0.1, "crevice": 0.3, "distort": 0.8},
                  coat=u(0.2, 0.4) if name == "mac and cheese" else 0.0, sss=0.35, bump=0.55)
+    if name in TEX:
+        t = food_textures.pick(TEX[name][0], rng)
+        if t:
+            L["tex"] = {"albedo": t[0], "height": t[1], "tile_m": t[2], "scale": TEX[name][1],
+                        "seed": int(rng.integers(1 << 30)),
+                        "strength": {"puree": 0.7, "liquid": 0.8, "porridge": 0.8}.get(k, 1.0),
+                        "relief": u(1.0, 1.8) if k in ("grain", "curd") else u(0.5, 1.0)}
+            L["tint_var"] = min(L["tint_var"], 0.04)
     L["ao"] = name in PIECES                        # darken the paste between real grains
     if name in PIECES and L["cells"] and L["cells"]["mode"] in ("chunk", "flake"):
         L["cells"], L["chunk_color"] = None, None     # real beans / flakes are scattered (PIECES): no painted ones
