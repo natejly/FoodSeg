@@ -145,6 +145,9 @@ def simulate_cloth(cloth: list, obstacles: list, keep_r: float, frames: int = 15
     scene.frame_start, scene.frame_end = 0, 0        # BlenderProc appends camera poses from frame_end
 
 
+BULLET_BUDGET_S = 240.0     # wall-clock cap on the Bullet drop (fallback physics)
+
+
 def collision_parts(p: str) -> list:
     """synth.collision cache: V (all part vertices), n (vertices per part)."""
     z = np.load(p)
@@ -1171,6 +1174,13 @@ def main() -> None:
 
     # food
     objs, proxies, part_objs = [], [], {}
+    # Bullet cost grows with bodies x convex parts (a mango + nine blueberries stalled for 10-25 min):
+    # past a budget, single convex hulls (and fewer substeps) instead of CoACD compound colliders
+    dyn = [it for it in spec["items"] if it["dynamic"] and it.get("matrix_world") is None]
+    n_parts = sum(int(len(np.load(it["collision"])["n"])) if it.get("collision") else 1 for it in dyn)
+    cheap_bullet = len(dyn) > 4 or n_parts > 30
+    if dyn and cheap_bullet:
+        print(f"[render] bullet budget: {len(dyn)} bodies / {n_parts} parts -> convex hulls", flush=True)
     for it in spec["items"]:
         o = load_mesh(it, scene_dir)
         o.persist_transformation_into_mesh()       # importer axis conversion -> mesh (cached parts' frame)
@@ -1204,7 +1214,7 @@ def main() -> None:
             o.set_rotation_euler(it["init_euler"])
             mass = (it["mass_g"] or it["volume_ml"]) / 1000.0      # kg; ~1 g/mL when unknown
             damping = it.get("damping", 0.3)
-            if it.get("collision"):          # CoACD parts (synth.collision): true-shape contacts
+            if it.get("collision") and not cheap_bullet:   # CoACD parts (synth.collision): true-shape contacts
                 part_objs[it["id"]] = compound_collider(o, collision_parts(it["collision"]), c_local, mass, damping)
             else:
                 # scans have up to ~1 M vertices and Bullet's hull shape walks all of them per
@@ -1244,9 +1254,21 @@ def main() -> None:
         clutter.append(o)
 
     if not args.no_physics and any(it["dynamic"] for it, _ in objs):
+        # wall-clock budget: past it the next stop check says "everything has stopped" and the sim ends
+        deadline = time.time() + BULLET_BUDGET_S
+        from blenderproc.python.object.PhysicsSimulation import _PhysicsSimulation as _PS
+        orig_stopped = _PS.have_objects_stopped_moving
+
+        def stopped_or_late(*a, **k):
+            if time.time() > deadline:
+                print("[render] bullet time budget reached, stopping the drop", flush=True)
+                return True
+            return orig_stopped(*a, **k)
+        _PS.have_objects_stopped_moving = staticmethod(stopped_or_late)
         bproc.object.simulate_physics_and_fix_final_poses(
             min_simulation_time=1.5, max_simulation_time=6, check_object_interval=0.5,
-            substeps_per_frame=40, solver_iters=30)
+            substeps_per_frame=15 if cheap_bullet else 40, solver_iters=15 if cheap_bullet else 30)
+        _PS.have_objects_stopped_moving = staticmethod(orig_stopped)
         print(f"[render] physics done at {time.time() - t0:.0f}s", flush=True)
     for o, proxy in proxies:
         copy_pose(proxy, o)

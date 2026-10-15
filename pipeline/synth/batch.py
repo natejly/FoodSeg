@@ -53,7 +53,8 @@ def main() -> None:
     ap.add_argument("--collision-cache", default=None, help="CoACD parts cache (default: <assets dir>/collision)")
     ap.add_argument("--hull-only", action="store_true", help="single convex hull per scan (old physics)")
     ap.add_argument("--physics", choices=["mpm", "bullet"], default="mpm",
-                    help="hard preset: mpm settles soft food and drops together (synth.mpm); bullet: rigid only")
+                    help="hard preset: mpm settles soft food and dropped scans together, rigid-only scenes too "
+                         "(synth.mpm); bullet: Blender rigid bodies only (fallback, time-limited)")
     ap.add_argument("--mpm-time", type=float, default=1.0)
     args = ap.parse_args()
 
@@ -100,7 +101,11 @@ def main() -> None:
             (sdir / "spec.json").write_text(json.dumps(spec, indent=1, default=lambda o: o.tolist()))
         if args.preset == "hard" and args.physics == "mpm":
             from .mpm import settle               # taichi: only when used
-            spec = settle(spec, sdir, sim_time=args.mpm_time, log=lambda m: print(f"{sid} {m}", flush=True))
+            try:
+                spec = settle(spec, sdir, sim_time=args.mpm_time, log=lambda m: print(f"{sid} {m}", flush=True))
+            except Exception as e:                # fall back to Blender's Bullet for this scene
+                print(f"{sid}: MPM failed ({type(e).__name__}: {e}), falling back to Bullet", flush=True)
+                spec = json.loads((sdir / "spec.json").read_text())
             (sdir / "spec.json").write_text(json.dumps(spec, indent=1, default=lambda o: o.tolist()))
         cmd = [str(bproc), "run", "--custom-blender-path", args.blender, str(RENDER),
                str(sdir / "spec.json"), str(rdir), "--spp", str(args.spp)]

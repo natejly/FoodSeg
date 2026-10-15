@@ -31,6 +31,7 @@ from .looks import ITEM_PHYSICS
 
 MODELS = {"elastic": 0, "sand": 1, "plastic": 2, "fluid": 3, "rigid": 4}
 MAX_BODIES = 64
+MAX_MATERIALS = 64
 GRAVITY = 9.81
 FRICTION = 0.6                   # food on the dish / table (Coulomb, at the grid)
 
@@ -94,6 +95,18 @@ def convex_points(P: np.ndarray, h: float, origin: np.ndarray | None = None) -> 
     return fill_points(P, ConvexHull(P).simplices, h, origin)
 
 
+def shell_points(P: np.ndarray, h: float, layers: int = 2) -> np.ndarray:
+    """Keep the points of a lattice-aligned point set within `layers` lattice steps of its surface
+    (a rigid body needs no filled interior: the grid only sees its skin)."""
+    from scipy.ndimage import binary_erosion
+    lo = P.min(0)
+    idx = np.round((P - lo) / h).astype(np.int64) + layers + 1
+    occ = np.zeros(idx.max(0) + layers + 2, bool)
+    occ[tuple(idx.T)] = True
+    inner = binary_erosion(occ, iterations=layers, border_value=0)
+    return P[~inner[tuple(idx.T)]]
+
+
 def euler_xyz(e) -> np.ndarray:
     """Blender XYZ Euler -> rotation matrix (R = Rz Ry Rx)."""
     cx, cy, cz = np.cos(e)
@@ -154,7 +167,7 @@ def dish_heightfield(spec: dict, scene_dir: Path, x0: float, y0: float, h: float
 class Solver:
     """MLS-MPM (quadratic B-splines, APIC), sized once for the largest scene."""
 
-    def __init__(self, max_particles: int = 1_500_000, max_grid=(208, 208, 112)):
+    def __init__(self, max_particles: int = 1_500_000, max_grid=(208, 208, 208)):
         self.x = ti.Vector.field(3, ti.f32, max_particles)
         self.v = ti.Vector.field(3, ti.f32, max_particles)
         self.C = ti.Matrix.field(3, 3, ti.f32, max_particles)
@@ -347,7 +360,7 @@ class Solver:
             origin: np.ndarray, dims: tuple[int, int, int], dx: float, pvol: float, sim_time: float,
             log=print) -> np.ndarray:
         n, nb = len(X), int(body.max()) + 1
-        assert n <= self.max_particles and nb <= MAX_BODIES and all(d <= m for d, m in zip(dims, self.max_grid))
+        assert n <= self.max_particles and nb <= MAX_BODIES and len(params) <= MAX_MATERIALS and all(d <= m for d, m in zip(dims, self.max_grid))
         prm = np.zeros((64, 8), np.float32)
         c_max, visc_max = 1.0, 0.0
         for m, P in enumerate(params):
@@ -372,6 +385,7 @@ class Solver:
                     a, b = P["theta_c"], P["theta_s"]
                 prm[m] = [model, mu, lam, P["rho"], 0, 0, a, b]
             c_max = max(c_max, c)
+        c_max = max(c_max, 5.0)                    # rigid-only scenes: bound the step by the fall speed
         dt = 0.3 * dx / c_max
         if visc_max:
             dt = min(dt, 0.15 * dx * dx / visc_max)
@@ -410,7 +424,7 @@ _SOLVER: Solver | None = None
 def solver() -> Solver:
     global _SOLVER
     if _SOLVER is None:
-        ti.init(arch=ti.gpu, device_memory_GB=1.5, offline_cache=True)
+        ti.init(arch=ti.gpu, device_memory_GB=0.9, offline_cache=True)
         _SOLVER = Solver()
     return _SOLVER
 
@@ -504,6 +518,32 @@ def relayout(X: np.ndarray, owner: np.ndarray, heap: dict, h: float) -> np.ndarr
     return new
 
 
+def compact_drops(X: np.ndarray, body: np.ndarray, floor_z: float, static: np.ndarray, cell: float,
+                  gap: float = 0.01) -> tuple[np.ndarray, np.ndarray]:
+    """Dropped bodies start high and staggered; most of that is empty air (and a huge grid). Lower each
+    body, lowest first, until it is `gap` above the highest thing in each of its columns (the dish rim
+    height, the soft food, the bodies already lowered). Returns new positions and per-body shifts."""
+    nb = int(body.max()) + 1
+    lo = X[:, :2].min(0)
+    ij = np.floor((X[:, :2] - lo) / cell).astype(np.int64)
+    ny = ij[:, 1].max() + 1
+    key = ij[:, 0] * ny + ij[:, 1]
+    hm = np.full(int(key.max()) + 1, floor_z)
+    if static.any():
+        np.maximum.at(hm, key[static], X[static, 2])
+    X = X.copy()
+    dz = np.zeros(nb)
+    order = np.argsort([X[body == b, 2].min() for b in range(nb)])
+    for b in order:
+        sel = np.flatnonzero(body == b)
+        d = float(np.min(X[sel, 2] - hm[key[sel]])) - gap
+        if d > 0:
+            X[sel, 2] -= d
+            dz[b] = d
+        np.maximum.at(hm, key[sel], X[sel, 2])
+    return X, dz
+
+
 # ---- a scene -----------------------------------------------------------------
 
 def settle(spec: dict, scene_dir: Path, sim_time: float = 1.0, dx: float = 0.002, log=print,
@@ -514,60 +554,68 @@ def settle(spec: dict, scene_dir: Path, sim_time: float = 1.0, dx: float = 0.002
     items = spec["items"]
     soft = [it for it in items if it.get("physics") and not it["dynamic"] and not it.get("cloth")]
     drop = [it for it in items if it["dynamic"]]
-    if not soft:
+    if not soft and not drop:
         return spec
+    assert len(drop) <= MAX_BODIES and len(soft) + len(drop) <= MAX_MATERIALS - 1, "too many items for the MPM solver"
     t0 = time.time()
-    hp = dx / 2                                          # particle spacing: 8 per cell
-    X, mat, owner, body, params = [], [], [], [], []
-    jit = np.random.default_rng(0)
-    frames = {}
-    for it in soft:
-        z = np.load(scene_dir / it["mesh"])
-        P = fill_points(z["V"].astype(np.float64), z["F"].astype(np.int64), hp)
-        P = P + jit.uniform(-0.35, 0.35, P.shape) * hp      # off the lattice: no grid print on the surface
-        params.append(it["physics"])
-        X.append(P), mat.append(np.full(len(P), len(params) - 1)), owner.append(np.full(len(P), it["id"]))
-        body.append(np.full(len(P), -1))
-    params.append(ITEM_PHYSICS)
-    for it in drop:
-        s = it["to_m"] * it["scale"]
-        if it.get("collision"):
-            zc = np.load(it["collision"])
-            parts = np.split(zc["V"].astype(np.float64), np.cumsum(zc["n"])[:-1])
-            org = np.concatenate(parts).min(0) * s          # one lattice: overlapping parts merge
-            P = np.concatenate([convex_points(q * s, hp, org) for q in parts if len(q) >= 4])
-            P = np.unique(np.floor((P - org) / hp).astype(np.int64), axis=0) * hp + org + hp * 0.5
-        else:
-            V, F = load_local(it["mesh"], it["fmt"], it.get("up_axis", "Y"))
-            P = fill_points(V * s, F, hp) if it["fmt"] == "npz" else convex_points(V * s, hp)
-        if len(P) < 8:                                   # thinner than the lattice: its hull
-            V, _ = load_local(it["mesh"], it["fmt"], it.get("up_axis", "Y"))
-            P = convex_points(V * s, hp / 2)
-        c = P.mean(0)
-        R0 = euler_xyz(it["init_euler"])
-        L0 = np.asarray(it["init_location"], float)
-        frames[it["id"]] = (s, c, R0)
-        X.append((P - c) @ R0.T + L0), mat.append(np.full(len(P), len(params) - 1)), owner.append(np.full(len(P), it["id"]))
-        body.append(np.full(len(P), len(frames) - 1))
-    X, mat, owner, body = np.concatenate(X), np.concatenate(mat), np.concatenate(owner), np.concatenate(body)
-    if spec.get("heap") and spec["heap"]["layout"] != "wedges":
-        owner = relayout(X, owner, spec["heap"], hp)
-        mat_of = {it["id"]: k for k, it in enumerate(soft)}
-        sel = np.isin(owner, spec["heap"]["items"])
-        mat[sel] = [mat_of[o] for o in owner[sel]]
-
-    # domain: the dish plus a margin, up to above the highest particle
-    cj = spec["container"]
-    reach = cj["R"] + cj.get("rim_w", 0.0) + 0.02
-    lo = np.minimum(X.min(0), [-reach, -reach, 0.0]) - [4 * dx, 4 * dx, 0.0]
-    hi = np.maximum(X.max(0), [reach, reach, 0.0]) + [4 * dx, 4 * dx, 0.03]
-    lo[2] = -3 * dx
     S = solver()
-    while True:
+    cj = spec["container"]
+    soft_mesh = {it["id"]: np.load(scene_dir / it["mesh"]) for it in soft}
+    soft_mesh = {k: (z["V"].astype(np.float64), z["F"].astype(np.int64)) for k, z in soft_mesh.items()}
+
+    while True:                                          # coarsen the lattice until particles and grid fit
+        hp = dx / 2                                      # particle spacing: 8 per cell
+        X, mat, owner, body, params = [], [], [], [], []
+        jit = np.random.default_rng(0)
+        frames = {}
+        for it in soft:
+            P = fill_points(*soft_mesh[it["id"]], hp)
+            P = P + jit.uniform(-0.35, 0.35, P.shape) * hp      # off the lattice: no grid print on the surface
+            params.append(it["physics"])
+            X.append(P), mat.append(np.full(len(P), len(params) - 1)), owner.append(np.full(len(P), it["id"]))
+            body.append(np.full(len(P), -1))
+        for it in drop:
+            s = it["to_m"] * it["scale"]
+            if it.get("collision"):
+                zc = np.load(it["collision"])
+                parts = np.split(zc["V"].astype(np.float64), np.cumsum(zc["n"])[:-1])
+                org = np.concatenate(parts).min(0) * s          # one lattice: overlapping parts merge
+                P = np.concatenate([convex_points(q * s, hp, org) for q in parts if len(q) >= 4])
+                P = np.unique(np.floor((P - org) / hp).astype(np.int64), axis=0) * hp + org + hp * 0.5
+            else:
+                V, F = load_local(it["mesh"], it["fmt"], it.get("up_axis", "Y"))
+                P = fill_points(V * s, F, hp) if it["fmt"] == "npz" else convex_points(V * s, hp)
+            if len(P) < 8:                                   # thinner than the lattice: its hull
+                V, _ = load_local(it["mesh"], it["fmt"], it.get("up_axis", "Y"))
+                P = convex_points(V * s, hp / 2)
+            c = P.mean(0)                                    # centre of the filled body
+            n_full = len(P)
+            Q = shell_points(P, hp) if n_full > 64 else P    # skin only; mass kept by scaling density
+            R0 = euler_xyz(it["init_euler"])
+            L0 = np.asarray(it["init_location"], float)
+            frames[it["id"]] = (s, c, R0)
+            params.append({**ITEM_PHYSICS, "rho": ITEM_PHYSICS["rho"] * n_full / len(Q)})
+            X.append((Q - c) @ R0.T + L0), mat.append(np.full(len(Q), len(params) - 1))
+            owner.append(np.full(len(Q), it["id"])), body.append(np.full(len(Q), len(frames) - 1))
+        X, mat, owner, body = np.concatenate(X), np.concatenate(mat), np.concatenate(owner), np.concatenate(body)
+        dz_body = np.zeros(len(drop))
+        if len(drop):          # skip the empty fall: lower each drop (lowest first) to 1 cm above what is under it
+            X, dz_body = compact_drops(X, body, float(cj.get("H") or 0.0), body < 0, 3 * dx)
+        if spec.get("heap") and spec["heap"]["layout"] != "wedges":
+            owner = relayout(X, owner, spec["heap"], hp)
+            mat_of = {it["id"]: k for k, it in enumerate(soft)}
+            sel = np.isin(owner, spec["heap"]["items"])
+            mat[sel] = [mat_of[o] for o in owner[sel]]
+        reach = cj["R"] + cj.get("rim_w", 0.0) + 0.02
+        lo = np.minimum(X.min(0), [-reach, -reach, 0.0]) - [4 * dx, 4 * dx, 0.0]
+        hi = np.maximum(X.max(0), [reach, reach, 0.0]) + [4 * dx, 4 * dx, 0.03]
+        lo[2] = -3 * dx
         dims = tuple(int(np.ceil(v)) + 1 for v in (hi - lo) / dx)
-        if all(d <= m for d, m in zip(dims, S.max_grid)):
+        if len(X) <= S.max_particles and all(d <= m for d, m in zip(dims, S.max_grid)):
             break
-        dx *= 1.15                                       # big plate: coarser grid
+        log(f"[mpm] {len(X)} particles, grid {dims} at dx {dx * 1e3:.1f} mm: too big, coarsening")
+        dx *= 1.15
+
     H = dish_heightfield(spec, scene_dir, lo[0], lo[1], dx, dims[0], dims[1])
     log(f"[mpm] {len(X)} particles ({len(soft)} soft, {len(drop)} dropped), grid {dims}, dx {dx * 1e3:.1f} mm")
     Xf = S.run(X, mat, body, params, H, lo, dims, dx, hp ** 3, sim_time, log)
@@ -587,7 +635,7 @@ def settle(spec: dict, scene_dir: Path, sim_time: float = 1.0, dx: float = 0.002
         np.savez_compressed(scene_dir / mesh, V=V.astype(np.float32), F=F.astype(np.int32))
         it.update(mesh=mesh, served_mesh=it["mesh"], volume_ml=float(mesh_volume(V, F) * 1e6), mpm=True)
     # dropped items: rigid pose of their particles
-    for it in drop:
+    for b, it in enumerate(drop):
         sel = owner == it["id"]
         A, B = X[sel], Xf[sel]
         g0, g1 = A.mean(0), B.mean(0)
@@ -595,7 +643,8 @@ def settle(spec: dict, scene_dir: Path, sim_time: float = 1.0, dx: float = 0.002
         s, c, R0 = frames[it["id"]]
         M = np.eye(4)
         M[:3, :3] = Rf @ R0 * s                          # world = M @ mesh-local (unscaled)
-        M[:3, 3] = g1 - Rf @ R0 @ c
+        L0 = np.asarray(it["init_location"], float) - [0.0, 0.0, dz_body[b]]   # where its filled centroid started
+        M[:3, 3] = g1 + Rf @ (L0 - g0 - R0 @ c)
         rms = float(np.sqrt((((A - g0) @ Rf.T - (B - g1)) ** 2).sum(1).mean()))
         it.update(matrix_world=M.tolist(), dynamic=False, mpm=True, mpm_fit_rms_m=rms)
     spec["physics"] = {"engine": "mpm", "dx_m": dx, "sim_time_s": sim_time, "particles": int(len(X)),
