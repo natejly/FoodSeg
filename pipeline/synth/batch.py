@@ -54,6 +54,7 @@ def main() -> None:
     ap.add_argument("--online-dir", default=None,
                     help="synth.fetch_assets output (HDRIs, tabletop textures); default <assets>/../../datasets/online")
     ap.add_argument("--keep-raw", action="store_true")
+    ap.add_argument("--settle-only", action="store_true", help="write specs and run MPM only, no render")
     ap.add_argument("--keep-hr", action="store_true")
     ap.add_argument("--preset", choices=["v0", "hard"], default="v0", help="hard: see synth/spec_hard.py")
     ap.add_argument("--collision-cache", default=None, help="CoACD parts cache (default: <assets dir>/collision)")
@@ -104,6 +105,8 @@ def main() -> None:
         out_log: list[str] = []         # subprocess stdout/stderr for the failure log
         try:
             gt = run_scene(i, sid, args, assets, cache, hdris, surfaces, n5k, bproc, sdir, rdir, odir, out_log)
+            if args.settle_only:        # spec + MPM only, nothing rendered
+                continue
             report["done"].append(sid)
         except Exception as e:  # noqa: BLE001  one bad scene must not kill the batch
             (root / "failed").mkdir(parents=True, exist_ok=True)
@@ -190,6 +193,8 @@ def run_scene(i, sid, args, assets, cache, hdris, surfaces, n5k, bproc, sdir, rd
         (sdir / "spec.json").write_text(json.dumps(spec, indent=1, default=lambda o: o.tolist()))
     elif args.preset == "hard":
         physics = "bullet"
+    if args.settle_only:                    # spec + MPM only (render elsewhere, e.g. A/B of looks)
+        return {}
     shutil.rmtree(rdir, ignore_errors=True)    # never finalize a previous attempt's frames
     shutil.rmtree(odir.with_name(odir.name + ".tmp"), ignore_errors=True)
     cmd = [str(bproc), "run", "--custom-blender-path", args.blender, str(RENDER),

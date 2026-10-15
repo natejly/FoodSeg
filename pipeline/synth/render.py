@@ -271,7 +271,9 @@ def photo_texture(nt, links, coord, tex: dict, colour):
         return t.outputs["Color"]
 
     def rnd_rot():
-        return tuple(float(x) for x in rng.uniform(0, 6.28, 3))
+        # about Z only: a tilted rotation before the box projection stretched the tile into long streaks
+        # ("brush strokes") on every top-facing surface
+        return (0.0, 0.0, float(rng.uniform(0, 6.28)))
 
     mask_n = nt.new("ShaderNodeTexNoise")
     mask_n.inputs["Scale"].default_value = float(rng.uniform(14, 26))
@@ -299,10 +301,20 @@ def photo_texture(nt, links, coord, tex: dict, colour):
     soft.inputs["Fac"].default_value = float(tex.get("strength", 1.0))
     soft.inputs["Color1"].default_value = (1.0, 1.0, 1.0, 1.0)
     links.new(gain.outputs["Vector"], soft.inputs["Color2"])
+    ratio = soft.outputs["Color"]
+    chroma = float(tex.get("chroma", 1.0))
+    if chroma < 1.0:                           # scan colour casts (blue / green speckle): keep mostly the luminance texture
+        gl = nt.new("ShaderNodeRGBToBW")
+        links.new(ratio, gl.inputs["Color"])
+        cm = nt.new("ShaderNodeMixRGB")
+        cm.inputs["Fac"].default_value = chroma
+        links.new(gl.outputs["Val"], cm.inputs["Color1"])
+        links.new(ratio, cm.inputs["Color2"])
+        ratio = cm.outputs["Color"]
     mul = nt.new("ShaderNodeMixRGB")
     mul.blend_type, mul.inputs["Fac"].default_value = "MULTIPLY", 1.0
     links.new(colour, mul.inputs["Color1"])
-    links.new(soft.outputs["Color"], mul.inputs["Color2"])
+    links.new(ratio, mul.inputs["Color2"])
     lum = nt.new("ShaderNodeRGBToBW")
     links.new(alb, lum.inputs["Color"])
     h = nt.new("ShaderNodeRGBToBW")
@@ -369,6 +381,13 @@ def food_material(obj, name: str, color, roughness: float, L: dict) -> None:
         else:
             links.new(b, n.inputs[1])
         return n.outputs["Vector"]
+
+    def mix_mul(a, rgb):
+        n = nt.new("ShaderNodeMixRGB")
+        n.blend_type, n.inputs["Fac"].default_value = "MULTIPLY", 1.0
+        links.new(a, n.inputs["Color1"])
+        n.inputs["Color2"].default_value = [*np.clip(rgb, 0, 4), 1.0]
+        return n.outputs["Color"]
 
     coord = nt.new("ShaderNodeTexCoord").outputs["Object"]
     tv = L.get("tint_var", 0.06)
@@ -445,10 +464,13 @@ def food_material(obj, name: str, color, roughness: float, L: dict) -> None:
         bump.inputs["Distance"].default_value = 0.0025
     links.new(height, bump.inputs["Height"])
     links.new(bump.outputs["Normal"], bsdf.inputs["Normal"])
-    if L.get("ao"):                    # paste between scattered grains sits in their shadow
+    wet = L.get("wet")
+    W = None                            # wetness 0 (dry peak) .. 1 (glossy sauce): crevices, puddles, oil, sauce film
+    cav = peak = None
+    if L.get("ao") or wet:             # paste between scattered grains sits in their shadow
         ao = nt.new("ShaderNodeAmbientOcclusion")
-        ao.inputs["Distance"].default_value = 0.004
-        ao.samples = 8
+        ao.inputs["Distance"].default_value = 0.004 if not wet else 0.007
+        ao.samples = 8 if not wet else 4
         shade = nt.new("ShaderNodeMapRange")
         shade.inputs["To Min"].default_value = 0.35
         links.new(ao.outputs["AO"], shade.inputs["Value"])
@@ -457,19 +479,86 @@ def food_material(obj, name: str, color, roughness: float, L: dict) -> None:
         links.new(colour, dark.inputs["Color1"])
         links.new(shade.outputs["Result"], dark.inputs["Color2"])
         colour = dark.outputs["Color"]
+        cav = math("SUBTRACT", 1.0, ao.outputs["AO"])               # 0 flat / exposed .. 1 deep crevice
+        peak = ramp(ao.outputs["AO"], 0.7, 0.97)                     # exposed to the sky
+    if wet:
+        def noise(scale, detail=4.0, off=0.0):
+            n = node("ShaderNodeTexNoise", Scale=float(scale), Detail=float(detail))
+            if off:
+                links.new(vec("ADD", coord, (off, off * 0.7, off * 1.3)), n.inputs["Vector"])
+            else:
+                links.new(coord, n.inputs["Vector"])
+            return n.outputs["Fac"]
+
+        def cover(fac, cov):          # mask covering about `cov` of the surface, soft edge
+            t = 0.62 - 0.24 * float(cov)
+            return ramp(fac, t - 0.04, t + 0.04)
+
+        puddle = cover(noise(wet.get("patch_scale", 45.0), 5.0, 3.1), wet["patch"])
+        W = math("MINIMUM", 1.0, math("ADD", math("MULTIPLY", cav, 1.8 * wet["cavity"]), math("MULTIPLY", puddle, 0.9)))
+        if L.get("brown"):            # uneven cooking: brown on the exposed peaks, in blotches
+            bm, bcov = L["brown"]
+            m = math("MULTIPLY", cover(noise(16.0, 4.0, 5.3), bcov), peak)
+            colour = mix(math("MULTIPLY", m, 0.85), colour, mix_mul(colour, bm))
+        if L.get("oil"):              # separated oil: stained, saturated, very glossy patches
+            om, ocov = L["oil"]
+            om_mask = cover(noise(26.0, 3.0, 7.7), ocov)
+            colour = mix(math("MULTIPLY", om_mask, 0.7), colour, mix_mul(colour, om))
+            W = math("MAXIMUM", W, om_mask)
+        for k, (fc, frac, size) in enumerate(L.get("flecks", [])):   # herbs / spice / pepper bits
+            vf = nt.new("ShaderNodeTexVoronoi")
+            vf.inputs["Scale"].default_value = 1.0 / float(size)
+            links.new(vec("ADD", coord, (0.0113 * (k + 1), 0.0071 * (k + 2), 0.0047 * (k + 3))), vf.inputs["Vector"])
+            rf = nt.new("ShaderNodeSeparateColor")
+            links.new(vf.outputs["Color"], rf.inputs["Color"])
+            sel = math("MULTIPLY", math("LESS_THAN", rf.outputs["Green"], float(frac)),
+                       ramp(vf.outputs["Distance"], 0.5, 0.22, 0.0, 1.0))         # soft-edged bit
+            strength = math("MULTIPLY", sel, math("ADD", 0.45, math("MULTIPLY", rf.outputs["Blue"], 0.4)))
+            colour = mix(strength, colour, list(np.clip(fc, 0, 1)))
+        # sauce pools in crevices: darker and more saturated (colour squared), and wet
+        sq = nt.new("ShaderNodeMixRGB")
+        sq.blend_type = "MULTIPLY"
+        links.new(math("MULTIPLY", W, float(wet["dark"])), sq.inputs["Fac"])
+        links.new(colour, sq.inputs["Color1"])
+        links.new(colour, sq.inputs["Color2"])
+        colour = sq.outputs["Color"]
+        if solid is not None:         # beans / flakes stay matte
+            W = math("MULTIPLY", W, math("SUBTRACT", 1.0, solid))
+        # thin sauce film at the food / plate boundary (render.contact_film writes vertex attribute "film")
+        att = nt.new("ShaderNodeAttribute")
+        att.attribute_type, att.attribute_name = "GEOMETRY", "film"
+        isf = math("GREATER_THAN", att.outputs["Fac"], 0.001)
+        plate = nt.new("ShaderNodeRGB")
+        plate.name = "film_plate"
+        plate.outputs[0].default_value = (0.6, 0.58, 0.52, 1.0)
+        colour = mix(math("MULTIPLY", isf, math("MULTIPLY", math("SUBTRACT", 1.0, att.outputs["Fac"]), 0.85)),
+                     colour, plate.outputs[0])
+        W = math("MAXIMUM", W, isf)
     links.new(colour, bsdf.inputs["Base Color"])
-    bsdf.inputs["Roughness"].default_value = float(roughness)
+    dry_add = wet["dry"] if wet else 0.0
+    rough = float(roughness) + dry_add
     if tex:                         # bright specks in the photo are wet / glossy, dark crevices rough
-        rough = math("SUBTRACT", float(roughness) + 0.08, math("MULTIPLY", tex_lum, 0.16))
+        rough = math("SUBTRACT", float(roughness) + dry_add + 0.08, math("MULTIPLY", tex_lum, 0.16))
+    if W is not None:               # wet: smooth and clear-coated; dry peaks: rougher, little coat
+        rough = math("ADD", rough, math("MULTIPLY", W, 0.07 - float(roughness) - dry_add))
+    if isinstance(rough, float):
+        bsdf.inputs["Roughness"].default_value = rough
+    else:
         links.new(rough, bsdf.inputs["Roughness"])
     bsdf.inputs["Subsurface Weight"].default_value = float(L.get("sss", 0.2))
     bsdf.inputs["Subsurface Radius"].default_value = (1.0, 0.6, 0.35)
     bsdf.inputs["Subsurface Scale"].default_value = 0.002          # metres: food scatters over ~mm
-    bsdf.inputs["Coat Weight"].default_value = float(L.get("coat", 0.0))
+    coat0 = float(L.get("coat", 0.0))
+    bsdf.inputs["Coat Weight"].default_value = coat0
     bsdf.inputs["Coat Roughness"].default_value = 0.08
-    if solid is not None and not tex:
+    if W is not None:
+        c_dry = 0.2 * coat0
+        c_wet = min(1.0, 0.35 + 1.5 * coat0) if L.get("kind") != "grain" else 0.3
+        links.new(math("ADD", c_dry, math("MULTIPLY", W, c_wet - c_dry)), bsdf.inputs["Coat Weight"])
+        links.new(math("SUBTRACT", 0.22, math("MULTIPLY", W, 0.17)), bsdf.inputs["Coat Roughness"])
+    elif solid is not None and not tex:
         links.new(math("ADD", float(roughness), math("MULTIPLY", solid, 0.35)), bsdf.inputs["Roughness"])
-        links.new(math("MULTIPLY", float(L.get("coat", 0.0)), math("SUBTRACT", 1.0, solid)), bsdf.inputs["Coat Weight"])
+        links.new(math("MULTIPLY", coat0, math("SUBTRACT", 1.0, solid)), bsdf.inputs["Coat Weight"])
     obj.replace_materials(mat)
 
 
@@ -1252,6 +1341,232 @@ def scatter_pieces(obj, it: dict, seed: int) -> int:
     return len(specs)
 
 
+def _blur(a: np.ndarray, sigma_px: float) -> np.ndarray:
+    """Gaussian blur by FFT (no scipy under Blender's python)."""
+    fy = np.fft.fftfreq(a.shape[0])[:, None]
+    fx = np.fft.rfftfreq(a.shape[1])[None, :]
+    k = np.exp(-2 * (np.pi * sigma_px) ** 2 * (fx ** 2 + fy ** 2))
+    return np.fft.irfft2(np.fft.rfft2(a) * k, s=a.shape)
+
+
+def contact_film(o, it: dict, bvh, plate_rgb, seed: int, cell: float = 0.0015) -> int:
+    """Thin glossy sauce film / smear / drips where a soft food meets the plate, so the edge is not a
+    clean cut: a height-field skin (< 1 mm) spreading beyond the food's footprint, irregular
+    (noise + a few drips), merged into the food's own mesh (labels stay correct). The vertex
+    attribute "film" (0 body, else opacity 0.02..1) drives food_material: the thin rim tints
+    towards the plate colour and is glossy. Returns the number of film vertices."""
+    spec = (it.get("look") or {}).get("film")
+    if not spec or bvh is None:
+        return 0
+    reach, n_drips = spec
+    rng = np.random.default_rng(seed)
+    me = o.blender_obj.data
+    mw = np.array(o.blender_obj.matrix_world, float)
+    n = len(me.vertices)
+    co = np.empty(n * 3, np.float32)
+    me.vertices.foreach_get("co", co)
+    P = co.reshape(n, 3).astype(float) @ mw[:3, :3].T + mw[:3, 3]
+    sub = P[:: max(1, n // 6000)]
+    pz = np.full(len(sub), np.nan)
+    for i, p in enumerate(sub):                     # plate height under each vertex
+        hit = bvh.ray_cast((p[0], p[1], p[2] + 0.05), (0.0, 0.0, -1.0), 0.2)
+        if hit[0] is not None:
+            pz[i] = hit[0][2]
+    low = np.isfinite(pz) & (sub[:, 2] - pz < 0.006)
+    if low.sum() < 30:
+        return 0
+    foot = sub[low]
+    z0 = float(np.nanmedian(pz[low]))
+    lo, hi = P[:, :2].min(0) - 0.045, P[:, :2].max(0) + 0.045
+    nx, ny = (np.ceil((hi - lo) / cell)).astype(int)
+    if nx * ny > 400 * 400:
+        return 0
+    occ = np.zeros((ny, nx))
+    ij = np.floor((P[P[:, 2] < z0 + 0.006][:, :2] - lo) / cell).astype(int)
+    occ[ij[:, 1], ij[:, 0]] = 1.0
+    occ = (_blur(occ, 1.5) > 0.04).astype(float)     # close the vertex gaps -> footprint
+    sig = max(1.5, reach / cell * rng.uniform(0.7, 1.3))
+    B = _blur(occ, sig)
+    yy, xx = np.mgrid[0:ny, 0:nx]
+    for _ in range(int(n_drips)):                    # drips / runs: elongated blobs reaching out of the edge
+        ang = rng.uniform(0, 2 * np.pi)
+        edge = np.argwhere(occ > 0.5)
+        c = edge[rng.integers(len(edge))].astype(float)
+        c += np.array([np.sin(ang), np.cos(ang)]) * rng.uniform(1.5, 3.5) * sig
+        L, Wd = rng.uniform(1.2, 2.4) * sig, rng.uniform(0.5, 0.9) * sig
+        dy, dx = yy - c[0], xx - c[1]
+        u, v = dx * np.cos(ang) + dy * np.sin(ang), -dx * np.sin(ang) + dy * np.cos(ang)
+        B = np.maximum(B, 0.55 * np.exp(-(u / L) ** 2 - (v / Wd) ** 2))
+    noise = _blur(rng.standard_normal((ny, nx)), sig)
+    noise /= max(noise.std(), 1e-9)
+    thr = np.clip(0.2 + 0.07 * noise, 0.08, 0.4)
+    a = np.clip((B - thr) / (0.5 - thr), 0.0, 1.0)  # 0 outside .. 1 at / inside the food edge
+    keep = (B > thr) & (B < 0.985)
+    cells_ = keep[:-1, :-1] | keep[1:, :-1] | keep[:-1, 1:] | keep[1:, 1:]
+    if cells_.sum() < 20:
+        return 0
+    need = np.zeros((ny, nx), bool)                  # plate height at the grid points, by ray casting
+    need[:-1, :-1] |= cells_
+    need[1:, :-1] |= cells_
+    need[:-1, 1:] |= cells_
+    need[1:, 1:] |= cells_
+    vz = np.full((ny, nx), np.nan)
+    for j, i in np.argwhere(need):
+        x, y = lo[0] + (i + 0.5) * cell, lo[1] + (j + 0.5) * cell
+        hit = bvh.ray_cast((x, y, z0 + 0.03), (0.0, 0.0, -1.0), 0.08)
+        if hit[0] is not None and abs(hit[0][2] - z0) < 0.006 and hit[1][2] > 0.9:
+            vz[j, i] = hit[0][2]
+    ok = np.isfinite(vz)
+    cells_ &= ok[:-1, :-1] & ok[1:, :-1] & ok[:-1, 1:] & ok[1:, 1:]
+    if cells_.sum() < 20:
+        return 0
+    hmax = rng.uniform(0.0004, 0.0009)
+    h = hmax * np.sqrt(a)
+    used = np.zeros((ny, nx), bool)
+    used[:-1, :-1] |= cells_
+    used[1:, :-1] |= cells_
+    used[:-1, 1:] |= cells_
+    used[1:, 1:] |= cells_
+    used &= ok
+    idx = -np.ones((ny, nx), int)
+    vid = np.argwhere(used)
+    idx[used] = np.arange(len(vid))
+    wx = lo[0] + (vid[:, 1] + 0.5) * cell
+    wy = lo[1] + (vid[:, 0] + 0.5) * cell
+    wz = vz[used] + 0.0002 + h[used]
+    Wv = np.stack([wx, wy, wz], 1)
+    inv = np.linalg.inv(mw)
+    Lv = Wv @ inv[:3, :3].T + inv[:3, 3]
+    film = np.clip(0.02 + 0.98 * a[used], 0.02, 1.0)
+    bm = bmesh.new()
+    bm.from_mesh(me)
+    layer = bm.verts.layers.float.get("film") or bm.verts.layers.float.new("film")
+    bvs = []
+    for p, f in zip(Lv, film):
+        v = bm.verts.new(p.tolist())
+        v[layer] = float(f)
+        bvs.append(v)
+    for j, i in np.argwhere(cells_):
+        q = [idx[j, i], idx[j, i + 1], idx[j + 1, i + 1], idx[j + 1, i]]
+        if min(q) < 0:
+            continue
+        try:
+            bm.faces.new([bvs[k] for k in q]).smooth = True
+        except ValueError:
+            pass
+    bm.to_mesh(me)
+    bm.free()
+    me.update()
+    mat = o.blender_obj.active_material
+    for node in (mat.node_tree.nodes if mat else []):
+        if node.name == "film_plate":
+            node.outputs[0].default_value = (*np.clip(plate_rgb, 0.05, 1.0), 1.0)
+    return len(Lv)
+
+
+def add_relief(o, it: dict, seed: int) -> bool:
+    """Geometric breakup of the settled soft surface (silhouette, self-shadowing): subdivide, then push
+    upward-facing vertices along their normal by lumps / the photo height map (synth.looks relief_mm)."""
+    L = it.get("look") or {}
+    amp = float(L.get("relief_mm", 0.0)) / 1000.0
+    n_smooth = int(L.get("smooth_iter", 0))
+    if amp <= 0 and n_smooth <= 0:
+        return False
+    rng = np.random.default_rng(seed)
+    nface = len(o.blender_obj.data.polygons)
+    level = 1 if nface < 150000 else 0
+    tree = bpy.data.node_groups.new(f"relief_{it['id']}", "GeometryNodeTree")
+    tree.interface.new_socket("Geometry", in_out="INPUT", socket_type="NodeSocketGeometry")
+    tree.interface.new_socket("Geometry", in_out="OUTPUT", socket_type="NodeSocketGeometry")
+    nt, links = tree.nodes, tree.links
+    gin, gout = nt.new("NodeGroupInput"), nt.new("NodeGroupOutput")
+    src = gin.outputs[0]
+    if n_smooth:         # marching-cubes terraces read as brush strokes under a glossy coat: relax the top surface
+        pos0, nrm0 = nt.new("GeometryNodeInputPosition"), nt.new("GeometryNodeInputNormal")
+        nz0 = nt.new("ShaderNodeSeparateXYZ")
+        links.new(nrm0.outputs[0], nz0.inputs[0])
+        topsel = nt.new("FunctionNodeCompare")
+        topsel.data_type, topsel.operation = "FLOAT", "GREATER_THAN"
+        links.new(nz0.outputs["Z"], topsel.inputs[0])
+        topsel.inputs[1].default_value = 0.35
+        blur = nt.new("GeometryNodeBlurAttribute")
+        blur.data_type = "FLOAT_VECTOR"
+        links.new(pos0.outputs[0], blur.inputs["Value"])
+        blur.inputs["Iterations"].default_value = n_smooth
+        blur.inputs["Weight"].default_value = 1.0
+        sp0 = nt.new("GeometryNodeSetPosition")
+        links.new(src, sp0.inputs["Geometry"])
+        links.new(topsel.outputs[0], sp0.inputs["Selection"])
+        links.new(blur.outputs["Value"], sp0.inputs["Position"])
+        src = sp0.outputs[0]
+    if amp <= 0:
+        links.new(src, gout.inputs[0])
+        mod = o.blender_obj.modifiers.new("relief", "NODES")
+        mod.node_group = tree
+        return True
+    if level:
+        sd = nt.new("GeometryNodeSubdivideMesh")
+        sd.inputs["Level"].default_value = level
+        links.new(src, sd.inputs["Mesh"])
+        src = sd.outputs["Mesh"]
+
+    def math(op, a, b=None):
+        n = nt.new("ShaderNodeMath")
+        n.operation = op
+        for k, v in enumerate((a, b)):
+            if v is None:
+                continue
+            if isinstance(v, (int, float)):
+                n.inputs[k].default_value = float(v)
+            else:
+                links.new(v, n.inputs[k])
+        return n.outputs[0]
+
+    pos = nt.new("GeometryNodeInputPosition")
+    normal = nt.new("GeometryNodeInputNormal")
+    nz = nt.new("ShaderNodeSeparateXYZ")
+    links.new(normal.outputs[0], nz.inputs[0])
+    nse = nt.new("ShaderNodeTexNoise")
+    nse.inputs["Scale"].default_value = float(rng.uniform(120, 220))
+    nse.inputs["Detail"].default_value = 3.0
+    links.new(pos.outputs[0], nse.inputs["Vector"])
+    hgt = nse.outputs["Fac"]
+    tex = L.get("tex")
+    if tex:                                          # real scan relief (planar, top-down)
+        sc = nt.new("ShaderNodeVectorMath")
+        sc.operation = "SCALE"
+        links.new(pos.outputs[0], sc.inputs[0])
+        sc.inputs["Scale"].default_value = float(tex.get("scale", 1.0)) / float(tex["tile_m"])
+        img = nt.new("GeometryNodeImageTexture")
+        img.inputs["Image"].default_value = bpy.data.images.load(tex["height"], check_existing=True)
+        img.interpolation, img.extension = "Cubic", "REPEAT"
+        links.new(sc.outputs[0], img.inputs["Vector"])
+        r = nt.new("FunctionNodeSeparateColor")
+        links.new(img.outputs["Color"], r.inputs["Color"])
+        hgt = math("MULTIPLY", math("ADD", hgt, r.outputs["Red"]), 0.5)
+    up = nt.new("ShaderNodeMapRange")
+    up.interpolation_type = "SMOOTHSTEP"
+    up.inputs["From Min"].default_value, up.inputs["From Max"].default_value = 0.05, 0.6
+    links.new(nz.outputs["Z"], up.inputs["Value"])
+    mask = up.outputs["Result"]
+    fa = nt.new("GeometryNodeInputNamedAttribute")   # keep the sauce film flat
+    fa.data_type = "FLOAT"
+    fa.inputs["Name"].default_value = "film"
+    notfilm = math("LESS_THAN", fa.outputs["Attribute"], 0.001)
+    disp = math("MULTIPLY", math("MULTIPLY", math("SUBTRACT", hgt, 0.5), 2.0 * amp), math("MULTIPLY", mask, notfilm))
+    off = nt.new("ShaderNodeVectorMath")
+    off.operation = "SCALE"
+    links.new(normal.outputs[0], off.inputs[0])
+    links.new(disp, off.inputs["Scale"])
+    sp = nt.new("GeometryNodeSetPosition")
+    links.new(src, sp.inputs["Geometry"])
+    links.new(off.outputs[0], sp.inputs["Offset"])
+    links.new(sp.outputs[0], gout.inputs[0])
+    mod = o.blender_obj.modifiers.new("relief", "NODES")
+    mod.node_group = tree
+    return True
+
+
 def collider_proxy(obj, name: str, max_faces: int = 20000):
     """A decimated copy of a big static scan (scanned dish) for Bullet's mesh collider: a
     full-resolution GSO dish stalled the rigid-body drop for ~15 min. Returns None if small."""
@@ -1340,6 +1655,7 @@ def main() -> None:
     ap.add_argument("out")
     ap.add_argument("--spp", type=int, default=64)
     ap.add_argument("--no-physics", action="store_true")
+    ap.add_argument("--no-film", action="store_true", help="skip contact film + surface relief (round-1 look)")
     ap.add_argument("--cpu", action="store_true", help="render on CPU (when the GPU is full)")
     args = ap.parse_args(argv)
 
@@ -1530,6 +1846,20 @@ def main() -> None:
         obstacles += [k for kids in part_objs.values() for k in kids]
         simulate_cloth(cloth, obstacles, keep_r=0.95 * (c["R"] + c.get("rim_w", 0.0)))
         print(f"[render] cloth done at {time.time() - t0:.0f}s", flush=True)
+
+    # thin sauce film at the plate contact, then surface relief (silhouette breakup) of the soft foods
+    film_bvh = None
+    if any((it.get("look") or {}).get("film") for it, _ in objs) and c.get("kind") != "bowl" and not args.no_film:
+        from mathutils.bvhtree import BVHTree
+        film_bvh = BVHTree.FromObject(cont_collider.blender_obj if cont_collider else cont.blender_obj,
+                                      bpy.context.evaluated_depsgraph_get())
+    for it, o in objs:
+        if not it.get("look") or args.no_film:
+            continue
+        nv = contact_film(o, it, film_bvh, c.get("color") or [0.8, 0.8, 0.78], seed=2000 + it["id"])
+        rl = add_relief(o, it, seed=3000 + it["id"])
+        if nv or rl:
+            print(f"[render] item {it['id']} {it.get('name')}: film verts {nv}, relief {rl}", flush=True)
 
     # real grains / flakes / beans on the settled soft food (after cloth: not leaf obstacles)
     n_kinds = sum(scatter_pieces(o, it, seed=1000 + it["id"]) for it, o in objs if it.get("pieces"))
