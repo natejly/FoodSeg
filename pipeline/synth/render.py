@@ -14,6 +14,7 @@ import blenderproc as bproc  # must be line 1 under `blenderproc run`
 
 import argparse
 import json
+import os
 import sys
 import time
 from pathlib import Path
@@ -1348,6 +1349,7 @@ def main() -> None:
     spec = json.loads(spec_path.read_text())
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
+    (out / "render_meta.json").unlink(missing_ok=True)     # never leave a stale completion marker
 
     bproc.init()
     # BlenderProc defaults to 0 glossy / transmission bounces: no reflections of the room or of
@@ -1636,7 +1638,10 @@ def main() -> None:
     meta = {"scene_id": spec["scene_id"], "spp": args.spp, "n_frames": len(data["colors"]),
             "container_local2world": [list(r) for r in R], "items": items,
             "timing_s": {"setup": t_setup - t0, "render": t_render - t_setup, "total": time.time() - t0}}
-    (out / "render_meta.json").write_text(json.dumps(meta, indent=1))
+    # LAST, atomically: its presence (with n_frames) tells batch/finalize the frame dump is complete
+    assert len(list(out.glob("frame_*.npz"))) == meta["n_frames"], "frame dump incomplete"
+    (out / "render_meta.json.tmp").write_text(json.dumps(meta, indent=1))
+    os.replace(out / "render_meta.json.tmp", out / "render_meta.json")
     print(f"[render] {spec['scene_id']}: {meta['n_frames']} frames, {meta['timing_s']['render']:.1f}s render")
 
 

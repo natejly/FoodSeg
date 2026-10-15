@@ -6,17 +6,23 @@
 
 Layout under ROOT: specs/<sid>/ (spec + meshes), raw/<sid>/ (npz, deleted unless
 --keep-raw), scans/<sid>/ (FoodScan format + gt). Scenes whose scans/<sid>/gt.json
-exists are skipped, so a Slurm array can rerun the same command after a crash
-with --start set per task.
+exists are skipped (scans are written to <sid>.tmp and renamed, gt.json last, so a crash never leaves a
+half scan under the final name), so a Slurm array can rerun the same command after a crash
+with --start set per task (or --shard i/n). A scene that raises or times out is logged to
+ROOT/failed/<sid>.log (traceback + subprocess output) and the batch continues; ROOT/batch_report.json
+lists done / skipped / failed scenes at the end.
 """
 from __future__ import annotations
 
 import argparse
 import json
+import os
 import shutil
+import signal
 import subprocess
 import sys
 import time
+import traceback
 from pathlib import Path
 
 import numpy as np
@@ -56,6 +62,8 @@ def main() -> None:
                     help="hard preset: mpm settles soft food and dropped scans together, rigid-only scenes too "
                          "(synth.mpm); bullet: Blender rigid bodies only (fallback, time-limited)")
     ap.add_argument("--mpm-time", type=float, default=1.0)
+    ap.add_argument("--shard", default=None, metavar="I/N", help="process only scenes with index %% N == I")
+    ap.add_argument("--render-timeout", type=float, default=1800.0, help="seconds per Blender subprocess")
     args = ap.parse_args()
 
     root = Path(args.root)
@@ -83,49 +91,127 @@ def main() -> None:
     print(f"{len(hdris or [])} HDRIs, {len(surfaces)} tabletop textures, "
           f"{len(n5k['dishes']) if n5k else 0} Nutrition5k dishes", flush=True)
     bproc = Path(sys.executable).with_name("blenderproc")
+    shard_i, shard_n = (int(x) for x in args.shard.split("/")) if args.shard else (0, 1)
+    report = {"args": vars(args), "done": [], "skipped": [], "failed": {}}
     for i in range(args.start, args.start + args.n):
         sid = f"s{i:06d}"
+        if i % shard_n != shard_i:
+            continue
         sdir, rdir, odir = root / "specs" / sid, root / "raw" / sid, root / "scans" / sid
         if (odir / "gt.json").exists():
+            report["skipped"].append(sid)
             continue
-        t0 = time.time()
-        sampler = sample_scene_hard if args.preset == "hard" else sample_scene
-        extra = {"surfaces": surfaces, "n5k": n5k} if args.preset == "hard" else {}
-        spec = sampler(np.random.default_rng([args.seed, i]), assets, sdir, sid, n_views=args.views,
-                       res_scale=args.res_scale, hdris=hdris, **extra)
-        if args.preset == "hard" and not args.hull_only:   # true-shape compound colliders for dropped scans
-            by_id = {a["id"]: a for a in assets}
-            for it in spec["items"]:
-                if it["dynamic"] and it["fmt"] != "npz" and it["asset_id"] in by_id:
-                    it["collision"] = str(ensure_collision(by_id[it["asset_id"]], cache).resolve())
-            (sdir / "spec.json").write_text(json.dumps(spec, indent=1, default=lambda o: o.tolist()))
-        if args.preset == "hard" and args.physics == "mpm":
-            from .mpm import settle               # taichi: only when used
-            try:
-                spec = settle(spec, sdir, sim_time=args.mpm_time, log=lambda m: print(f"{sid} {m}", flush=True))
-            except Exception as e:                # fall back to Blender's Bullet for this scene
-                print(f"{sid}: MPM failed ({type(e).__name__}: {e}), falling back to Bullet", flush=True)
-                spec = json.loads((sdir / "spec.json").read_text())
-            (sdir / "spec.json").write_text(json.dumps(spec, indent=1, default=lambda o: o.tolist()))
-        cmd = [str(bproc), "run", "--custom-blender-path", args.blender, str(RENDER),
-               str(sdir / "spec.json"), str(rdir), "--spp", str(args.spp)]
-        r = subprocess.run(cmd, capture_output=True, text=True)
-        if r.returncode != 0 or not (rdir / "render_meta.json").exists():
-            # usually the GPU ran out of memory (it may be shared); retry once on the CPU
-            print(f"{sid}: GPU render failed, retrying on CPU", flush=True)
-            r = subprocess.run(cmd + ["--cpu"], capture_output=True, text=True)
-        if r.returncode != 0 or not (rdir / "render_meta.json").exists():
+        out_log: list[str] = []         # subprocess stdout/stderr for the failure log
+        try:
+            gt = run_scene(i, sid, args, assets, cache, hdris, surfaces, n5k, bproc, sdir, rdir, odir, out_log)
+            report["done"].append(sid)
+        except Exception as e:  # noqa: BLE001  one bad scene must not kill the batch
             (root / "failed").mkdir(parents=True, exist_ok=True)
-            (root / "failed" / f"{sid}.log").write_text(r.stdout[-20000:] + "\n" + r.stderr[-20000:])
-            print(f"{sid}: render FAILED (log in {root / 'failed'})")
+            (root / "failed" / f"{sid}.log").write_text(
+                traceback.format_exc() + "\n--- subprocess output ---\n" + "\n".join(out_log))
+            report["failed"][sid] = f"{type(e).__name__}: {e}"
+            shutil.rmtree(odir.with_name(odir.name + ".tmp"), ignore_errors=True)
+            print(f"{sid}: FAILED ({type(e).__name__}: {e}); log in {root / 'failed' / (sid + '.log')}", flush=True)
             continue
-        gt = finalize(sdir, rdir, odir, seed=args.seed, keep_hr=args.keep_hr)
-        if not args.keep_raw:
-            shutil.rmtree(rdir)
+        finally:
+            if not args.keep_raw and rdir.exists() and sid not in report["failed"]:
+                shutil.rmtree(rdir, ignore_errors=True)
         off = [it["name"] for it in gt["items"] if it["off_container"]]
         print(f"{sid}: {gt['container']['kind']}, {len(gt['items'])} items, "
-              f"{gt['total_volume_ml']:.0f} mL, {time.time() - t0:.0f}s"
+              f"{gt['total_volume_ml']:.0f} mL, {gt['_wall_s']:.0f}s"
               + (f"  WARNING off the dish: {off}" if off else ""), flush=True)
+    name = "batch_report.json" if shard_n == 1 else f"batch_report_{shard_i}of{shard_n}.json"
+    (root / name).write_text(json.dumps(report, indent=1, default=str))
+    print(f"done {len(report['done'])}, skipped {len(report['skipped'])}, failed {len(report['failed'])}")
+
+
+def _run_render_cmd(cmd: list[str], timeout: float, grace: float = 20.0) -> tuple[int, str, bool]:
+    """Run cmd in its own process group; on timeout SIGTERM then SIGKILL the whole group so the
+    Blender child of the blenderproc wrapper cannot be orphaned. Returns (returncode, output, timed_out)."""
+    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+                            start_new_session=True)
+    pgid = proc.pid                       # session leader: pgid == pid
+    try:
+        out, err = proc.communicate(timeout=timeout)
+        timed_out = False
+    except subprocess.TimeoutExpired:
+        timed_out = True
+        for sig, wait in ((signal.SIGTERM, grace), (signal.SIGKILL, None)):
+            try:
+                os.killpg(pgid, sig)
+            except ProcessLookupError:
+                pass
+            try:
+                out, err = proc.communicate(timeout=wait)
+                break
+            except subprocess.TimeoutExpired:
+                continue
+        else:
+            out = err = ""
+        try:
+            os.killpg(pgid, signal.SIGKILL)   # reap any stragglers left after the leader exited
+        except ProcessLookupError:
+            pass
+    return proc.returncode, (out or "")[-20000:] + "\n" + (err or "")[-20000:], timed_out
+
+
+def _run(cmd: list[str], timeout: float, log: list[str]) -> subprocess.CompletedProcess:
+    rc, output, timed_out = _run_render_cmd(cmd, timeout)
+    if timed_out:
+        log.append(f"TIMEOUT after {timeout:.0f}s\n{output}")
+        raise subprocess.TimeoutExpired(cmd, timeout)
+    log.append(output)
+    return subprocess.CompletedProcess(cmd, rc)
+
+
+def run_scene(i, sid, args, assets, cache, hdris, surfaces, n5k, bproc, sdir, rdir, odir, out_log) -> dict:
+    t0 = time.time()
+    sampler = sample_scene_hard if args.preset == "hard" else sample_scene
+    extra = {"surfaces": surfaces, "n5k": n5k} if args.preset == "hard" else {}
+    spec = sampler(np.random.default_rng([args.seed, i]), assets, sdir, sid, n_views=args.views,
+                   res_scale=args.res_scale, hdris=hdris, **extra)
+    if args.preset == "hard" and not args.hull_only:   # true-shape compound colliders for dropped scans
+        by_id = {a["id"]: a for a in assets}
+        for it in spec["items"]:
+            if it["dynamic"] and it["fmt"] != "npz" and it["asset_id"] in by_id:
+                it["collision"] = str(ensure_collision(by_id[it["asset_id"]], cache).resolve())
+        (sdir / "spec.json").write_text(json.dumps(spec, indent=1, default=lambda o: o.tolist()))
+    physics = "none"
+    if args.preset == "hard" and args.physics == "mpm":
+        physics = "mpm"
+        from .mpm import settle               # taichi: only when used
+        try:
+            spec = settle(spec, sdir, sim_time=args.mpm_time, log=lambda m: print(f"{sid} {m}", flush=True))
+        except Exception as e:                # fall back to Blender's Bullet for this scene
+            print(f"{sid}: MPM failed ({type(e).__name__}: {e}), falling back to Bullet", flush=True)
+            out_log.append(f"MPM failed:\n{traceback.format_exc()}")
+            physics = "bullet (mpm failed)"
+            spec = json.loads((sdir / "spec.json").read_text())
+        (sdir / "spec.json").write_text(json.dumps(spec, indent=1, default=lambda o: o.tolist()))
+    elif args.preset == "hard":
+        physics = "bullet"
+    shutil.rmtree(rdir, ignore_errors=True)    # never finalize a previous attempt's frames
+    shutil.rmtree(odir.with_name(odir.name + ".tmp"), ignore_errors=True)
+    cmd = [str(bproc), "run", "--custom-blender-path", args.blender, str(RENDER),
+           str(sdir / "spec.json"), str(rdir), "--spp", str(args.spp)]
+    ok = lambda r: r.returncode == 0 and (rdir / "render_meta.json").exists()    # noqa: E731
+    try:
+        r = _run(cmd, args.render_timeout, out_log)
+        if not ok(r):
+            raise RuntimeError(f"render exit {r.returncode}")
+    except (RuntimeError, subprocess.TimeoutExpired):
+        # usually the GPU ran out of memory (it may be shared); retry once on the CPU
+        print(f"{sid}: GPU render failed, retrying on CPU", flush=True)
+        shutil.rmtree(rdir, ignore_errors=True)
+        r = _run(cmd + ["--cpu"], args.render_timeout, out_log)
+        if not ok(r):
+            raise RuntimeError(f"render failed (exit {r.returncode}) on GPU and CPU")
+    prov = {"seed": args.seed, "scene_index": i, "views": args.views, "res_scale": args.res_scale,
+            "spp": args.spp, "physics": physics, "preset_args": {"preset": args.preset, "hull_only": args.hull_only,
+            "mpm_time": args.mpm_time, "n5k": bool(n5k), "n_hdris": len(hdris or []), "n_surfaces": len(surfaces)}}
+    gt = finalize(sdir, rdir, odir, seed=args.seed, keep_hr=args.keep_hr, provenance=prov)
+    gt["_wall_s"] = time.time() - t0
+    return gt
 
 
 if __name__ == "__main__":
