@@ -48,6 +48,7 @@ def main() -> None:
     ap.add_argument("--online-dir", default=None,
                     help="synth.fetch_assets output (HDRIs, tabletop textures); default <assets>/../../datasets/online")
     ap.add_argument("--keep-raw", action="store_true")
+    ap.add_argument("--settle-only", action="store_true", help="write specs and run MPM only, no render")
     ap.add_argument("--keep-hr", action="store_true")
     ap.add_argument("--preset", choices=["v0", "hard"], default="v0", help="hard: see synth/spec_hard.py")
     ap.add_argument("--collision-cache", default=None, help="CoACD parts cache (default: <assets dir>/collision)")
@@ -107,6 +108,8 @@ def main() -> None:
                 print(f"{sid}: MPM failed ({type(e).__name__}: {e}), falling back to Bullet", flush=True)
                 spec = json.loads((sdir / "spec.json").read_text())
             (sdir / "spec.json").write_text(json.dumps(spec, indent=1, default=lambda o: o.tolist()))
+        if args.settle_only:                    # spec + MPM only (render elsewhere, e.g. A/B of looks)
+            continue
         cmd = [str(bproc), "run", "--custom-blender-path", args.blender, str(RENDER),
                str(sdir / "spec.json"), str(rdir), "--spp", str(args.spp)]
         r = subprocess.run(cmd, capture_output=True, text=True)

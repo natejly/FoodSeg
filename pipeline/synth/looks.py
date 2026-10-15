@@ -118,6 +118,72 @@ PIECES = {
 }
 
 
+# Realism extras per food (round 2), consumed by render.food_material / contact_film:
+#   oil:    (colour multiplier of the oil-stained paste, coverage 0..1) glossy separated-oil patches
+#   flecks: [(linear rgb, fraction of cells, cell size m)] herbs / spice / pepper bits in the surface
+#   brown:  (colour multiplier, coverage) uneven cooking / browning on the exposed peaks
+#   film:   thin sauce film at the food / plate boundary: (mean reach m, drip count)
+EXTRAS = {
+    "chicken curry": {"oil": ((1.25, 0.75, 0.25), 0.4), "brown": ((0.7, 0.55, 0.45), 0.3),
+                      "flecks": [((0.04, 0.12, 0.02), 0.05, 0.0025), ((0.45, 0.07, 0.015), 0.04, 0.0020),
+                                 ((0.9, 0.7, 0.3), 0.02, 0.0018)], "film": (0.006, 3)},
+    "green curry": {"oil": ((1.3, 1.0, 0.3), 0.35), "brown": ((0.75, 0.75, 0.55), 0.2),
+                    "flecks": [((0.03, 0.14, 0.02), 0.07, 0.0025), ((0.5, 0.09, 0.02), 0.03, 0.0018),
+                               ((0.85, 0.8, 0.5), 0.03, 0.0015)], "film": (0.006, 3)},
+    "curry sauce": {"oil": ((1.25, 0.8, 0.3), 0.4), "brown": ((0.75, 0.6, 0.4), 0.2),
+                    "flecks": [((0.05, 0.12, 0.02), 0.05, 0.0025)], "film": (0.006, 2)},
+    "dal": {"oil": ((1.3, 0.9, 0.3), 0.35), "brown": ((0.65, 0.5, 0.35), 0.3),
+            "flecks": [((0.10, 0.04, 0.015), 0.05, 0.002), ((0.04, 0.14, 0.02), 0.05, 0.0025),
+                       ((0.5, 0.06, 0.01), 0.03, 0.0018)], "film": (0.005, 2)},
+    "lentil stew": {"oil": ((1.2, 0.85, 0.35), 0.25), "brown": ((0.65, 0.55, 0.4), 0.3),
+                    "flecks": [((0.04, 0.12, 0.02), 0.04, 0.0025)], "film": (0.005, 2)},
+    "chili": {"oil": ((1.5, 0.7, 0.3), 0.35), "brown": ((0.6, 0.5, 0.45), 0.35),
+              "flecks": [((0.03, 0.01, 0.005), 0.06, 0.002), ((0.5, 0.08, 0.02), 0.04, 0.002),
+                         ((0.04, 0.12, 0.02), 0.02, 0.002)], "film": (0.005, 2)},
+    "tomato sauce": {"oil": ((1.4, 0.8, 0.5), 0.3), "flecks": [((0.04, 0.12, 0.02), 0.03, 0.002)], "film": (0.006, 2)},
+    "gravy": {"oil": ((1.2, 1.0, 0.7), 0.25), "flecks": [((0.02, 0.015, 0.01), 0.03, 0.0015)], "film": (0.006, 2)},
+    "oatmeal": {"brown": ((0.7, 0.5, 0.3), 0.4), "flecks": [((0.22, 0.09, 0.03), 0.04, 0.0015), ((0.35, 0.12, 0.06), 0.02, 0.003)],
+                "film": (0.004, 1)},
+    "risotto": {"oil": ((1.15, 1.0, 0.7), 0.3), "brown": ((0.78, 0.6, 0.4), 0.25),
+                "flecks": [((0.05, 0.16, 0.03), 0.05, 0.002), ((0.04, 0.03, 0.02), 0.03, 0.0012)], "film": (0.005, 2)},
+    "congee": {"oil": ((1.1, 1.0, 0.8), 0.2), "flecks": [((0.04, 0.16, 0.03), 0.03, 0.002), ((0.2, 0.1, 0.05), 0.02, 0.0015)],
+               "film": (0.004, 1)},
+    "polenta": {"oil": ((1.1, 0.9, 0.4), 0.3), "brown": ((0.8, 0.6, 0.3), 0.25), "flecks": [((0.04, 0.03, 0.02), 0.03, 0.0012)],
+                "film": (0.004, 1)},
+    "hummus": {"oil": ((1.2, 1.0, 0.5), 0.45), "brown": ((0.9, 0.35, 0.12), 0.25),
+               "flecks": [((0.04, 0.14, 0.03), 0.03, 0.002), ((0.55, 0.1, 0.02), 0.04, 0.0015)], "film": (0.004, 1)},
+    "refried beans": {"oil": ((1.3, 0.9, 0.5), 0.3), "brown": ((0.6, 0.5, 0.4), 0.3),
+                      "flecks": [((0.02, 0.012, 0.008), 0.04, 0.0015)], "film": (0.004, 1)},
+    "mashed potato": {"oil": ((1.15, 1.0, 0.4), 0.35), "brown": ((0.85, 0.7, 0.5), 0.15),
+                      "flecks": [((0.02, 0.02, 0.015), 0.04, 0.0012), ((0.05, 0.16, 0.03), 0.03, 0.002)], "film": (0.004, 1)},
+    "yogurt": {"flecks": [((0.04, 0.14, 0.03), 0.01, 0.002)], "film": (0.003, 1)},
+    "sour cream": {"film": (0.003, 1)},
+    "guacamole": {"brown": ((0.6, 0.55, 0.3), 0.25), "flecks": [((0.5, 0.05, 0.03), 0.03, 0.0025), ((0.05, 0.2, 0.03), 0.03, 0.002)],
+                  "film": (0.003, 1)},
+    "mac and cheese": {"oil": ((1.2, 0.9, 0.3), 0.3), "brown": ((0.65, 0.45, 0.2), 0.3),
+                       "flecks": [((0.03, 0.025, 0.02), 0.02, 0.0012)], "film": (0.004, 1)},
+    "scrambled eggs": {"oil": ((1.15, 1.0, 0.45), 0.3), "brown": ((0.8, 0.55, 0.2), 0.3),
+                       "flecks": [((0.04, 0.14, 0.02), 0.02, 0.002)], "film": (0.003, 1)},
+    "baked beans": {"oil": ((1.4, 0.8, 0.4), 0.25), "film": (0.005, 2)},
+    "penne in tomato sauce": {"oil": ((1.4, 0.8, 0.4), 0.3), "flecks": [((0.04, 0.14, 0.02), 0.04, 0.002)], "film": (0.005, 2)},
+    "tomato soup": {"oil": ((1.4, 0.8, 0.4), 0.2), "flecks": [((0.04, 0.14, 0.02), 0.02, 0.002)]},
+    "pumpkin soup": {"oil": ((1.2, 0.9, 0.5), 0.2), "flecks": [((0.04, 0.14, 0.02), 0.02, 0.002)]},
+    "white rice": {"brown": ((0.9, 0.82, 0.6), 0.2)},
+    "brown rice": {"brown": ((0.8, 0.7, 0.55), 0.3)},
+    "fried rice": {"oil": ((1.15, 0.85, 0.4), 0.35), "brown": ((0.65, 0.5, 0.3), 0.35),
+                   "flecks": [((0.05, 0.16, 0.03), 0.03, 0.002)]},
+}
+# wetness (spatially varying gloss): cavity = gloss gained in crevices, patch = coverage of glossy
+# puddles / sheen, dark = darkening and saturation of the paste where sauce pools, dry = peaks' roughness add
+WET = {
+    "liquid": {"cavity": 1.0, "patch": 0.55, "dark": 0.4, "dry": 0.12},
+    "porridge": {"cavity": 0.8, "patch": 0.4, "dark": 0.3, "dry": 0.1},
+    "puree": {"cavity": 0.6, "patch": 0.3, "dark": 0.2, "dry": 0.1},
+    "curd": {"cavity": 0.6, "patch": 0.3, "dark": 0.25, "dry": 0.1},
+    "grain": {"cavity": 0.4, "patch": 0.2, "dark": 0.15, "dry": 0.05},
+}
+
+
 def physics(name: str) -> dict:
     return PHYSICS_BY_NAME.get(name, PHYSICS[kind_of(name)])
 
@@ -175,11 +241,17 @@ def look(name: str, rng: np.random.Generator) -> dict:
         t = food_textures.pick(TEX[name][0], rng)
         if t:
             L["tex"] = {"albedo": t[0], "height": t[1], "tile_m": t[2], "scale": TEX[name][1],
-                        "seed": int(rng.integers(1 << 30)),
-                        "strength": {"puree": 0.7, "liquid": 0.8, "porridge": 0.8}.get(k, 1.0),
-                        "relief": u(1.0, 1.8) if k in ("grain", "curd") else u(0.5, 1.0)}
+                        "seed": int(rng.integers(1 << 30)), "chroma": 0.4,
+                        "strength": {"puree": 0.6, "liquid": 0.3, "porridge": 0.6}.get(k, 1.0),
+                        "relief": u(1.0, 1.8) if k in ("grain", "curd") else u(0.5, 1.0) * (0.3 if k == "liquid" else 1.0)}
             L["tint_var"] = min(L["tint_var"], 0.04)
-    L["ao"] = name in PIECES                        # darken the paste between real grains
+    L["wet"] = dict(WET[k])
+    L["wet"]["patch_scale"] = 30.0 + (sum(map(ord, name)) * 7) % 40       # no rng draw: keeps spec streams unchanged
+    x = EXTRAS.get(name, {})
+    L["oil"], L["brown"], L["flecks"] = x.get("oil"), x.get("brown"), x.get("flecks", [])
+    L["film"] = x.get("film")
+    L["relief_mm"] = {"liquid": 0.0, "porridge": 1.2, "puree": 0.8, "curd": 1.2, "grain": 0.0}[k]
+    L["ao"] = True                       # darken the paste between real grains
     if name in PIECES and L["cells"] and L["cells"]["mode"] in ("chunk", "flake"):
         L["cells"], L["chunk_color"] = None, None     # real beans / flakes are scattered (PIECES): no painted ones
     return L
