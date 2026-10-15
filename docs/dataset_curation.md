@@ -123,6 +123,46 @@ item. Instance masks: SAM 3 on the frames, corrected by hand on ~5 frames per sc
 lifted to 3D. Match the strata above (touching, piles, bowl soups, a salad). Never used
 for tuning; report every method once at the end.
 
+## 8. Diversity: what to vary, targets, and where more food comes from
+
+Added 2026-10-14. Measure any batch with `python -m synth.diversity <batch>` (counts per axis
+plus an "effective number" = exp(entropy): how many equally common categories it is worth).
+
+**Axes and targets** (v1 dataset):
+
+| axis | how it varies now | target |
+|---|---|---|
+| meal source | `synth.meals`: cuisine template 45 %, real Nutrition5k dish 30 %, random 25 % | keep random >= 20 % (hard cases, no cafeteria prior) |
+| cuisine | 11 groups: South / East / Southeast Asian, Latin American, Middle Eastern, Italian, Western breakfast / lunch / dinner, fruit, dessert (cuisine sampled first, then a template) | no group > 15 % of template scenes; add West African, Korean, Ethiopian next |
+| food consistency | grain, porridge, puree, liquid (stews, curries, soups), curd, leaves, rigid scans | every consistency >= 5 % of items |
+| foods | 33 procedural foods (rice, noodles, curries, soups, beans, hummus, granola ...) + 135 scanned categories | effective number of foods >= 50 per 1,000 scenes |
+| arrangement | heap layouts: side by side 35 %, sauce poured over 25 %, patches 20 %, wedges 20 %; piles; toppings; leaves | >= 30 % of scenes with touching foods of different kinds |
+| dish | procedural plate / bowl (glazed, rim bands), scanned GSO / YCB dishes; soups only in bowls | >= 15 % scanned dishes |
+| scene | 31 indoor HDRIs, 25 tabletop textures (wood, marble, laminate, cloth), cutlery / mug / napkin clutter | no room > 8 % of scenes |
+| camera | phone noise, white balance, blur, defocus, vignetting, chromatic aberration, sharpening, JPEG | per scan, recorded in gt.json |
+
+**Where more scanned food comes from** (researched 2026-10-14; counts from the sources' own
+annotations, not yet downloaded):
+
+| source | what | licence | access | status |
+|---|---|---|---|---|
+| MetaFood3D | 617 usable scans, ~108 categories, with weights | CC BY-NC 4.0 | have | in use |
+| Poly Haven | 12 food models | CC0 | have | in use |
+| YCB / GSO | fruit replicas, dishes, cutlery, mugs | CC BY 4.0 | have | in use |
+| **Objaverse-LVIS (food)** | 3,504 objects in 104 food categories; **712 are photogrammetry scans** (tags / descriptions) under CC BY / BY-SA / CC0, 95 categories, **~19 GB** | mostly CC BY (attribution) | public, no account (`objaverse` package) | **next: needs a go-ahead for the 19 GB download**; not metric, so each needs a real-world size from a per-category size table, plus a QC render (stylised models slip through tags) |
+| OmniObject3D | ~6k scans in 190 categories, ~88 food; metric | CC BY 4.0 | OpenXLab account | needs an account (user) |
+| Sketchfab (CC BY scans) | large photogrammetry food collections | per model | API token | needs a token (user) |
+| NutritionVerse-3D | 105 food scans with weights | non-commercial | public | small; same NC constraint as MetaFood3D |
+
+Licence note: MetaFood3D already makes the derived dataset non-commercial; Objaverse CC BY
+and OmniObject3D CC BY only need attribution (record per asset in `sources.jsonl`).
+
+**Procedural foods are the cheapest diversity**: a new amorphous food is a colour, a
+consistency (physics), optional real pieces (`synth.looks.PIECES`: noodles, beans, tofu
+cubes...) and a template that serves it. Gaps worth filling next: noodle dishes with toppings
+(pad thai, lo mein), injera with stews, bibimbap (layout "patches" over rice), salads with
+dressing sheen, mashed / pureed vegetables of other colours (cauliflower, pea, beet).
+
 ## Open questions
 
 - Fill scale from grams needs a density per Nutrition5k ingredient (FNDDS / INFOODS

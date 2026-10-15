@@ -449,6 +449,61 @@ def surface_mesh(P: np.ndarray, h: float, H_at, max_faces: int = 60000) -> tuple
     return V, F
 
 
+# ---- how foods share a heap --------------------------------------------------
+
+def relayout(X: np.ndarray, owner: np.ndarray, heap: dict, h: float) -> np.ndarray:
+    """Re-assign the heap's particles (built as radial wedges, one food each) to a natural
+    arrangement before simulating; returns the new owner ids. Layouts (spec_hard):
+      sides    foods side by side across the heap along wavy lines, in the given volume shares;
+      patches  irregular patches: nearest of a few warped seeds, two per food;
+      layers   the last food (the runniest) poured over part of the others: the top layer of
+               the heap within a wobbly disc; the rest split as `sides`."""
+    rng = np.random.default_rng(heap["seed"])
+    ids = list(heap["items"])
+    sel = np.flatnonzero(np.isin(owner, ids))
+    P = X[sel]
+    c = np.asarray(heap["centre"], float)
+    xy = P[:, :2] - c
+    rf = heap["rf"]
+    new = owner.copy()
+
+    def wavy(Q, n_foods, fracs):
+        a = rng.uniform(0, 2 * np.pi)
+        d, perp = np.array([np.cos(a), np.sin(a)]), np.array([-np.sin(a), np.cos(a)])
+        t = Q @ perp / rf
+        s = Q @ d + 0.18 * rf * np.sin(rng.uniform(2, 4) * t + rng.uniform(0, 2 * np.pi)) \
+            + 0.08 * rf * np.sin(rng.uniform(5, 8) * t + rng.uniform(0, 2 * np.pi))
+        cuts = np.quantile(s, np.cumsum(fracs)[:-1] / np.sum(fracs))
+        return np.searchsorted(cuts, s)
+
+    if heap["layout"] == "sides":
+        k = wavy(xy, len(ids), heap["fractions"])
+    elif heap["layout"] == "patches":
+        seeds = rng.uniform(-0.8, 0.8, (2 * len(ids), 2)) * rf
+        warp = np.stack([np.sin(xy[:, 1] / rf * 5 + 1.3), np.sin(xy[:, 0] / rf * 5 + 0.7)], 1) * 0.12 * rf
+        k = np.argmin((((xy + warp)[:, None, :] - seeds[None]) ** 2).sum(-1), axis=1) % len(ids)
+    else:                                                  # layers
+        k = np.zeros(len(P), int)
+        if len(ids) > 2:
+            k = wavy(xy, len(ids) - 1, heap["fractions"][:-1])
+        col = np.floor(P[:, :2] / (2 * h)).astype(np.int64)
+        key = col[:, 0] * 100003 + col[:, 1]
+        order = np.argsort(key)
+        _, start = np.unique(key[order], return_index=True)
+        top = np.maximum.reduceat(P[order, 2], start)               # heap surface per 2h column
+        ztop = np.empty(len(P))
+        ztop[order] = np.repeat(top, np.diff(np.r_[start, len(P)]))
+        off = rng.uniform(-0.3, 0.3, 2) * rf
+        th = np.arctan2(xy[:, 1] - off[1], xy[:, 0] - off[0])
+        r_lim = heap["top_r"] * (1 + 0.18 * np.sin(3 * th + rng.uniform(0, 6)) + 0.08 * np.sin(7 * th))
+        on_top = (np.hypot(*(xy - off).T) < r_lim) & (P[:, 2] > ztop - heap["top_thick"])
+        k[on_top] = len(ids) - 1
+    if np.bincount(k, minlength=len(ids)).min() < 0.04 * len(P):     # a food nearly vanished: side by side
+        k = wavy(xy, len(ids), heap["fractions"])
+    new[sel] = np.asarray(ids)[k]
+    return new
+
+
 # ---- a scene -----------------------------------------------------------------
 
 def settle(spec: dict, scene_dir: Path, sim_time: float = 1.0, dx: float = 0.002, log=print,
@@ -495,6 +550,11 @@ def settle(spec: dict, scene_dir: Path, sim_time: float = 1.0, dx: float = 0.002
         X.append((P - c) @ R0.T + L0), mat.append(np.full(len(P), len(params) - 1)), owner.append(np.full(len(P), it["id"]))
         body.append(np.full(len(P), len(frames) - 1))
     X, mat, owner, body = np.concatenate(X), np.concatenate(mat), np.concatenate(owner), np.concatenate(body)
+    if spec.get("heap") and spec["heap"]["layout"] != "wedges":
+        owner = relayout(X, owner, spec["heap"], hp)
+        mat_of = {it["id"]: k for k, it in enumerate(soft)}
+        sel = np.isin(owner, spec["heap"]["items"])
+        mat[sel] = [mat_of[o] for o in owner[sel]]
 
     # domain: the dish plus a margin, up to above the highest particle
     cj = spec["container"]

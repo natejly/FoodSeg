@@ -44,6 +44,7 @@ def main() -> None:
     ap.add_argument("--spp", type=int, default=128)
     ap.add_argument("--blender", default=str(Path.home() / "blender" / "blender-4.2.1-linux-x64"))
     ap.add_argument("--hdri-dir", default=None, help="default (hard): <online>/polyhaven_hdri")
+    ap.add_argument("--n5k-dir", default=None, help="Nutrition5k (meal compositions); default <online>/../Nutrition5k")
     ap.add_argument("--online-dir", default=None,
                     help="synth.fetch_assets output (HDRIs, tabletop textures); default <assets>/../../datasets/online")
     ap.add_argument("--keep-raw", action="store_true")
@@ -71,7 +72,15 @@ def main() -> None:
             if r.get("role") == "surface" and r["id"] in SURFACE_IDS and (d / "diffuse.jpg").exists():
                 dims = r.get("dimensions_mm") or [1000, 1000]
                 surfaces.append({"dir": str(d.resolve()), "kind": r["kind"], "tile_m": max(dims[:2]) / 1000.0})
-    print(f"{len(hdris or [])} HDRIs, {len(surfaces)} tabletop textures", flush=True)
+    n5k = None                                     # real dish compositions for synth.meals
+    n5k_dir = Path(args.n5k_dir) if args.n5k_dir else online.parent / "Nutrition5k"
+    if args.preset == "hard" and (n5k_dir / "metadata").exists():
+        from .composition import load_dishes, norm, resolve
+        cats = {norm(a["category"]) for a in assets if a.get("role", "food") == "food"
+                and a.get("volume_ok", a["watertight"]) and not a.get("container_shaped")}
+        n5k = {"dishes": load_dishes(n5k_dir), "mapping": resolve(cats)}
+    print(f"{len(hdris or [])} HDRIs, {len(surfaces)} tabletop textures, "
+          f"{len(n5k['dishes']) if n5k else 0} Nutrition5k dishes", flush=True)
     bproc = Path(sys.executable).with_name("blenderproc")
     for i in range(args.start, args.start + args.n):
         sid = f"s{i:06d}"
@@ -80,7 +89,7 @@ def main() -> None:
             continue
         t0 = time.time()
         sampler = sample_scene_hard if args.preset == "hard" else sample_scene
-        extra = {"surfaces": surfaces} if args.preset == "hard" else {}
+        extra = {"surfaces": surfaces, "n5k": n5k} if args.preset == "hard" else {}
         spec = sampler(np.random.default_rng([args.seed, i]), assets, sdir, sid, n_views=args.views,
                        res_scale=args.res_scale, hdris=hdris, **extra)
         if args.preset == "hard" and not args.hull_only:   # true-shape compound colliders for dropped scans

@@ -23,6 +23,14 @@ KIND = {
     "lentil stew": "liquid", "chili": "liquid", "curry sauce": "liquid", "tomato sauce": "liquid",
     "gravy": "liquid", "salsa": "liquid", "pesto": "liquid", "guacamole": "liquid",
     "mac and cheese": "curd", "scrambled eggs": "curd", "egg whites": "curd",
+    # added for diversity (synth.meals.FOODS)
+    "couscous": "grain", "granola": "grain", "corn": "grain", "mixed vegetables": "grain",
+    "congee": "porridge", "risotto": "porridge", "polenta": "porridge",
+    "hummus": "puree", "refried beans": "puree",
+    "penne in tomato sauce": "liquid", "dal": "liquid", "chicken curry": "liquid", "green curry": "liquid",
+    "black beans": "liquid", "baked beans": "liquid", "tomato soup": "liquid", "pumpkin soup": "liquid",
+    "miso soup": "liquid", "ramen": "liquid", "cereal with milk": "liquid",
+    "spaghetti": "curd",
 }
 
 # MPM constitutive model per consistency (synth.mpm), SI units. Values are softer / less
@@ -43,6 +51,13 @@ PHYSICS_BY_NAME = {   # within a kind
     "chili": {"model": "fluid", "K": 4e4, "visc": 2.5, "rho": 1100},
     "lentil stew": {"model": "fluid", "K": 4e4, "visc": 2.0, "rho": 1100},
     "guacamole": PHYSICS["puree"], "pesto": {"model": "fluid", "K": 4e4, "visc": 3.0, "rho": 1050},
+    # thin: soups, broths, milk
+    **{n: {"model": "fluid", "K": 4e4, "visc": 0.3, "rho": 1020}
+       for n in ("tomato soup", "pumpkin soup", "miso soup", "ramen", "cereal with milk")},
+    "black beans": {"model": "fluid", "K": 4e4, "visc": 2.0, "rho": 1100},
+    "baked beans": {"model": "fluid", "K": 4e4, "visc": 2.0, "rho": 1100},
+    "penne in tomato sauce": {"model": "fluid", "K": 4e4, "visc": 2.5, "rho": 1050},
+    "spaghetti": {"model": "plastic", "E": 3e4, "nu": 0.3, "rho": 1000, "theta_c": 0.015, "theta_s": 0.005},
 }
 ITEM_PHYSICS = {"model": "rigid", "rho": 1000}   # scans: rigid bodies coupled to the continuum
 
@@ -61,6 +76,24 @@ PIECES = {
     "lentil stew": [("lentil", 6e4, (4.5, 4.5, 1.8), (0.45, 0.28, 0.1), 0.5)],
     "mac and cheese": [("macaroni", 1.4e4, (14, 6, 6), None, 0.45)],
     "salsa": [("cube", 1.5e4, (5, 5, 5), (0.75, 0.08, 0.04), 0.5), ("cube", 6e3, (4, 4, 4), (0.9, 0.88, 0.75), 0.5)],
+    # synth.meals.FOODS
+    "spaghetti": [("noodle", 1.2e4, (70, 2.2, 2.2), None, 0.3)],
+    "ramen": [("noodle", 1.0e4, (80, 2.5, 2.5), (0.85, 0.7, 0.35), 0.4), ("cube", 600, (12, 3, 3), (0.2, 0.42, 0.08), 0.2)],
+    "penne in tomato sauce": [("penne", 6e3, (26, 8, 8), (0.88, 0.7, 0.36), 0.4)],
+    "couscous": [("quinoa", 4e5, (1.6, 1.6, 1.0), None, 0.3)],
+    "dal": [("lentil", 3e4, (4, 4, 1.6), (0.85, 0.6, 0.12), 0.4)],
+    "chicken curry": [("cube", 3e3, (16, 13, 10), (0.8, 0.6, 0.38), 0.5)],
+    "green curry": [("cube", 2.5e3, (16, 13, 10), (0.85, 0.75, 0.6), 0.5), ("pea", 2e3, (8, 8, 8), (0.2, 0.4, 0.05), 0.4)],
+    "black beans": [("bean", 1.5e4, (8, 5.5, 4.5), (0.04, 0.03, 0.04), 0.45)],
+    "baked beans": [("bean", 1.5e4, (9, 6, 5), (0.72, 0.42, 0.22), 0.45)],
+    "congee": [("rice", 3e4, (5.5, 2.4, 2.0), None, 0.8)],
+    "risotto": [("rice", 6e4, (6, 2.8, 2.4), None, 0.5)],
+    "miso soup": [("cube", 1.5e3, (9, 9, 9), (0.92, 0.9, 0.82), 0.35), ("cube", 1.5e3, (10, 3, 3), (0.2, 0.42, 0.08), 0.2)],
+    "cereal with milk": [("flake", 6e3, (16, 13, 2), (0.82, 0.55, 0.18), 0.2)],
+    "granola": [("cluster", 2.5e4, (9, 7, 5), None, 0.35)],
+    "corn": [("cube", 3e4, (7, 6, 4), (0.95, 0.75, 0.12), 0.35)],
+    "mixed vegetables": [("pea", 1.2e4, (7, 7, 7), (0.18, 0.42, 0.06), 0.35), ("cube", 1.2e4, (7, 7, 7), (0.85, 0.32, 0.05), 0.35),
+                         ("cube", 1e4, (6, 5, 4), (0.95, 0.75, 0.12), 0.35), ("cube", 6e3, (12, 5, 5), (0.25, 0.45, 0.1), 0.35)],
 }
 
 
@@ -117,6 +150,7 @@ def look(name: str, rng: np.random.Generator) -> dict:
         size = u(0.005, 0.008) if name == "mac and cheese" else u(0.008, 0.015)
         L.update(cells={"scale": 1 / size, "mode": "dome", "jitter": 0.1, "crevice": 0.3, "distort": 0.8},
                  coat=u(0.2, 0.4) if name == "mac and cheese" else 0.0, sss=0.35, bump=0.55)
+    L["ao"] = name in PIECES                        # darken the paste between real grains
     if name in PIECES and L["cells"] and L["cells"]["mode"] in ("chunk", "flake"):
         L["cells"], L["chunk_color"] = None, None     # real beans / flakes are scattered (PIECES): no painted ones
     return L

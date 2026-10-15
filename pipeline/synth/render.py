@@ -59,9 +59,38 @@ def load_gltf(p: Path):
     return obj
 
 
-def simulate_cloth(cloth: list, obstacles: list, frames: int = 150) -> None:
+def drop_stray_leaves(obj, per_leaf: int, keep_r: float) -> int:
+    """Delete leaves (consecutive blocks of per_leaf vertices) that slid off the dish: centre
+    beyond keep_r of the dish axis or resting on the table. A real served salad stays on the
+    plate; strays were the most common QC failure. Keeps at least the most central leaf."""
+    me = obj.blender_obj.data
+    co = np.empty(len(me.vertices) * 3)
+    me.vertices.foreach_get("co", co)
+    M = np.array(obj.blender_obj.matrix_world)
+    V = co.reshape(-1, 3) @ M[:3, :3].T + M[:3, 3]
+    n = len(V) // per_leaf
+    ctr = V[: n * per_leaf].reshape(n, per_leaf, 3)
+    r = np.hypot(ctr[:, :, 0].mean(1), ctr[:, :, 1].mean(1))
+    zmin = ctr[:, :, 2].min(1)
+    bad = (r > keep_r) | (zmin < 0.002)
+    if bad.all():
+        bad[np.argmin(r)] = False
+    if not bad.any():
+        return 0
+    bm = bmesh.new()
+    bm.from_mesh(me)
+    bm.verts.ensure_lookup_table()
+    gone = [bm.verts[i] for k in np.flatnonzero(bad) for i in range(k * per_leaf, (k + 1) * per_leaf)]
+    bmesh.ops.delete(bm, geom=gone, context="VERTS")
+    bm.to_mesh(me)
+    bm.free()
+    return int(bad.sum())
+
+
+def simulate_cloth(cloth: list, obstacles: list, keep_r: float, frames: int = 150) -> None:
     """Drop thin sheets (leaves) as cloth onto the settled scene, freeze the last frame and give
-    them thickness: they drape over food and the dish and pile on each other (self collision)."""
+    them thickness: they drape over food and the dish and pile on each other (self collision).
+    Leaves that slid off the dish (beyond keep_r of its axis) are removed."""
     scene = bpy.context.scene
     for o in obstacles:
         m = o.blender_obj.modifiers.new("synth_collision", "COLLISION")
@@ -92,6 +121,10 @@ def simulate_cloth(cloth: list, obstacles: list, frames: int = 150) -> None:
         me = bpy.data.meshes.new_from_object(o.blender_obj.evaluated_get(dg))
         o.blender_obj.modifiers.clear()
         o.blender_obj.data = me
+        grid = it["cloth"].get("grid", (12, 5))
+        n_gone = drop_stray_leaves(o, grid[0] * grid[1], keep_r)
+        if n_gone:
+            print(f"[render] {it['name']}: removed {n_gone} leaves that slid off the dish", flush=True)
         # the 12 x 5 cloth grid is coarse: subdivide so leaves curve instead of showing facets
         # and sawtooth margins, then shade smooth
         sub = o.blender_obj.modifiers.new("synth_subsurf", "SUBSURF")
@@ -325,6 +358,18 @@ def food_material(obj, name: str, color, roughness: float, L: dict) -> None:
     bump = node("ShaderNodeBump", Strength=float(L.get("bump", 0.4)), Distance=0.0015)
     links.new(height, bump.inputs["Height"])
     links.new(bump.outputs["Normal"], bsdf.inputs["Normal"])
+    if L.get("ao"):                    # paste between scattered grains sits in their shadow
+        ao = nt.new("ShaderNodeAmbientOcclusion")
+        ao.inputs["Distance"].default_value = 0.004
+        ao.samples = 8
+        shade = nt.new("ShaderNodeMapRange")
+        shade.inputs["To Min"].default_value = 0.35
+        links.new(ao.outputs["AO"], shade.inputs["Value"])
+        dark = nt.new("ShaderNodeMixRGB")
+        dark.blend_type, dark.inputs["Fac"].default_value = "MULTIPLY", 1.0
+        links.new(colour, dark.inputs["Color1"])
+        links.new(shade.outputs["Result"], dark.inputs["Color2"])
+        colour = dark.outputs["Color"]
     links.new(colour, bsdf.inputs["Base Color"])
     bsdf.inputs["Roughness"].default_value = float(roughness)
     bsdf.inputs["Subsurface Weight"].default_value = float(L.get("sss", 0.2))
@@ -548,6 +593,33 @@ def piece_mesh(shape: str, size_mm, rng: np.random.Generator):
         V += rng.normal(0, 0.12, V.shape)                    # hand-diced
         F = [[0, 1, 3, 2], [4, 6, 7, 5], [0, 4, 5, 1], [2, 3, 7, 6], [0, 2, 6, 4], [1, 5, 7, 3]]
         return V * [L, W, H], F
+    if shape in ("noodle", "penne"):                          # a tube along a wavy (noodle) or straight path
+        n_a, n_r = (28, 6) if shape == "noodle" else (6, 10)
+        x = np.linspace(-L, L, n_a)
+        if shape == "noodle":
+            y = 0.25 * L * np.sin(rng.uniform(1.5, 3.5) * np.pi * x / L + rng.uniform(0, 6))
+            z = 0.06 * L * np.sin(rng.uniform(1, 2) * np.pi * x / L + rng.uniform(0, 6))
+        else:
+            y, z = np.zeros(n_a), np.zeros(n_a)
+        path = np.stack([x, y, z], 1)
+        tang = np.gradient(path, axis=0)
+        tang /= np.linalg.norm(tang, axis=1, keepdims=True)
+        nrm = np.cross(tang, [0.0, 0.0, 1.0])
+        nrm /= np.linalg.norm(nrm, axis=1, keepdims=True)
+        bin_ = np.cross(tang, nrm)
+        r = H
+        V = [path[i] + r * (np.cos(b) * nrm[i] + np.sin(b) * bin_[i])
+             for i in range(n_a) for b in 2 * np.pi * np.arange(n_r) / n_r]
+        if shape == "penne":                                  # angled cut ends
+            V = np.asarray(V)
+            V[:, 0] += np.where(np.abs(V[:, 0]) > 0.9 * L, 0.6 * r * np.sign(V[:, 0]) * V[:, 2] / r, 0.0)
+        F = [[i * n_r + j, (i + 1) * n_r + j, (i + 1) * n_r + (j + 1) % n_r, i * n_r + (j + 1) % n_r]
+             for i in range(n_a - 1) for j in range(n_r)]
+        return np.asarray(V, float), F
+    if shape == "cluster":                                    # granola: a lumpy clump
+        V, F = _ellipsoid(12, 8)
+        V = V * (1 + rng.normal(0, 0.22, (len(V), 1))) * [L, W, H]
+        return V, F
     if shape == "macaroni":                                   # a curved tube (elbow), open ends
         n_a, n_r = 10, 8
         R, r = L * 0.9, H
@@ -804,7 +876,8 @@ def main() -> None:
         o.set_scale([s, s, s])
         if it.get("color") is not None or it["fmt"] == "npz":
             col = it.get("color") or [0.6, 0.45, 0.3]
-            jitter = np.clip(np.asarray(col) * np.random.uniform(0.85, 1.15, 3), 0, 1)
+            # brightness varies batch to batch; hue only a little (per-channel +-15 % turned mash green)
+            jitter = np.clip(np.asarray(col) * np.random.uniform(0.88, 1.12) * np.random.normal(1, 0.03, 3), 0, 1)
             if it.get("cloth"):
                 leaf_uvs(o, tuple(it["cloth"].get("grid", (12, 5))))
                 leaf_material(o, f"food_{it['id']}", jitter.tolist(), it.get("roughness", 0.5))
@@ -877,7 +950,7 @@ def main() -> None:
         # full-resolution scan would make the cloth collision BVH huge)
         obstacles = [table, cont] + [o for it, o in objs if not it.get("cloth") and it["id"] not in part_objs]
         obstacles += [k for kids in part_objs.values() for k in kids]
-        simulate_cloth(cloth, obstacles)
+        simulate_cloth(cloth, obstacles, keep_r=0.95 * (c["R"] + c.get("rim_w", 0.0)))
         print(f"[render] cloth done at {time.time() - t0:.0f}s", flush=True)
 
     # real grains / flakes / beans on the settled soft food (after cloth: not leaf obstacles)

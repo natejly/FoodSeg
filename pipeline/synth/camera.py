@@ -1,7 +1,7 @@
 """Phone-camera degradations applied to clean renders (hard preset), so RGB looks captured, not rendered.
 
 Per scan (one capture = one camera state): white-balance error, sensor noise level,
-JPEG quality. Per frame (hand-held orbit): motion blur along a random direction and
+JPEG quality, vignetting, lateral chromatic aberration, ISP sharpening. Per frame (hand-held orbit): motion blur along a random direction and
 slight defocus. Parameters are drawn once per scan and recorded in gt.json; the clean
 render is what the LiDAR model sees, so depth is unaffected.
 """
@@ -46,13 +46,17 @@ class PhoneCamera:
     defocus_p: float = 0.15                                # share of frames slightly out of focus
     jpeg_quality: int = 90
     ev_bias: float = 0.0                                   # auto-exposure error, EV (HDR renders only)
+    vignette: float = 0.2                                  # brightness lost in the corners
+    ca_px: float = 0.5                                     # lateral chromatic aberration at the corner, px at 1920
+    sharpen: float = 0.5                                   # ISP unsharp-mask amount (halos on edges)
 
     @classmethod
     def sample(cls, rng: np.random.Generator) -> "PhoneCamera":
         return cls(wb_gain=tuple(float(g) for g in np.r_[rng.normal(1, 0.04), 1.0, rng.normal(1, 0.04)]),
                    noise_sigma=float(rng.uniform(0.5, 3.0)), blur_px_max=float(rng.uniform(0.5, 4.0)),
                    defocus_p=float(rng.uniform(0.0, 0.3)), jpeg_quality=int(rng.integers(80, 96)),
-                   ev_bias=float(rng.normal(0, 0.35)))
+                   ev_bias=float(rng.normal(0, 0.35)), vignette=float(rng.uniform(0.08, 0.3)),
+                   ca_px=float(rng.uniform(0.2, 1.2)), sharpen=float(rng.uniform(0.2, 0.8)))
 
     def to_json(self) -> dict:
         return asdict(self)
@@ -73,7 +77,20 @@ class PhoneCamera:
             sig = rng.uniform(0.6, 1.5) * max(s, 0.5)
             img = ndimage.gaussian_filter(img, (sig, sig, 0))
         img *= np.asarray(self.wb_gain, np.float32)
+        h, w = img.shape[:2]
+        yy, xx = np.mgrid[0:h, 0:w].astype(np.float32)
+        cx, cy = (w - 1) / 2, (h - 1) / 2
+        r2 = ((xx - cx) ** 2 + (yy - cy) ** 2) / (cx ** 2 + cy ** 2)   # 0 centre, 1 corner
+        img *= (1 - self.vignette * r2 ** 1.5)[..., None]
+        if self.ca_px > 0:                                 # red and blue magnified slightly differently
+            for ch, sgn in ((0, 1.0), (2, -1.0)):
+                k = 1 + sgn * self.ca_px * s / np.hypot(cx, cy)
+                img[..., ch] = ndimage.map_coordinates(img[..., ch], [cy + (yy - cy) / k, cx + (xx - cx) / k],
+                                                       order=1, mode="nearest")
         # signal-dependent noise: variance grows with intensity (shot) plus a floor (read)
         sd = self.noise_sigma * np.sqrt(0.3 + img / 128.0)
         img += rng.normal(0, 1, img.shape).astype(np.float32) * sd
+        if self.sharpen > 0:                               # the ISP sharpens after demosaic / denoise
+            soft = ndimage.gaussian_filter(img, (1.0 * max(s, 0.5), 1.0 * max(s, 0.5), 0))
+            img = img + self.sharpen * (img - soft)
         return np.clip(img, 0, 255).astype(np.uint8)
