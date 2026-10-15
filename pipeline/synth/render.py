@@ -569,11 +569,14 @@ def pbr_table(obj, tab: dict) -> None:
 
     hs = N.node("ShaderNodeHueSaturation", Saturation=float(P.get("sat", 1.0)))
     tint = N.mix(1.0, col, [*(np.asarray(P["tint"]) * P["brightness"]).clip(0, 2)][:3], "MULTIPLY")
+    tint = N.mix(float(P.get("flat", 0.0)), tint, [float(v) for v in np.asarray(P.get("mean", [0.5] * 3)) * np.asarray(P["tint"]) * P["brightness"]])
+    tint, rough = table_wear(N, coord, tint, rough, tab.get("wear"))
     links.new(tint, hs.inputs["Color"])
     links.new(hs.outputs["Color"], bsdf.inputs["Base Color"])
     links.new(rough, bsdf.inputs["Roughness"])
+    set_gloss(bsdf, tab.get("wear"))
     nmap = nt.new("ShaderNodeNormalMap")
-    nmap.inputs["Strength"].default_value = 0.8
+    nmap.inputs["Strength"].default_value = float(P.get("nstr", 0.8))
     links.new(nor, nmap.inputs["Color"])
     links.new(nmap.outputs["Normal"], bsdf.inputs["Normal"])
     if P["kind"] == "cloth":
@@ -581,7 +584,15 @@ def pbr_table(obj, tab: dict) -> None:
     obj.replace_materials(mat)
 
 
-def laminate_material(obj, color, roughness: float) -> None:
+def set_gloss(bsdf, W: dict | None) -> None:
+    """Lacquered / glass-topped table: a clear coat that mirrors the room."""
+    g = (W or {}).get("gloss")
+    if g:
+        bsdf.inputs["Coat Weight"].default_value = float(g["coat"])
+        bsdf.inputs["Coat Roughness"].default_value = float(g["rough"])
+
+
+def laminate_material(obj, color, roughness: float, W: dict | None = None, crumple: dict | None = None) -> None:
     """Plain laminate / counter: colour and roughness drift gently over large scales, faint fine
     grain, a few darker worn patches (never a perfectly flat colour)."""
     mat = bproc.material.create("laminate")
@@ -598,23 +609,134 @@ def laminate_material(obj, color, roughness: float) -> None:
     col = N.mix(N.ramp(noise(2.5, 3.0), 0.3, 0.7), (c * 0.93).tolist(), (c * 1.05).tolist())
     col = N.mix(N.ramp(noise(7.0, 5.0), 0.55, 0.8), col, (c * 0.78).tolist())
     col = N.mix(0.35, col, N.mix(N.ramp(noise(700.0, 2.0), 0.3, 0.7), [0.94] * 3, [1.03] * 3), "MULTIPLY")
-    N.links.new(col, bsdf.inputs["Base Color"])
     rough = N.math("ADD", float(roughness), N.math("MULTIPLY", noise(5.0, 3.0), 0.12), clamp=True)
+    col, rough = table_wear(N, coord, col, rough, W)
+    if crumple:                                         # creases and folds: ridged noise as shading, normal and roughness
+        cn = N.node("ShaderNodeTexNoise", Scale=float(crumple["scale"]), Detail=6.0, Roughness=0.62)
+        cv = N.node("ShaderNodeMapping")
+        cv.inputs["Location"].default_value = (crumple["seed"], crumple["seed"] * 0.5, 0.0)
+        N.links.new(coord, cv.inputs["Vector"])
+        N.links.new(cv.outputs["Vector"], cn.inputs["Vector"])
+        ridge = N.math("SUBTRACT", 1.0, N.math("ABSOLUTE", N.math("SUBTRACT", N.math("MULTIPLY", cn.outputs["Fac"], 2.0), 1.0)))
+        col = N.mix(1.0, col, N.mix(N.ramp(cn.outputs["Fac"], 0.3, 0.7), [0.7] * 3, [1.2] * 3), "MULTIPLY")
+        bump = N.node("ShaderNodeBump", Strength=float(crumple["strength"]), Distance=0.01)
+        N.links.new(ridge, bump.inputs["Height"])
+        N.links.new(bump.outputs["Normal"], bsdf.inputs["Normal"])
+        rough = N.math("ADD", rough, N.math("MULTIPLY", ridge, 0.15), clamp=True)
+    N.links.new(col, bsdf.inputs["Base Color"])
     N.links.new(rough, bsdf.inputs["Roughness"])
+    set_gloss(bsdf, W)
     obj.replace_materials(mat)
+
+
+def table_wear(N, coord, col, rough, W: dict | None):
+    """Surface history on a tabletop (object space, metres): coffee rings and spills, crumb clusters, fine
+    scratches in worn patches, greasy finger smudges in the roughness. W comes from synth.spec_hard.table_look."""
+    if not W:
+        return col, rough
+    nt, links = N.nt, N.links
+    sep = nt.new("ShaderNodeSeparateXYZ")
+    links.new(coord, sep.inputs["Vector"])
+
+    def noise(scale, detail=3.0, seed=0.0, streak=0.0):
+        n = N.node("ShaderNodeTexNoise", Scale=float(scale), Detail=float(detail))
+        v = N.node("ShaderNodeMapping")
+        v.inputs["Location"].default_value = (seed, seed * 0.7, seed * 0.3)
+        links.new(coord, v.inputs["Vector"])
+        src = v
+        if streak:
+            v.inputs["Rotation"].default_value = (0.0, 0.0, seed)
+            v2 = N.node("ShaderNodeMapping")
+            v2.inputs["Scale"].default_value = (1.0, float(streak), 1.0)
+            links.new(v.outputs["Vector"], v2.inputs["Vector"])
+            src = v2
+        links.new(src.outputs["Vector"], n.inputs["Vector"])
+        return n.outputs["Fac"]
+
+    for st in W.get("stains", []):
+        dx = N.math("SUBTRACT", sep.outputs["X"], float(st["c"][0]))
+        dy = N.math("SUBTRACT", sep.outputs["Y"], float(st["c"][1]))
+        comb = nt.new("ShaderNodeCombineXYZ")
+        links.new(dx, comb.inputs["X"])
+        links.new(dy, comb.inputs["Y"])
+        ln = nt.new("ShaderNodeVectorMath")
+        ln.operation = "LENGTH"
+        links.new(comb.outputs["Vector"], ln.inputs[0])
+        r = float(st["r"])
+        dist = N.math("ADD", ln.outputs["Value"], N.math("MULTIPLY", noise(25.0, 3.0, st["seed"]), 0.3 * r))
+        if st["kind"] == "ring":                       # dried coffee / glass ring: dark thin edge, faint fill
+            edge = N.ramp(N.math("ABSOLUTE", N.math("SUBTRACT", dist, r)), 0.003, 0.0006, 0.0, 1.0)
+            m = N.math("ADD", N.math("MULTIPLY", edge, 0.8), N.math("MULTIPLY", N.ramp(dist, r, 0.85 * r, 0.0, 1.0), 0.25))
+        else:                                          # spill / splash
+            m = N.ramp(dist, r, 0.55 * r, 0.0, 1.0)
+        m = N.math("MULTIPLY", m, float(st["dark"]))
+        col = N.mix(m, col, N.mix(0.5, col, list(st["col"])))
+        rough = N.mix(N.math("MULTIPLY", m, 0.5), rough, 0.3)
+    cr = W.get("crumbs")
+    if cr:
+        vo = N.node("ShaderNodeTexVoronoi", Scale=float(cr["scale"]), Randomness=1.0)
+        vo.feature = "F1"
+        vm = N.node("ShaderNodeMapping")
+        vm.inputs["Location"].default_value = (cr["seed"], cr["seed"] * 0.4, 0.0)
+        links.new(coord, vm.inputs["Vector"])
+        links.new(vm.outputs["Vector"], vo.inputs["Vector"])
+        dots = N.ramp(vo.outputs["Distance"], 0.2, 0.3, 1.0, 0.0)
+        cluster = N.ramp(noise(3.0, 2.0, cr["seed"]), 0.62 - 0.12 * cr["density"], 0.72)
+        m = N.math("MULTIPLY", dots, cluster)
+        col = N.mix(N.math("MULTIPLY", m, 0.9), col, list(cr["color"]))
+        rough = N.mix(N.math("MULTIPLY", m, 0.7), rough, 0.9)
+    if W.get("scratch", 0.0) > 0:
+        sm_ = N.node("ShaderNodeMapping")
+        sm_.inputs["Rotation"].default_value = (0.0, 0.0, float(W["scratch_rot"]))
+        sm_.inputs["Scale"].default_value = (330.0, 18.0, 330.0)
+        links.new(coord, sm_.inputs["Vector"])
+        vo = N.node("ShaderNodeTexVoronoi", Scale=1.0)
+        vo.feature = "DISTANCE_TO_EDGE"
+        links.new(sm_.outputs["Vector"], vo.inputs["Vector"])
+        lines = N.ramp(vo.outputs["Distance"], 0.0, 0.03, 1.0, 0.0)
+        patch = N.ramp(noise(5.0, 2.0, 7.0), 0.45, 0.62)
+        sc = N.math("MULTIPLY", N.math("MULTIPLY", lines, patch), float(W["scratch"]))
+        col = N.mix(N.math("MULTIPLY", sc, 0.45), col, N.mix(0.5, col, [0.85, 0.82, 0.78]))
+        rough = N.math("ADD", rough, N.math("MULTIPLY", sc, 0.3), clamp=True)
+    if W.get("smudge", 0.0) > 0:                       # finger / cloth smears: broad streaky roughness changes
+        sm = N.math("MULTIPLY", N.ramp(noise(14.0, 4.0, W["seed"], streak=5.0), 0.4, 0.65), float(W["smudge"]))
+        rough = N.math("ADD", rough, N.math("MULTIPLY", sm, 0.12), clamp=True)
+    return col, rough
 
 
 def slab_material(obj, m: dict) -> None:
     if m.get("pbr"):
         pbr_table(obj, {"pbr": m["pbr"]})
     else:
-        flat_material(obj, "mat", m["color"], m["roughness"])
+        laminate_material(obj, m["color"], m["roughness"], m.get("wear"))
 
 
-def glass_material(obj, name: str = "glass") -> None:
+def steel_material(obj, name: str, color, roughness: float) -> None:
+    """Brushed stainless: anisotropic metal along the length, fine brushing in the roughness, bevelled edges."""
     mat = bproc.material.create(name)
     b = mat.get_the_one_node_with_type("BsdfPrincipled")
-    b.inputs["Base Color"].default_value = (0.95, 0.98, 0.97, 1.0)
+    b.inputs["Base Color"].default_value = (*color, 1.0)
+    b.inputs["Metallic"].default_value = 1.0
+    b.inputs["Roughness"].default_value = float(roughness)
+    b.inputs["Anisotropic"].default_value = 0.6
+    N = _Nodes(mat)
+    coord = N.nt.new("ShaderNodeTexCoord").outputs["Object"]
+    mp = N.node("ShaderNodeMapping")
+    mp.inputs["Scale"].default_value = (4.0, 900.0, 4.0)       # brushing: noise stretched along x
+    N.links.new(coord, mp.inputs["Vector"])
+    nz = N.node("ShaderNodeTexNoise", Scale=1.0, Detail=2.0)
+    N.links.new(mp.outputs["Vector"], nz.inputs["Vector"])
+    N.links.new(N.math("ADD", float(roughness) - 0.06, N.math("MULTIPLY", nz.outputs["Fac"], 0.14)), b.inputs["Roughness"])
+    obj.replace_materials(mat)
+    bv = obj.blender_obj.modifiers.new("bevel", "BEVEL")
+    bv.width, bv.segments = 0.0006, 2
+    bv.limit_method = "ANGLE"
+
+
+def glass_material(obj, name: str = "glass", tint=None) -> None:
+    mat = bproc.material.create(name)
+    b = mat.get_the_one_node_with_type("BsdfPrincipled")
+    b.inputs["Base Color"].default_value = (*tint, 1.0) if tint is not None else (0.95, 0.98, 0.97, 1.0)
     b.inputs["Roughness"].default_value = 0.02
     b.inputs["IOR"].default_value = 1.45
     b.inputs["Transmission Weight"].default_value = 1.0
@@ -726,6 +848,28 @@ def ceramic_material(obj, c: dict) -> None:
         out = N.mix(m, out, sm["color"])
         rough = N.mix(m, rough, 0.12)
 
+    # greasy smudges and thumb prints: the clear coat gets rough where fingers have been
+    coat_rough = float(g.get("coat_rough", 0.05))
+    if g.get("smudge"):
+        sm = N.math("MULTIPLY", N.ramp(noise(90.0, 4.0, 11.0, streak=3.0), 0.45, 0.7), float(g["smudge"]))
+        coat_rough = N.math("ADD", coat_rough, N.math("MULTIPLY", sm, 0.18), clamp=True)
+        out = N.mix(N.math("MULTIPLY", sm, 0.12), out, [0.7, 0.68, 0.6])
+    for pr in g.get("prints", []):
+        dx = N.math("SUBTRACT", sep.outputs["X"], pr["c"][0] * Ro * 0.92)
+        dy = N.math("SUBTRACT", sep.outputs["Y"], pr["c"][1] * Ro * 0.92)
+        cm = nt.new("ShaderNodeCombineXYZ")
+        links.new(dx, cm.inputs["X"])
+        links.new(dy, cm.inputs["Y"])
+        ln2 = nt.new("ShaderNodeVectorMath")
+        ln2.operation = "LENGTH"
+        links.new(cm.outputs["Vector"], ln2.inputs[0])
+        dd = N.math("ADD", ln2.outputs["Value"], N.math("MULTIPLY", noise(300.0, 2.0, pr["seed"]), 0.0012))
+        ridges = N.ramp(N.math("SINE", N.math("MULTIPLY", dd, 2 * np.pi / 0.00075)), -0.2, 0.5)
+        gate = N.ramp(dd, pr["r"], pr["r"] * 0.45)
+        pm = N.math("MULTIPLY", ridges, gate)
+        coat_rough = N.math("ADD", coat_rough, N.math("MULTIPLY", pm, 0.4), clamp=True)
+        rough = N.math("ADD", rough, N.math("MULTIPLY", pm, 0.15), clamp=True)
+
     # a few crumbs
     cr = g.get("crumbs")
     if cr:
@@ -738,6 +882,8 @@ def ceramic_material(obj, c: dict) -> None:
         dots = N.ramp(vo.outputs["Distance"], 0.1, 0.17, 1.0, 0.0)
         cluster = N.ramp(noise(7.0, 2.0, cr["seed"]), 0.66 - 0.06 * cr["density"], 0.72)
         inside = N.ramp(rn, c["R"] * 1.02, c["R"] * 0.98, 0.0, 1.0)
+        if cr.get("rim"):                                    # crumbs that rolled out to the flat rim
+            inside = N.ramp(rn, c["R"] * 0.7, c["R"] * 0.85, 0.0, 1.0)
         m = N.math("MULTIPLY", N.math("MULTIPLY", dots, cluster), inside)
         out = N.mix(m, out, cr["color"])
         rough = N.mix(m, rough, 0.7)
@@ -770,10 +916,84 @@ def ceramic_material(obj, c: dict) -> None:
     else:
         links.new(rough, bsdf.inputs["Roughness"])
     bsdf.inputs["Coat Weight"].default_value = float(g.get("coat", 0.8))
-    bsdf.inputs["Coat Roughness"].default_value = float(g.get("coat_rough", 0.05))
+    if isinstance(coat_rough, float):
+        bsdf.inputs["Coat Roughness"].default_value = coat_rough
+    else:
+        links.new(coat_rough, bsdf.inputs["Coat Roughness"])
     bsdf.inputs["Subsurface Weight"].default_value = float(g.get("sss", 0.0))
     bsdf.inputs["Subsurface Scale"].default_value = 0.002
     obj.replace_materials(mat)
+
+
+def hidden_occluder(obj) -> None:
+    """Casts shadows but is invisible to the camera, reflections and bounce light (hand, window frame)."""
+    b = obj.blender_obj
+    b.visible_camera = b.visible_glossy = b.visible_diffuse = b.visible_transmission = b.visible_volume_scatter = False
+    b.visible_shadow = True
+
+
+def add_hard_light(L: dict, poses=None) -> None:
+    """The hard key of synth.spec_hard.lighting: a sun lamp (window / ceiling spot), optionally broken by a window
+    frame or blinds (hidden occluders between it and the table), and a hand / phone shadow over part of the table."""
+    sun = L.get("sun")
+    d = np.asarray(sun["dir"] if sun else [0.0, 0.0, 1.0], float)
+    if sun:
+        lt = bproc.types.Light()
+        lt.set_type("SUN")
+        lt.set_rotation_mat(bproc.camera.rotation_from_forward_vec(-d))
+        lt.set_energy(sun["strength"])
+        lt.blender_obj.data.angle = float(np.deg2rad(sun["angle_deg"]))
+        lt.set_color(sun["color"])
+        g = sun.get("gobo")
+        if g:
+            rot = bproc.camera.rotation_from_forward_vec(-d)           # columns: right, up, towards the light
+            right, up = rot[:, 0], rot[:, 1]
+            centre = d * g["dist"] + right * g["off"][0] + up * g["off"][1]
+            span, bar = 1.6, 0.025
+            parts = []
+            if g["kind"] == "mullion":                                 # frame: a few bars each way
+                for k in range(g["bars"][0]):
+                    u = (k + 1) / (g["bars"][0] + 1) - 0.5
+                    parts.append((centre + right * u * span * 0.9, (bar, span, bar)))
+                for k in range(g["bars"][1]):
+                    u = (k + 1) / (g["bars"][1] + 1) - 0.5
+                    parts.append((centre + up * u * span * 0.9, (span, bar, bar)))
+                parts.append((centre + right * span * 0.5, (0.07, span, bar)))
+                parts.append((centre - up * span * 0.5, (span, 0.07, bar)))
+            else:                                                      # blinds: parallel slats
+                for k in range(-int(span / g["pitch"] / 2), int(span / g["pitch"] / 2) + 1):
+                    parts.append((centre + up * k * g["pitch"], (span, g["pitch"] * 0.45, 0.004)))
+            R3 = np.eye(4)
+            R3[:3, :3] = rot
+            ang = g["rot"]
+            for pos, (sx, sy, sz) in parts:
+                o = bproc.object.create_primitive("CUBE", scale=[sx / 2, sy / 2, sz / 2])
+                o.persist_transformation_into_mesh()
+                M = np.eye(4)
+                M[:3, :3] = rot @ np.array([[np.cos(ang), -np.sin(ang), 0], [np.sin(ang), np.cos(ang), 0], [0, 0, 1]])
+                M[:3, 3] = pos
+                o.set_local2world_mat(M)
+                hidden_occluder(o)
+    h = L.get("hand")
+    if h:
+        sx, sy, sz = h["size"]
+        o = bproc.object.create_primitive("SPHERE", scale=[sx, sy, sz])
+        o.persist_transformation_into_mesh()
+        hidden_occluder(o)
+        ph = None
+        if h.get("phone"):
+            ph = bproc.object.create_primitive("CUBE", scale=[0.036, 0.075, 0.004])
+            ph.persist_transformation_into_mesh()
+            hidden_occluder(ph)
+        hd = np.asarray(h["dir"], float)
+        for i, T in enumerate(poses or [np.eye(4)]):         # keyframed: the hand follows the camera round the dish
+            az = np.arctan2(T[1, 3], T[0, 3]) + h["dth"]
+            pos = np.array([h["r"] * np.cos(az), h["r"] * np.sin(az), 0.0]) + h["t"] * hd
+            o.set_location(pos, frame=i)
+            o.set_rotation_euler([0.0, 0.0, h["yaw"] + 0.3 * np.sin(1.3 * i)], frame=i)
+            if ph is not None:
+                ph.set_location(pos + [0.05 * np.cos(h["yaw"] + 1.2), 0.05 * np.sin(h["yaw"] + 1.2), 0.03], frame=i)
+                ph.set_rotation_euler([0.1, 0.0, h["yaw"] + 0.6], frame=i)
 
 
 def leaf_uvs(obj, grid: tuple[int, int]) -> None:
@@ -1137,14 +1357,24 @@ def main() -> None:
 
     # table
     tab = spec["table"]
-    table = bproc.object.create_primitive("PLANE", scale=[tab["size_m"] / 2] * 3)
+    if tab.get("floor"):                      # a finite tabletop (an edge and the room's floor past it) seen in low frames
+        sx, sy = tab["size_m"], tab.get("size_y_m", tab["size_m"])
+        table = bproc.object.create_primitive("CUBE", scale=[sx / 2, sy / 2, 0.016])
+        table.persist_transformation_into_mesh()
+        table.set_location([tab.get("centre", [0.0, 0.0])[0], tab.get("centre", [0.0, 0.0])[1], -0.016])
+        fl = bproc.object.create_primitive("PLANE", scale=[6.0, 6.0, 1.0])
+        fl.persist_transformation_into_mesh()
+        fl.set_location([0.0, 0.0, -0.74])
+        flat_material(fl, "floor", tab["floor"], 0.6)
+    else:
+        table = bproc.object.create_primitive("PLANE", scale=[tab["size_m"] / 2] * 3)
     table.persist_transformation_into_mesh()  # object-space texture coordinates are then metres (tile sizes are real)
     if tab.get("pbr"):                        # photographed wood / stone / laminate / cloth
         pbr_table(table, tab)
     elif tab.get("texture_scale"):            # mottled wood / laminate / cloth instead of flat colour
         textured_material(table, "table", tab["color"], tab["roughness"], tab["texture_scale"])
     else:
-        laminate_material(table, tab["color"], tab["roughness"])
+        laminate_material(table, tab["color"], tab["roughness"], tab.get("wear"), tab.get("crumple"))
     table.enable_rigidbody(False, collision_shape="BOX", collision_margin=0.0005)
     mt = spec.get("mat")                      # board / tray / placemat / liner under the dish: a thin slab, label 0
     if mt:
@@ -1153,6 +1383,17 @@ def main() -> None:
         slab.set_location([0.0, 0.0, mt["thickness"] / 2])
         slab.set_rotation_euler([0.0, 0.0, mt["yaw"]])
         slab_material(slab, mt)
+        if mt.get("rim"):                     # tray lip: four bars on the slab's edge, darker
+            rm = mt["rim"]
+            for sx_, sy_, px, py in ((mt["size"][0], rm["w"], 0, 1), (mt["size"][0], rm["w"], 0, -1),
+                                     (rm["w"], mt["size"][1], 1, 0), (rm["w"], mt["size"][1], -1, 0)):
+                bar = bproc.object.create_primitive("CUBE", scale=[sx_ / 2, sy_ / 2, rm["h"] / 2])
+                bar.persist_transformation_into_mesh()
+                c_, s_ = np.cos(mt["yaw"]), np.sin(mt["yaw"])
+                lx, ly = px * (mt["size"][0] - rm["w"]) / 2, py * (mt["size"][1] - rm["w"]) / 2
+                bar.set_location([c_ * lx - s_ * ly, s_ * lx + c_ * ly, mt["thickness"] + rm["h"] / 2])
+                bar.set_rotation_euler([0.0, 0.0, mt["yaw"]])
+                laminate_material(bar, rm["color"], 0.45)
 
     # container (static)
     c = spec["container"]
@@ -1243,10 +1484,14 @@ def main() -> None:
             o = mesh_from_npz(scene_dir / d["mesh"], f"distractor_{i}")
             o.set_location(d["location"])
             o.set_rotation_euler(d["euler"])
-            if d.get("glass"):
-                glass_material(o, f"distractor_{i}")
+            if d.get("ceramic"):              # another dish on the table
+                for poly in o.get_mesh().polygons:
+                    poly.use_smooth = True
+                ceramic_material(o, d["ceramic"])
+            elif d.get("glass"):
+                glass_material(o, f"distractor_{i}", d.get("glass_tint"))
             elif d["metallic"] > 0:
-                textured_material(o, f"distractor_{i}", d["color"], d["roughness"], scale=40, metallic=d["metallic"])
+                steel_material(o, f"distractor_{i}", d["color"], d["roughness"])
             else:
                 flat_material(o, f"distractor_{i}", d["color"], d["roughness"])
         o.set_cp("category_id", DISTRACTOR_ID)
@@ -1326,6 +1571,7 @@ def main() -> None:
         key.set_energy(L["key"]["energy_w"])
         key.set_color(L["key"].get("color", [1.0, 1.0, 1.0]))
         key.blender_obj.data.size = L["key"]["size_m"]
+    add_hard_light(L, [np.array(T) for T in spec["camera"]["c2w"]])   # hard key (sun lamp), window frame / blinds, hand shadow
 
     # colour management: Blender's default AgX desaturates bright colours (chili rendered pink);
     # a phone pipeline is closer to a plain sRGB curve, with auto-exposure that varies per scene

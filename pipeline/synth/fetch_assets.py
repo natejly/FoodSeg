@@ -83,6 +83,8 @@ SURFACES = {
     # marble_01 / grey_cartago_* / laminate_floor_02 are floor tiles and planks (visible seams): not tabletops
     # plain linen / cotton cloths; the gingham, waffle, book and patterned fabrics read as "synthetic tablecloth"
     "cloth": ["stretch_poplin", "rough_linen", "hessian_380", "cotton_jersey"],
+    # worn concrete / plaster counters (brushed_concrete_04, plaster_grey_04 were fetched with the first batch)
+    "stone": ["brushed_concrete_04", "plaster_grey_04", "concrete_floor_worn_001", "painted_concrete", "grey_plaster"],
 }
 SURFACE_MAPS = {"Diffuse": "diffuse.jpg", "Rough": "rough.jpg", "nor_gl": "normal_gl.jpg"}
 

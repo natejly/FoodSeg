@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import replace
+from functools import lru_cache
 from pathlib import Path
 
 import numpy as np
@@ -126,6 +127,23 @@ def _glass(rng):
     return lathe_solid(np.array([[0, 0], [r2, 0], [r, h], [r - 0.0025, h], [r2 - 0.0025, 0.009], [0, 0.009]]), 48)
 
 
+def _napkin(rng) -> tuple[np.ndarray, np.ndarray]:
+    """A paper / cloth napkin: a thin sheet with soft folds and curled corners (open mesh, rendered two-sided)."""
+    w, h = rng.uniform(0.1, 0.17), rng.uniform(0.07, 0.13)
+    nx, ny = 40, 28
+    u, v = np.meshgrid(np.linspace(-0.5, 0.5, nx), np.linspace(-0.5, 0.5, ny))
+    z = np.zeros_like(u)
+    for _ in range(4):
+        k, ph, ang = rng.uniform(5, 18), rng.uniform(0, 6.3), rng.uniform(0, np.pi)
+        z += rng.uniform(0.0004, 0.0016) * np.sin(k * (u * np.cos(ang) + v * np.sin(ang)) + ph)
+    z += 0.003 * (np.maximum(np.abs(u) - 0.38, 0) + np.maximum(np.abs(v) - 0.38, 0)) / 0.12 * rng.uniform(0.2, 1.0)
+    z += 0.0015 + rng.uniform(0, 0.003) * np.maximum(0, 1 - np.abs(u - rng.uniform(-0.3, 0.3)) / 0.05)   # a fold ridge
+    V = np.stack([u * w, v * h, z], -1).reshape(-1, 3)
+    idx = np.arange(nx * ny).reshape(ny, nx)
+    a, b, c, d = idx[:-1, :-1].ravel(), idx[:-1, 1:].ravel(), idx[1:, :-1].ravel(), idx[1:, 1:].ravel()
+    return V, np.concatenate([np.stack([a, b, d], 1), np.stack([a, d, c], 1)])
+
+
 def distractors(rng: np.random.Generator, out: Path, r_clear: float, assets: list[dict] | None = None,
                 style: str = "home") -> list[dict]:
     """0-3 pieces of tableware / clutter on the table outside radius r_clear of the dish axis (label 253).
@@ -133,19 +151,20 @@ def distractors(rng: np.random.Generator, out: Path, r_clear: float, assets: lis
     stainless cutlery, glass, chopsticks, napkins, mugs in plain colours; the red-handled YCB cutlery
     is desaturated so it does not repeat across scenes."""
     if style == "cafeteria":
-        pool, p_none = ["fork", "knife", "napkin", "spoon"], 0.55
+        pool, p_none = ["fork", "knife", "napkin", "spoon", "phone", "shaker", "bottle", "plate2"], 0.4
     else:
-        pool, p_none = ["fork", "knife", "spoon", "mug", "glass", "napkin", "chopsticks", "board"], 0.3
+        pool, p_none = ["fork", "knife", "spoon", "mug", "glass", "napkin", "chopsticks", "board", "phone", "shaker", "bottle",
+                        "plate2"], 0.25
     if rng.random() < p_none:
         return []
-    wts = np.array([{"board": 0.4, "chopsticks": 0.5}.get(k, 1.0) for k in pool])
+    wts = np.array([{"board": 0.4, "chopsticks": 0.5, "plate2": 0.5, "shaker": 0.5, "bottle": 0.6}.get(k, 1.0) for k in pool])
     kinds = rng.choice(pool, size=min(int(rng.integers(1, 4)), len(pool)), replace=False, p=wts / wts.sum())
     props = [a for a in (assets or []) if a.get("role") == "clutter"]
     res, ang = [], rng.uniform(0, 2 * np.pi)
     for i, k in enumerate(kinds):
         k = str(k)
         real = [a for a in props if any(t in a["id"].lower() for t in REAL_PROPS.get(k, ()))]
-        if real and rng.random() < (0.5 if k in ("mug", "board") else 0.2):
+        if real and rng.random() < (0.5 if k in ("mug", "board") else 0.85):
             a = real[rng.integers(len(real))]
             half = 0.5 * max(a["extent_m"][:2])
             dist = r_clear + (0.5 * min(a["extent_m"][:2]) if k != "mug" else half) + rng.uniform(0.02, 0.06)
@@ -167,9 +186,31 @@ def distractors(rng: np.random.Generator, out: Path, r_clear: float, assets: lis
             V, F = _glass(rng)
             col, rough, extra, reach = (0.9, 0.9, 0.9), 0.02, {"glass": True}, 0.035 + rng.uniform(0.03, 0.08)
         elif k == "napkin":
-            V, F = box_mesh(rng.uniform(0.1, 0.17), rng.uniform(0.07, 0.12), rng.uniform(0.002, 0.004))
+            V, F = _napkin(rng)
             col = [(0.82, 0.82, 0.8), (0.75, 0.7, 0.58), (0.45, 0.47, 0.5), (0.8, 0.5, 0.45)][int(rng.choice(4, p=[0.5, 0.2, 0.2, 0.1]))]
             rough, reach = 0.95, rng.uniform(0.08, 0.13)
+        elif k == "phone":
+            V, F = box_mesh(rng.uniform(0.067, 0.078), rng.uniform(0.14, 0.16), rng.uniform(0.0075, 0.009))
+            col = [(0.01, 0.01, 0.012), (0.55, 0.55, 0.57), (0.02, 0.03, 0.08), (0.8, 0.78, 0.74)][int(rng.choice(4, p=[0.6, 0.15, 0.15, 0.1]))]
+            rough, reach = 0.18, rng.uniform(0.05, 0.1)
+        elif k == "shaker":
+            r, hgt = rng.uniform(0.015, 0.022), rng.uniform(0.06, 0.1)
+            V, F = lathe_solid(np.array([[0, 0], [r, 0], [r * 1.05, hgt * 0.8], [r * 0.7, hgt * 0.95], [r * 0.7, hgt], [0, hgt]]), 32)
+            col, rough, extra, reach = (0.9, 0.9, 0.9), 0.05, {"glass": True, "glass_tint": [0.92, 0.95, 0.93]}, 0.04 + rng.uniform(0.02, 0.1)
+        elif k == "bottle":
+            r, hgt = rng.uniform(0.027, 0.036), rng.uniform(0.2, 0.28)
+            V, F = lathe_solid(np.array([[0, 0], [r, 0], [r, hgt * 0.55], [r * 0.85, hgt * 0.7], [r * 0.38, hgt * 0.78], [r * 0.34, hgt],
+                                         [0, hgt]]), 40)
+            tint = [(0.1, 0.3, 0.12), (0.25, 0.12, 0.04), (0.9, 0.95, 0.95)][int(rng.choice(3, p=[0.3, 0.3, 0.4]))]
+            col, rough, extra, reach = tint, 0.03, {"glass": True, "glass_tint": list(tint)}, 0.05 + rng.uniform(0.03, 0.12)
+        elif k == "plate2":                        # another dish (empty / pushed aside): mostly out of frame
+            c2 = sample_container(rng, str(rng.choice(["plate", "bowl"], p=[0.7, 0.3])))
+            V, F = c2.mesh()
+            col2, fam = dish_colour(rng, style)
+            col, rough = tuple(col2), 0.3
+            extra = {"ceramic": {"R": float(c2.R), "rim_w": float(c2.rim_w), "color": col2, "roughness": float(rng.uniform(0.15, 0.4)),
+                                 "glaze": glaze(rng, fam, style)}}
+            reach = c2.R + c2.rim_w + rng.uniform(0.01, 0.07)
         elif k == "chopsticks":
             V, F = _chopsticks(rng)
             col, rough, reach = (0.5, 0.32, 0.15) if rng.random() < 0.6 else (0.03, 0.03, 0.03), 0.45, 0.04
@@ -224,7 +265,12 @@ def dish_colour(rng: np.random.Generator, style: str = "home") -> tuple[list[flo
     else:
         fam, tab = "dark", DISH_DARK
     col = np.asarray(_pick(rng, tab), float) * rng.normal(1.0, 0.025, 3)
-    return [float(v) for v in np.clip(col, 0.01, 0.9)], fam
+    col = np.clip(col, 0.01, 0.9)
+    mx, mn = col.max(), col.min()
+    cap = 0.8 if fam == "dark" else 0.3               # (max - min) / max: ceramics are not candy colours
+    if mx > 0 and (mx - mn) / mx > cap:
+        col = mx - (mx - col) * cap * mx / (mx - mn)
+    return [float(v) for v in col], fam
 
 
 def glaze(rng: np.random.Generator, family: str = "white", style: str = "home") -> dict:
@@ -236,7 +282,7 @@ def glaze(rng: np.random.Generator, family: str = "white", style: str = "home") 
     g: dict = {"body": body, "speckle": 0.0, "pattern": None, "smears": [], "crumbs": None}
     if body == "porcelain":
         g.update(coat=float(rng.uniform(0.3, 0.7) if cafe else rng.uniform(0.4, 0.85)), coat_rough=float(rng.uniform(0.1, 0.22)), base_rough=float(rng.uniform(0.2, 0.4)),
-                 sss=float(rng.uniform(0.03, 0.12)), uneven=float(rng.uniform(0.01, 0.04)))
+                 sss=float(rng.uniform(0.0, 0.04)), uneven=float(rng.uniform(0.01, 0.04)))
     elif body == "stoneware":
         g.update(coat=float(rng.uniform(0.3, 0.8)), coat_rough=float(rng.uniform(0.12, 0.28)), base_rough=float(rng.uniform(0.3, 0.55)),
                  sss=0.0, uneven=float(rng.uniform(0.04, 0.1)),
@@ -261,15 +307,20 @@ def glaze(rng: np.random.Generator, family: str = "white", style: str = "home") 
         else:
             g["pattern"] = {"type": "dots", "color": col, "w": float(rng.uniform(0.003, 0.006)),
                             "off": float(rng.uniform(0.008, 0.016)), "k": int(rng.integers(30, 90))}
-    if rng.random() < (0.1 if cafe else 0.14):
-        for _ in range(int(rng.integers(1, 3))):
+    if rng.random() < (0.35 if cafe else 0.42):      # sauce smears and wipes (a used plate)
+        for _ in range(int(rng.integers(1, 4))):
             g["smears"].append({"color": [float(v) for v in SAUCES[rng.integers(len(SAUCES))]],
-                                "alpha": float(rng.uniform(0.15, 0.4)), "scale": float(rng.uniform(30, 70)),
-                                "thr": float(rng.uniform(0.6, 0.68)), "gate": float(rng.uniform(0.15, 0.6)),
+                                "alpha": float(rng.uniform(0.2, 0.55)), "scale": float(rng.uniform(25, 70)),
+                                "thr": float(rng.uniform(0.56, 0.66)), "gate": float(rng.uniform(0.15, 0.85)),
                                 "seed": float(rng.uniform(0, 100))})
-    if rng.random() < 0.2:
+    if rng.random() < 0.4:
         g["crumbs"] = {"color": [float(v) for v in CRUMBS[rng.integers(len(CRUMBS))]], "density": float(rng.uniform(0.5, 1.0)),
-                       "seed": float(rng.uniform(0, 100))}
+                       "seed": float(rng.uniform(0, 100)), "rim": bool(rng.random() < 0.5)}
+    if rng.random() < 0.8:                           # greasy finger smudges and thumb prints, mostly near the rim
+        g["smudge"] = float(rng.uniform(0.3, 1.0))
+        g["prints"] = [{"c": [float(np.cos(a) * rng.uniform(0.6, 0.98)), float(np.sin(a) * rng.uniform(0.6, 0.98))],
+                        "r": float(rng.uniform(0.008, 0.013)), "seed": float(rng.uniform(0, 100))}
+                       for a in rng.uniform(0, 2 * np.pi, int(rng.integers(1, 4)))]
     return g
 
 
@@ -281,23 +332,86 @@ TABLES = [   # plain procedural laminate (render.laminate_material): colour rang
     ((0.55, 0.55, 0.52), (0.85, 0.85, 0.82), (0.25, 0.5), 5),          # light laminate / white-grey counter
     ((0.40, 0.36, 0.30), (0.6, 0.55, 0.46), (0.3, 0.5), 2),            # beige / tan
     ((0.03, 0.03, 0.03), (0.12, 0.12, 0.12), (0.3, 0.7), 1),           # dark laminate
+    ((0.12, 0.07, 0.035), (0.30, 0.17, 0.08), (0.35, 0.6), 2),         # stained wood (muted brown)
+    ((0.20, 0.20, 0.21), (0.45, 0.45, 0.46), (0.2, 0.5), 1.5),         # grey stone / concrete
+    ((0.30, 0.31, 0.28), (0.5, 0.5, 0.45), (0.7, 0.95), 1),            # cloth: grey-green linen
 ]
-KIND_P = {"wood": 0.8, "cloth": 0.2}
+P_PBR = {"home": 0.5, "cafeteria": 0.55}
+KIND_P = {"wood": 0.25, "cloth": 0.25, "stone": 0.5}
 
 
-def _pbr(rng, t: dict, sat=(0.5, 0.95), tint_sd: float = 0.04) -> dict:
+def _pbr(rng, t: dict, sat=(0.5, 0.95), tint_sd: float = 0.04, flat=(0.5, 0.9)) -> dict:
     """A photographed surface at its real tile size, rotated / offset, tinted a little and partly
     desaturated (stock wood is far more saturated than a real worn tabletop)."""
     return {"dir": t["dir"], "kind": t["kind"], "tile_m": float(t["tile_m"]), "rotation": float(rng.uniform(0, np.pi)),
             "offset": rng.uniform(0, 3, 2).tolist(), "tint": rng.normal(1.0, tint_sd, 3).clip(0.85, 1.15).tolist(),
             "brightness": float(rng.uniform(0.75, 1.1)), "sat": float(rng.uniform(*sat)),
-            "grunge": float(rng.uniform(0.0, 0.5))}
+            "grunge": float(rng.uniform(0.0, 0.5)),
+            # stock textures have far more fine contrast than a worn, phone-photographed table: pull the colour toward
+            # the tile's mean ("flat") and soften the normal map
+            "mean": _tile_mean(t["dir"]), "flat": float(rng.uniform(*flat)), "nstr": float(rng.uniform(0.2, 0.8))}
+
+
+@lru_cache(maxsize=None)
+def _tile_mean(d: str) -> list[float]:
+    """Mean linear-RGB colour of a surface's diffuse map."""
+    from PIL import Image
+    a = np.asarray(Image.open(Path(d) / "diffuse.jpg").convert("RGB").resize((16, 16), Image.BILINEAR), np.float32) / 255
+    lin = np.where(a <= 0.04045, a / 12.92, ((a + 0.055) / 1.055) ** 2.4)
+    return [float(v) for v in lin.reshape(-1, 3).mean(0)]
+
+
+STAIN_COL = [(0.25, 0.14, 0.07), (0.3, 0.2, 0.1), (0.12, 0.1, 0.08), (0.3, 0.1, 0.05)]
+
+
+def table_extras(rng: np.random.Generator, t: dict, style: str) -> dict:
+    """Surface history and extent of a tabletop (render.table_wear): coffee rings / spills, crumbs, scratches,
+    finger smudges in the roughness, sometimes a lacquered / glass top that mirrors the room; a finite table
+    (an edge and the room's floor past it) in half of the scenes."""
+    cloth = (t.get("pbr") or {}).get("kind") == "cloth"
+    cafe = style == "cafeteria"
+    W: dict = {"stains": [], "crumbs": None, "scratch": 0.0, "smudge": 0.0, "gloss": None, "seed": float(rng.uniform(0, 100)),
+               "scratch_rot": float(rng.uniform(0, np.pi))}
+    for _ in range(int(rng.choice(4, p=[0.35, 0.3, 0.2, 0.15]))):
+        ring = rng.random() < 0.55
+        W["stains"].append({"kind": "ring" if ring else "blob", "c": [float(v) for v in rng.uniform(-0.4, 0.4, 2)],
+                            "r": float(rng.uniform(0.03, 0.045) if ring else rng.uniform(0.015, 0.05)),
+                            "dark": float(rng.uniform(0.2, 0.6)), "seed": float(rng.uniform(0, 100)),
+                            "col": [float(v) for v in STAIN_COL[rng.integers(len(STAIN_COL))]]})
+    if rng.random() < (0.6 if cafe else 0.45):
+        W["crumbs"] = {"density": float(rng.uniform(0.3, 1.0)), "scale": float(rng.uniform(110, 200)), "seed": float(rng.uniform(0, 100)),
+                       "color": [float(v) for v in [(0.5, 0.4, 0.22), (0.3, 0.2, 0.1), (0.6, 0.5, 0.35)][rng.integers(3)]]}
+    if not cloth:
+        W["scratch"] = float(rng.uniform(0.3, 1.0)) if rng.random() < 0.6 else 0.0
+        if rng.random() < 0.2:
+            W["gloss"] = {"coat": 1.0, "rough": float(rng.uniform(0.02, 0.12))}
+    W["smudge"] = float(rng.uniform(0.3, 1.0)) if rng.random() < 0.6 else 0.0
+    if (t.get("pbr") or {}).get("kind") == "stone":        # matte stone / plaster: no streaky scratches or smears, soft normals
+        W["scratch"], W["smudge"] = 0.0, 0.0
+        t["pbr"]["nstr"] = min(t["pbr"]["nstr"], 0.35)
+    t["wear"] = W
+    if not t.get("pbr") and rng.random() < 0.35:          # a crumpled sheet / cloth: dark tarp, grey backdrop, creased linen
+        dark = rng.random() < 0.5
+        base = rng.uniform(0.03, 0.12) if dark else rng.uniform(0.2, 0.45)
+        t["color"] = [float(base * v) for v in (1.0, rng.uniform(0.97, 1.03), rng.uniform(0.93, 1.03))]
+        t["roughness"] = float(rng.uniform(0.35, 0.7))
+        t["crumple"] = {"scale": float(rng.uniform(4, 11)), "strength": float(rng.uniform(0.5, 1.4)), "seed": float(rng.uniform(0, 100))}
+    if rng.random() < 0.5:
+        sx = float(rng.uniform(1.0, 1.8))
+        sy = float(rng.uniform(0.8, 1.0) * sx)
+        t.update(size_m=sx, size_y_m=sy, centre=[float(rng.uniform(-1, 1) * max(sx / 2 - 0.4, 0) * 0.8), float(rng.uniform(-1, 1) * max(sy / 2 - 0.4, 0) * 0.8)],
+                 floor=[float(v) for v in rng.uniform(0.03, 0.25) * np.array([1.0, rng.uniform(0.85, 1.0), rng.uniform(0.7, 1.0)])])
+    return t
 
 
 def table_look(rng: np.random.Generator, surfaces: list[dict] | None = None, style: str = "home") -> dict:
+    return table_extras(rng, _table_look(rng, surfaces, style), style)
+
+
+def _table_look(rng: np.random.Generator, surfaces: list[dict] | None = None, style: str = "home") -> dict:
     """The tabletop: a photographed PBR surface (wood, stone, laminate, linen) at real-world scale with de-tiled
     lookup (render.pbr_table), else a plain procedural one. Cafeteria style: light tan wood or light laminate."""
-    if surfaces and rng.random() > (0.35 if style == "cafeteria" else 0.12):
+    if surfaces and rng.random() < P_PBR[style if style in P_PBR else "home"]:
         if style == "cafeteria":
             pool = [t for t in surfaces if Path(t["dir"]).name in TAN_WOODS] or surfaces
             t = pool[rng.integers(len(pool))]
@@ -348,6 +462,12 @@ def mat_look(rng: np.random.Generator, surfaces: list[dict] | None, style: str, 
         else:
             m["pbr"] = _pbr(rng, pool[rng.integers(len(pool))], (0.5, 0.9) if kind == "board" else (0.0, 0.4))
             m["color"], m["roughness"] = [0.5, 0.5, 0.5], 0.5
+    if kind == "tray" or (style == "cafeteria" and rng.random() < 0.3):     # raised, darker lip all round
+        m["rim"] = {"h": float(rng.uniform(0.008, 0.016)), "w": float(rng.uniform(0.008, 0.016)),
+                    "color": [float(v) for v in np.asarray(m["color"]) * rng.uniform(0.3, 0.7)] if "pbr" not in m else [0.04, 0.04, 0.04]}
+    m["wear"] = {"stains": [], "crumbs": None, "scratch": float(rng.uniform(0.3, 1.0)) if rng.random() < 0.6 else 0.0,
+                 "smudge": float(rng.uniform(0.3, 1.0)) if rng.random() < 0.6 else 0.0, "gloss": None,
+                 "seed": float(rng.uniform(0, 100)), "scratch_rot": float(rng.uniform(0, np.pi))}
     return m
 
 
@@ -378,23 +498,74 @@ def _wb(rng, name: str) -> list[float]:
     return [float(v) for v in w / (w @ [0.2126, 0.7152, 0.0722])]
 
 
+def _kelvin_tint(rng: np.random.Generator, lo: float = -1.0, hi: float = 1.0, spread: float = 0.16) -> list[float]:
+    """Light colour on the warm (tungsten, +) - cool (overcast sky, -) axis."""
+    t = rng.uniform(lo, hi) * spread
+    return [float(1 + t), float(1 + 0.15 * t), float(1 - 1.7 * t)]
+
+
+def _unit(az: float, el: float) -> list[float]:
+    return [float(np.cos(el) * np.cos(az)), float(np.cos(el) * np.sin(az)), float(np.sin(el))]
+
+
+def _hard_light(rng: np.random.Generator, kind: str) -> dict:
+    """A hard directional key: a window (sun / clear sky through glass; low, from the side) or a ceiling spot (high);
+    its shadows are crisp (angle_deg is the source's angular diameter). Optionally patterned by a window frame
+    (mullions) or blinds, and partly shadowed by a hand / the photographer (L["hand"], render.py)."""
+    if kind == "window":
+        az, el = rng.uniform(0, 2 * np.pi), np.deg2rad(rng.uniform(18, 52))
+        ang, strength = rng.uniform(0.8, 5.0), rng.uniform(2.5, 7.5)
+        col = _kelvin_tint(rng, -0.8, 0.7)
+    else:
+        az, el = rng.uniform(0, 2 * np.pi), np.deg2rad(rng.uniform(60, 85))
+        ang, strength = rng.uniform(2.0, 8.0), rng.uniform(2.0, 5.5)
+        col = _kelvin_tint(rng, -0.2, 1.0)
+    d = {"dir": _unit(az, el), "strength": float(strength), "angle_deg": float(ang), "color": col, "gobo": None}
+    if kind == "window" and rng.random() < 0.3:
+        d["gobo"] = {"kind": str(rng.choice(["mullion", "blinds"], p=[0.6, 0.4])), "dist": float(rng.uniform(1.0, 1.6)),
+                     "rot": float(rng.uniform(-0.35, 0.35)), "pitch": float(rng.uniform(0.04, 0.09)),
+                     "off": [float(v) for v in rng.uniform(-0.25, 0.25, 2)], "bars": [int(rng.integers(1, 3)), int(rng.integers(1, 3))]}
+    return d
+
+
+def _hand(rng: np.random.Generator, key_dir) -> dict:
+    """A hand / forearm (and sometimes a phone) held between the key light and the table, moving with the camera:
+    render.add_hard_light keyframes it per camera pose, over the table point `r` m from the dish axis on the camera's
+    side (rotated by `dth`), `t` m up the ray towards the light, so its shadow falls partly over the scene."""
+    return {"dir": [float(v) for v in key_dir], "r": float(rng.uniform(0.08, 0.3)), "dth": float(rng.uniform(-0.9, 0.9)),
+            "t": float(rng.uniform(0.28, 0.5)), "yaw": float(rng.uniform(0, np.pi)),
+            "size": [float(rng.uniform(0.07, 0.11)), float(rng.uniform(0.03, 0.05)), float(rng.uniform(0.02, 0.035))],
+            "phone": bool(rng.random() < 0.5)}
+
+
 def lighting(rng: np.random.Generator, hdris: list[str] | None, style: str = "home") -> dict:
-    """Home: a real indoor HDRI (window light, room bounce; strongly tinted ones white-balanced, studio
-    rooms rare) plus man-made light: a ceiling light, a window, a small bright lamp (hard contact shadows).
-    Cafeteria: overhead fluorescent panels in a plain bright room, no window light. Extra lights are in
-    L["lights"] (render.py): {type AREA | POINT, location, energy_w, size_m, color}."""
+    """Home: a real indoor HDRI (room bounce, reflections), strongly tinted ones white-balanced, plus man-made
+    light: ceiling light, window, small lamp, and in over half the scenes a HARD key (a window's sun / a ceiling
+    spot: crisp, correctly sized shadows; sometimes window mullion / blind patterns) with the HDRI dimmed to
+    fill; a minority of scenes have a hand / photographer's shadow over part of the table. Light colours run from
+    warm tungsten to cool daylight. Cafeteria: overhead panels and LED downlights in a plain bright room.
+    Extra lights are in L["lights"] (render.py): {type AREA | POINT, location, energy_w, size_m, color};
+    L["sun"] is the hard key {dir, strength, angle_deg, color, gobo}, L["hand"] its occluder."""
     lights = []
     if style == "cafeteria":
         pool = [h for h in (hdris or []) if _hdri_name(h) in CAFE_HDRIS]
         h = pool[rng.integers(len(pool))] if pool and rng.random() < 0.5 else None
         L = {"hdri": h, "hdri_strength": float(rng.uniform(0.1, 0.3)), "hdri_rotation": float(rng.uniform(0, 2 * np.pi)),
              "ambient": float(rng.uniform(0.3, 0.6)), "ambient_tint": [float(v) for v in rng.normal(1, 0.02, 3)],
-             "hdri_wb": _wb(rng, _hdri_name(h)) if h else None}
+             "hdri_wb": _wb(rng, _hdri_name(h)) if h else None, "sun": None, "hand": None}
         for j in range(1 + int(rng.random() < 0.6)):
+            down = rng.random() < 0.4                       # LED downlight: small, crisp shadows
             lights.append({"type": "AREA", "location": [float(rng.uniform(-0.5, 0.5) + 0.9 * j), float(rng.uniform(-0.5, 0.5)),
                                                         float(rng.uniform(1.5, 2.3))],
-                           "energy_w": float(rng.uniform(60, 160)), "size_m": float(rng.uniform(0.6, 1.4)),
+                           "energy_w": float(rng.uniform(40, 110) if down else rng.uniform(60, 160)),
+                           "size_m": float(rng.uniform(0.15, 0.4) if down else rng.uniform(0.6, 1.4)),
                            "color": [float(v) for v in (0.97, 1.0, 1.03 + rng.uniform(-0.03, 0.05))]})
+        if rng.random() < 0.25:
+            L["sun"] = _hard_light(rng, "window")
+            L["sun"]["gobo"] = None
+            L["hdri_strength"] *= 0.7
+        if rng.random() < 0.2:
+            L["hand"] = _hand(rng, (L["sun"] or {"dir": _unit(0, 1.2)})["dir"])
         L["lights"], L["key"] = lights, None
         return L
     studios = [h for h in (hdris or []) if _hdri_name(h) in STUDIO_HDRIS]
@@ -404,21 +575,28 @@ def lighting(rng: np.random.Generator, hdris: list[str] | None, style: str = "ho
         h = studios[rng.integers(len(studios))] if studios and rng.random() < 0.1 else rooms[rng.integers(len(rooms))]
     L = {"hdri": h, "hdri_strength": float(rng.uniform(0.45, 1.2)), "hdri_rotation": float(rng.uniform(0, 2 * np.pi)),
          "ambient": float(rng.uniform(0.15, 0.5)), "ambient_tint": light_tint(rng, 0.06),
-         "hdri_wb": _wb(rng, _hdri_name(h)) if h else None}
-    if rng.random() < 0.5:        # ceiling light: warm to neutral
+         "hdri_wb": _wb(rng, _hdri_name(h)) if h else None, "sun": None, "hand": None}
+    hard = rng.random() < 0.6
+    if hard:
+        L["sun"] = _hard_light(rng, "window" if rng.random() < 0.65 else "spot")
+        L["hdri_strength"] *= float(rng.uniform(0.35, 0.8))   # the room is the fill
+        L["ambient"] *= 0.6
+    if rng.random() < (0.3 if hard else 0.12):
+        L["hand"] = _hand(rng, L["sun"]["dir"] if hard else _unit(rng.uniform(0, 2 * np.pi), np.deg2rad(rng.uniform(55, 80))))
+    if rng.random() < (0.25 if hard else 0.5):        # ceiling light: warm to neutral
         lights.append({"type": "AREA", "location": [float(rng.uniform(-0.8, 0.8)), float(rng.uniform(-0.8, 0.8)), float(rng.uniform(1.4, 2.2))],
-                       "energy_w": float(rng.uniform(12, 50)), "size_m": float(rng.uniform(0.25, 0.7)),
-                       "color": [float(1 + t) for t in (rng.uniform(0, 0.06),)] + [1.0, float(1 - rng.uniform(0, 0.08))]})
-    if rng.random() < 0.4 or not h:   # a window / daylight source at the side
+                       "energy_w": float(rng.uniform(12, 50)), "size_m": float(rng.uniform(0.15, 0.7)),
+                       "color": _kelvin_tint(rng, 0.0, 1.0, 0.1)})
+    if (rng.random() < 0.4 and not hard) or not h:   # a softer window / daylight source at the side
         a = rng.uniform(0, 2 * np.pi)
         d = rng.uniform(1.0, 1.8)
         lights.append({"type": "AREA", "location": [float(d * np.cos(a)), float(d * np.sin(a)), float(rng.uniform(0.5, 1.3))],
                        "energy_w": float(rng.uniform(20, 90)), "size_m": float(rng.uniform(0.5, 1.2)),
-                       "color": [float(1 - rng.uniform(0, 0.1)), 1.0, float(1 + rng.uniform(0, 0.1))]})
+                       "color": _kelvin_tint(rng, -1.0, 0.0, 0.1)})
     if rng.random() < 0.25:       # small bright lamp: crisp contact shadows
         lights.append({"type": "POINT", "location": [float(rng.uniform(-1, 1)), float(rng.uniform(-1, 1)), float(rng.uniform(0.8, 1.6))],
                        "energy_w": float(rng.uniform(15, 60)), "size_m": float(rng.uniform(0.02, 0.08)),
-                       "color": [float(1 + rng.uniform(0, 0.08)), 1.0, float(1 - rng.uniform(0, 0.1))]})
+                       "color": _kelvin_tint(rng, 0.2, 1.0, 0.12)})
     L["lights"], L["key"] = lights, None
     return L
 
@@ -919,8 +1097,8 @@ def sample_scene_hard(rng: np.random.Generator, assets: list[dict], out: Path, s
         it["id"] = i + 1                      # mask label; 0 = background
 
     K, w, h = intrinsics(rng, res_scale)
-    poses, times = orbit_poses(rng, n_views, centre=np.array([0, 0, c.H * 0.5]))
     r_out = (c.R + c.rim_w) * (2 ** (0.5 - 1 / c.square) if c.square > 0 else 1.0)    # dish outline (corners of a square plate)
+    poses, times = orbit_poses(rng, n_views, centre=np.array([0, 0, c.H * 0.5]), dish_r=r_out)
     meal.update(spec_meal_log)
     spec.update({
         "meal": meal,

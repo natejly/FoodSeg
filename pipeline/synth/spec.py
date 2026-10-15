@@ -55,13 +55,18 @@ def look_at(eye: np.ndarray, target: np.ndarray, roll: float = 0.0) -> np.ndarra
     return T
 
 
-def orbit_poses(rng: np.random.Generator, n: int, centre: np.ndarray) -> tuple[list[np.ndarray], list[float]]:
-    """~75 % of frames on an elevation-45 ring, the rest a near top-down pass, with hand-held jitter."""
+def orbit_poses(rng: np.random.Generator, n: int, centre: np.ndarray,
+                dish_r: float | None = None) -> tuple[list[np.ndarray], list[float]]:
+    """~75 % of frames on an elevation-45 ring, the rest a near top-down pass, with hand-held jitter.
+    With `dish_r` (outline radius, m) the orbit distance follows the dish size, so the dish spans 55-80 % of the
+    frame height (a phone food scan), not a bowl lost in empty table; top-down frames sit a little closer."""
     n_ring = max(int(round(0.75 * n)), 1)
     n_top = n - n_ring
     a0 = rng.uniform(0, 2 * np.pi)
     sweep = rng.uniform(1.6, 2.0) * np.pi * rng.choice([-1, 1])
     dist0, el0 = rng.uniform(0.25, 0.35), np.deg2rad(rng.uniform(38, 55))
+    if dish_r is not None:
+        dist0 = float(np.clip(2 * dish_r / rng.uniform(0.55, 0.8), 0.2, 0.45))
     poses, times = [], []
     duration = rng.uniform(20, 40)
     for i in range(n):
@@ -73,7 +78,7 @@ def orbit_poses(rng: np.random.Generator, n: int, centre: np.ndarray) -> tuple[l
             u = (i - n_ring) / max(n_top - 1, 1)
             az = a0 + sweep + np.pi * u
             el = np.deg2rad(rng.uniform(72, 86))
-        d = dist0 * (1 + rng.normal(0, 0.05))
+        d = dist0 * (1 + rng.normal(0, 0.05)) * (0.95 if (dish_r is not None and i >= n_ring) else 1.0)
         eye = centre + d * np.array([np.cos(el) * np.cos(az), np.cos(el) * np.sin(az), np.sin(el)])
         tgt = centre + rng.normal(0, 0.012, 3) * [1, 1, 0.3]
         poses.append(look_at(eye, tgt, roll=np.deg2rad(rng.normal(0, 4))))
