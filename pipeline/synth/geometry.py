@@ -90,6 +90,8 @@ class Container:
     rim_w: float = 0.012  # flat rim width
     wall: float = 0.004   # wall thickness
     foot_r: float = 0.0   # outer radius at the table (default: 0.6 R)
+    square: float = 0.0   # 0 = round; else superellipse exponent n (3.5-6): the rim / outer wall are pushed out to
+                          # a rounded square, the (flat) well stays round, so z_in / r_at_height still hold
 
     def z_in(self, r: np.ndarray) -> np.ndarray:
         r = np.clip(np.asarray(r, float), 0, self.R)
@@ -121,7 +123,30 @@ class Container:
         return np.concatenate([inner, [[Ro, self.H]], outer[1:], [[foot, 0.0], [0.0, 0.0]]])
 
     def mesh(self, n_theta: int = 96) -> tuple[np.ndarray, np.ndarray]:
-        return lathe(self.profile(), n_theta)
+        if self.square <= 0:
+            return lathe(self.profile(), n_theta)
+        V, F = lathe(self.profile(36), 128)    # <= ~20k faces: Bullet's mesh collider stalls on much more (rim corners need azimuth steps)
+        return self.squarify(V), F
+
+    def squarify(self, V: np.ndarray) -> np.ndarray:
+        """Push the lathe's rim and outer wall outwards towards a superellipse outline (same z); the
+        inside of the well, where food rests, is flat or unchanged."""
+        n = float(self.square)
+        r = np.hypot(V[:, 0], V[:, 1])
+        th = np.arctan2(V[:, 1], V[:, 0])
+        s_th = (np.abs(np.cos(th)) ** n + np.abs(np.sin(th)) ** n) ** (-1.0 / n)     # 1 on the axes, max on diagonals
+        r0, r1 = 0.55 * self.well_r, self.R + self.rim_w
+        t = np.clip((r - r0) / max(r1 - r0, 1e-9), 0, 1)
+        g = t * t * (3 - 2 * t)
+        k = 1 + (s_th - 1) * g
+        W = V.copy()
+        W[:, 0] *= k
+        W[:, 1] *= k
+        return W
+
+    def outline_norm(self) -> float:
+        """Exponent for the p-norm used by the render shader (outline-following rim bands); 2 = round."""
+        return float(self.square) if self.square > 0 else 2.0
 
     def capacity_ml(self, h: float | None = None) -> float:
         """Volume between the inner surface and the plane z = h (default: the rim)."""
@@ -144,19 +169,25 @@ class Container:
         return asdict(self)
 
 
-def sample_container(rng: np.random.Generator, kind: str | None = None) -> Container:
+def sample_container(rng: np.random.Generator, kind: str | None = None, p_square: float = 0.0) -> Container:
     """Plausible dinnerware. Ranges from common plates (Ø 20-28 cm, 1.5-3 cm tall)
     and cereal/soup bowls (Ø 12-18 cm, 4-8 cm tall)."""
     kind = kind or rng.choice(["plate", "bowl"])
+    if kind == "bowl" and rng.random() < 0.3:       # wide shallow pasta / cafeteria bowl
+        R = rng.uniform(0.085, 0.105)
+        return Container("bowl", R=R, H=rng.uniform(0.032, 0.05), floor=rng.uniform(0.006, 0.01),
+                         q=rng.uniform(2.6, 4.5), rim_w=rng.uniform(0.004, 0.01),
+                         wall=rng.uniform(0.003, 0.005), foot_r=R * rng.uniform(0.4, 0.6))
     if kind == "bowl":
         R = rng.uniform(0.055, 0.085)
         return Container("bowl", R=R, H=rng.uniform(0.04, 0.075), floor=rng.uniform(0.006, 0.012),
                          q=rng.uniform(1.6, 4.0), rim_w=rng.uniform(0.003, 0.008),
                          wall=rng.uniform(0.003, 0.006), foot_r=R * rng.uniform(0.45, 0.65))
     R = rng.uniform(0.085, 0.125)
-    return Container("plate", R=R, H=rng.uniform(0.014, 0.03), floor=rng.uniform(0.004, 0.008),
-                     well_r=R * rng.uniform(0.6, 0.85), rim_w=rng.uniform(0.008, 0.025),
-                     wall=rng.uniform(0.003, 0.005), foot_r=R * rng.uniform(0.55, 0.75))
+    sq = float(rng.uniform(3.5, 6.0)) if rng.random() < p_square else 0.0
+    return Container("plate", R=R * (0.93 if sq else 1.0), H=rng.uniform(0.014, 0.03), floor=rng.uniform(0.004, 0.008),
+                     well_r=R * (0.93 if sq else 1.0) * rng.uniform(0.6, 0.85), rim_w=rng.uniform(0.008, 0.025),
+                     wall=rng.uniform(0.003, 0.005), foot_r=R * rng.uniform(0.55, 0.75) * (0.93 if sq else 1.0), square=sq)
 
 
 def container_from_json(d: dict) -> Container:

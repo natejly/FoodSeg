@@ -66,11 +66,14 @@ SURFACES = {
     "wood": ["wood_table_001", "kitchen_wood", "coated_pine", "coated_pine_02", "plywood", "oak_veneer_02",
              "oak_veneer_03", "oak_veneer_05", "white_oak_veneer", "american_walnut_veneer", "black_walnut_veneer_01",
              "european_walnut_veneer_04", "grey_oak_veneer_01", "washed_grey_oak_veneer", "bamboo_veneer",
-             "mocha_oak_veneer", "smoked_walnut_veneer"],
-    "stone": ["marble_01"],          # grey_cartago_*: floor tiles with seams and orange veins, not tabletops
-    "laminate": ["laminate_floor_02"],
-    "cloth": ["gingham_check", "fabric_pattern_05", "fabric_pattern_07", "waffle_pique_cotton", "book_pattern",
-              "stretch_poplin"],
+             "mocha_oak_veneer", "smoked_walnut_veneer",
+             # light / neutral tabletops and boards (cafeteria style, scandi tables)
+             "white_maple_veneer", "ash_veneer", "okoume_veneer", "natural_walnut_veneer", "teak_veneer",
+             "oak_veneer_01", "oak_veneer_04", "silver_oak_veneer_01", "wood_table", "wood_table_large",
+             "wood_table_worn", "stained_pine"],
+    # marble_01 / grey_cartago_* / laminate_floor_02 are floor tiles and planks (visible seams): not tabletops
+    # plain linen / cotton cloths; the gingham, waffle, book and patterned fabrics read as "synthetic tablecloth"
+    "cloth": ["stretch_poplin", "rough_linen", "hessian_380", "cotton_jersey"],
 }
 SURFACE_MAPS = {"Diffuse": "diffuse.jpg", "Rough": "rough.jpg", "nor_gl": "normal_gl.jpg"}
 

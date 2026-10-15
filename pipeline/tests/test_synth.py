@@ -25,6 +25,22 @@ def test_fill_matches_analytic_capacity():
             assert mesh_volume(Vc, Fc) > 0
 
 
+def test_square_plate_keeps_well_and_is_square():
+    rng = np.random.default_rng(3)
+    c = sample_container(rng, "plate", p_square=1.0)
+    assert c.square > 0
+    V, F = c.mesh()
+    assert mesh_volume(V, F) > 0
+    r = np.hypot(V[:, 0], V[:, 1])
+    inside = (r < 0.9 * c.well_r) & (V[:, 2] > 0.5 * c.floor)          # the flat well is untouched
+    assert np.allclose(V[inside, 2], c.floor, atol=1e-6)
+    th = np.arctan2(V[:, 1], V[:, 0])
+    rim = V[:, 2] > 0.999 * c.H
+    diag = np.abs(np.sin(2 * th)) > 0.98
+    axis = np.abs(np.sin(2 * th)) < 0.05
+    assert r[rim & diag].max() > 1.08 * r[rim & axis].max()            # corners pushed out
+
+
 def test_primitives():
     V, F = box_mesh(0.06, 0.04, 0.03)
     assert abs(mesh_volume(V, F) * 1e6 - 72.0) < 1e-6
