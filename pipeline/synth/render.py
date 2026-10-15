@@ -620,6 +620,10 @@ def piece_mesh(shape: str, size_mm, rng: np.random.Generator):
         V, F = _ellipsoid(12, 8)
         V = V * (1 + rng.normal(0, 0.22, (len(V), 1))) * [L, W, H]
         return V, F
+    if shape == "chunk":                                      # a rounded piece of meat / vegetable
+        V, F = _ellipsoid(12, 8)
+        V = V * (1 + rng.normal(0, 0.08, (len(V), 1))) * [L, W, H]
+        return V, F
     if shape == "macaroni":                                   # a curved tube (elbow), open ends
         n_a, n_r = 10, 8
         R, r = L * 0.9, H

@@ -370,13 +370,16 @@ def sample_scene_hard(rng: np.random.Generator, assets: list[dict], out: Path, s
 
     rad_of = lambda a: float(np.linalg.norm(a["extent_m"])) / 2       # any rotation fits
     fits_on_heap = lambda size: bool(mounds) and size < 0.6 * mounds[0].rf
-    cat_of = {k.lower().replace("_", " "): k for k in by_cat}           # meal names -> asset categories
+    meal_cat: dict[str, list[dict]] = {}                                 # meal names -> any food asset (scans and
+    for a_ in pool:                                                      # primitives: chickpea, olive, cheese cube)
+        meal_cat.setdefault(a_["category"].lower().replace("_", " "), []).append(a_)
+    cat_of = {k.lower().replace("_", " "): k for k in by_cat}           # meal names -> scanned categories
     if meal["source"] == "random":
         pile_cat = small[rng.integers(len(small))] if small and rng.random() < 0.5 else None
     else:
-        pile_cat = cat_of.get(meal["pile"] or "")
+        pile_cat = meal["pile"] if meal["pile"] in meal_cat else None
     if pile_cat and max_items - len(items) >= 2:
-        grp = by_cat[pile_cat]
+        grp = by_cat[pile_cat] if pile_cat in by_cat else meal_cat[pile_cat]
         k = int(min(rng.integers(2, 6), max_items - len(items)))
         sel = [grp[j] for j in rng.choice(len(grp), k, replace=len(grp) < k)]
         spread = 0.6 * max(max(a["extent_m"][:2]) for a in sel)
@@ -394,7 +397,7 @@ def sample_scene_hard(rng: np.random.Generator, assets: list[dict], out: Path, s
         n_single = int(rng.integers(min(lo_n, room), min(3 if items else 4, room) + 1)) if room > 0 else 0
         picks = [None] * n_single
     else:                                                    # the meal's own items, those we have scans of
-        picks = [by_cat[cat_of[k]] for k in meal["scans"] if k in cat_of][:max(room, 0)]
+        picks = [meal_cat[k] for k in meal["scans"] if k in meal_cat][:max(room, 0)]
         if not items and not picks:                         # nothing of the meal fits / exists: one random item
             picks = [None]
     for grp in picks:
