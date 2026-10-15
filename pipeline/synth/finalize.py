@@ -27,7 +27,7 @@ import numpy as np
 from PIL import Image
 
 from .geometry import container_from_json
-from .camera import PhoneCamera, develop, scene_key
+from .camera import PhoneCamera, develop, save_jpeg, scene_key
 from .lidar import D_H, D_W, LidarParams, simulate
 
 CONTAINER_ID = 254
@@ -62,9 +62,11 @@ def finalize(scene_dir: Path, raw_dir: Path, out: Path, seed: int = 0, keep_hr: 
             depth, seg = z["depth"], z["seg"]
             rgb = develop(z["rgb_linear"], key, phone.ev_bias if phone else 0.0) if key is not None else z["rgb"]
             name = f"{i:06d}"
-            if phone:
-                Image.fromarray(phone.apply(rgb, rng)).save(out / "rgb" / f"{name}.jpg",
-                                                            quality=phone.jpeg_quality)
+            if phone and key is not None:      # full sensor + ISP chain on the linear render
+                save_jpeg(phone.process(z["rgb_linear"], key, rng, i), out / "rgb" / f"{name}.jpg",
+                          phone.jpeg_quality)
+            elif phone:
+                save_jpeg(phone.apply(rgb, rng), out / "rgb" / f"{name}.jpg", phone.jpeg_quality)
             else:
                 Image.fromarray(rgb).save(out / "rgb" / f"{name}.jpg", quality=95)
             sim = simulate(depth, rgb, K, rng, params)
