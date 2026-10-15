@@ -39,6 +39,14 @@ plus a pooled row over all given batches:
                    black cloth with fiducials). Crop = square of 2x the food bbox.
   Nothing real from an iPad exists locally, so these two are the nearest domains.
 
+Real-vs-real baseline (--real-pairs A:B [--n-images N]): the identical pipeline with real set
+A as class 1 and real set B as class 0, e.g. `--real-pairs n5k:mf3d mf3d_a:mf3d_b`. Defines
+the ceiling for "indistinguishable": a synthetic set that is no more separable than one
+real dataset is from another is as close as a photo set from another source. mf3d_a/b split
+food categories, n5k_a/b split dishes (a hash of the id). Patch mode uses one common patch
+size (96 px) on both sides; image mode uses each set's usual crop (N5k central square,
+MF3D food bbox x2), so n5k:mf3d keeps the content confound of the synthetic comparison.
+
 Matching / confound control:
   * synth is resampled to the real set's resolution (image mode: whole frame to native
     width; patch mode: as above), cropped, resized to --size+32, JPEG re-encoded (q=90) on
@@ -302,14 +310,37 @@ def synth_items(batch: Path, view: str, style: str | None = None):
     return out
 
 
+def real_base(real: str) -> str:
+    """'n5k_a' -> 'n5k', 'mf3d_b' -> 'mf3d'."""
+    return real.split("_")[0]
+
+
+def real_part(real: str):
+    """None, or 'a' / 'b' for the two disjoint halves of a real set (real-vs-real controls):
+    n5k_a/n5k_b split dishes by a hash of the dish id, mf3d_a/mf3d_b split FOOD CATEGORIES
+    (so the two halves also differ in content, not just in capture session)."""
+    return real.split("_")[1] if "_" in real else None
+
+
+def in_part(real: str, group: str) -> bool:
+    part = real_part(real)
+    if part is None:
+        return True
+    if real_base(real) == "n5k":
+        h = zlib.crc32(group.encode()) % 2
+    else:
+        h = zlib.crc32(group.split("__")[0].encode() + b"cat-split-1") % 2
+    return h == (0 if part == "a" else 1)
+
+
 def real_items(real: str, n: int, rng: random.Random, per_group: int):
     """Real (path, group) list from a seeded shuffle (callers take a prefix of it, so a
     smaller request is nested in a larger one); 2x n for slack when crops/patches fail."""
-    if real == "n5k":
-        dishes = sorted(N5K.glob("dish_*/rgb.png"))
+    if real_base(real) == "n5k":
+        dishes = sorted(p for p in N5K.glob("dish_*/rgb.png") if in_part(real, p.parent.name))
         rng.shuffle(dishes)
         return [(p, p.parent.name) for p in dishes[:max(n * 2, 50)]]
-    dirs = sorted(d for d in MF3D.iterdir() if d.is_dir())
+    dirs = sorted(d for d in MF3D.iterdir() if d.is_dir() and in_part(real, d.name))
     rng.shuffle(dirs)
     out = []
     for d in dirs:
@@ -520,10 +551,58 @@ def build(syn, real_name, mode, a):
     return S, R
 
 
+def build_real_side(real: str, mode: str, a, n_images: int, tag: str):
+    """Items of one REAL set processed exactly like the real side of build() (same crops /
+    food masks / scale matching / patch sampler / JPEG tail), `n_images` images."""
+    base = real_base(real)
+    rng = random.Random(a.seed)
+    items = real_items(real, n_images, rng, 1 if base == "n5k" else 3)
+    out, n_img = [], 0
+    ref = real_ref_px(real, items) if (mode == "patch" and base == "mf3d") else float(N5K_DISH_PX)
+    for p, g in items:
+        iid = f"{tag}/{g}/{p.stem}"
+        if mode == "image":
+            c = real_crop(p, base, a.size)
+            if c is not None:
+                out.append({"img": c, "group": f"{tag}/{g}", "iid": iid, "food": 1.0})
+                n_img += 1
+        else:
+            pr = random.Random(zlib.crc32(str(p).encode()) + a.seed)
+            ps = real_patches(p, base, a, pr, ref)
+            n_img += bool(ps)
+            for c, f in ps:
+                out.append({"img": finish(c, a.size), "group": f"{tag}/{g}", "iid": iid, "food": f})
+        if n_img >= n_images:
+            break
+    return out
+
+
+def compare_real(real_a: str, real_b: str, mode: str, model, dev, a):
+    """Real-vs-real analogue of compare(): class 1 = real_a, class 0 = real_b, same pipeline.
+    Both sides come from independent photo sources, so this is the ceiling for how
+    separable two different (honest) photo sets are with this probe. Patch mode uses one
+    common patch size (--patch-px, default 96 = the MF3D size) on both sides, each set at
+    native resolution (MF3D rescaled to a common food-bbox size, as in the synthetic runs)."""
+    if a.patch_px is None:
+        a = argparse.Namespace(**{**vars(a), "patch_px": 96})
+    S = build_real_side(real_a, mode, a, a.n_images, "A-" + real_a)
+    R = build_real_side(real_b, mode, a, a.n_images, "B-" + real_b)
+    name = f"realpair__{mode}__{real_a}__vs__{real_b}"
+    return analyze(name, S, R, mode, model, dev, a,
+                   {"view": "-", "real": f"{real_a} vs {real_b}", "pair": [real_a, real_b]})
+
+
 def compare(name, syn, real_name, mode, model, dev, a):
     """syn: list of (rgb, seg, group, view). Returns the report dict (+ writes sheets)."""
     view = syn[0][3]
     S, R = build(syn, real_name, mode, a)
+    return analyze(name, S, R, mode, model, dev, a, {"view": view, "real": real_name})
+
+
+def analyze(name, S, R, mode, model, dev, a, meta):
+    """Probe + statistics + sheets for two item lists (S = class 1, R = class 0)."""
+    view = meta["view"]
+    real_name = meta["real"]
     n = min(len(S), len(R))                    # balance patch counts (whole-image order kept)
     S, R = S[:n], R[:n]
     gs = [d["group"] for d in S]
@@ -538,7 +617,7 @@ def compare(name, syn, real_name, mode, model, dev, a):
     sc = probe(X, y, np.array(gs + gr))
     ss, sr = sc[:n], sc[n:]
     k, ks = kid(fS, fR)
-    rep = {"name": name, "mode": mode, "view": view, "real": real_name, "style": a.style,
+    rep = {"name": name, "mode": mode, "view": view, "real": real_name, "style": a.style, **meta,
            "n_synth": n, "n_real": n, "n_synth_groups": len(set(gs)), "n_real_groups": len(set(gr)),
            "n_synth_images": len({d["iid"] for d in S}), "n_real_images": len({d["iid"] for d in R}),
            "food_frac_synth": float(np.mean([d["food"] for d in S])),
@@ -614,8 +693,13 @@ def fmt(rep):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
-    ap.add_argument("--synth", nargs="+", required=True, help="batch dirs with scans/ and raw/")
+    ap.add_argument("--synth", nargs="*", default=[], help="batch dirs with scans/ and raw/")
     ap.add_argument("--real", nargs="+", default=["n5k", "mf3d"], choices=["n5k", "mf3d"])
+    ap.add_argument("--real-pairs", nargs="*", default=[], metavar="A:B",
+                    help="real-vs-real baseline: run the same probe on real set A vs real set B "
+                         "(names n5k, mf3d, n5k_a, n5k_b, mf3d_a, mf3d_b; e.g. n5k:mf3d "
+                         "mf3d_a:mf3d_b n5k_a:n5k_b). The ceiling for 'indistinguishable'")
+    ap.add_argument("--n-images", type=int, default=120, help="images per side for --real-pairs")
     ap.add_argument("--mode", nargs="+", default=["patch", "image"], choices=["patch", "image"])
     ap.add_argument("--out", required=True)
     ap.add_argument("--size", type=int, default=224, help="model input size")
@@ -635,9 +719,15 @@ def main():
     print("backbone on", dev)
     batches = [Path(s) for s in a.synth]
     todo = [(b.name, [b]) for b in batches]
-    if len(batches) > 1:
+    if len(batches) > 1 and a.synth:
         todo.append(("pooled", batches))
     reps = []
+    for pair in a.real_pairs:
+        ra, rb = pair.split(":")
+        for mode in a.mode:
+            rep = compare_real(ra, rb, mode, model, dev, a)
+            reps.append(rep)
+            print(fmt(rep), flush=True)
     for name, bs in todo:
         for real_name in a.real:
             view = "top" if real_name == "n5k" else "orbit"
