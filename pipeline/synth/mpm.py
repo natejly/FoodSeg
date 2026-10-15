@@ -19,7 +19,9 @@ Out: each soft item's settled surface (marching cubes on its particles' density)
 
 import argparse
 import json
+import os
 import time
+import zlib
 from pathlib import Path
 
 import numpy as np
@@ -28,6 +30,7 @@ import taichi as ti
 from .collision import to_blender
 from .geometry import mesh_volume
 from .looks import ITEM_PHYSICS
+from .surface_detail import displace
 
 MODELS = {"elastic": 0, "sand": 1, "plastic": 2, "fluid": 3, "rigid": 4}
 MAX_BODIES = 64
@@ -628,12 +631,25 @@ def settle(spec: dict, scene_dir: Path, sim_time: float = 1.0, dx: float = 0.002
     Hh = dish_heightfield(spec, scene_dir, lo[0], lo[1], hp, nxh, nyh)
     H_at = lambda x, y: Hh[np.clip(np.round((x - lo[0]) / hp).astype(int), 0, nxh - 1),
                            np.clip(np.round((y - lo[1]) / hp).astype(int), 0, nyh - 1)]
+    raw = {}
     for it in soft:
-        P = Xf[owner == it["id"]]
-        V, F = surface_mesh(P, hp, H_at)
+        raw[it["id"]] = surface_mesh(Xf[owner == it["id"]], hp, H_at)
+    for it in soft:
+        V, F = raw[it["id"]]
+        extra = {}
+        g = (it.get("look") or {}).get("geom")
+        if g and not os.environ.get("SYNTH_NO_DISP"):   # irregular real geometry, baked into the saved mesh
+            others = np.concatenate([raw[k][0] for k in raw if k != it["id"]] or [np.zeros((0, 3))])
+            seed = zlib.crc32(str(spec.get("scene_id", "")).encode()) % 100000 * 100 + int(it["id"])
+            V2, info = displace(V, F, g, H_at(V[:, 0], V[:, 1]), seed, others)
+            log(f"[mpm] item {it['id']} {it.get('name')}: displaced rms {info['rms_mm']:.2f} mm max {info['max_mm']:.1f} mm, "
+                f"volume {info['vol_change'] * 100:+.3f} %, flipped {info['flipped_frac'] * 100:.2f} %"
+                + ("" if info["ok"] else "  REJECTED (kept smooth)"))
+            extra = {"disp": info, "geom_baked": bool(info["ok"]), "volume_ml_raw": float(mesh_volume(V, F) * 1e6)}
+            V = V2
         mesh = f"mpm_{it['id']}.npz"
         np.savez_compressed(scene_dir / mesh, V=V.astype(np.float32), F=F.astype(np.int32))
-        it.update(mesh=mesh, served_mesh=it["mesh"], volume_ml=float(mesh_volume(V, F) * 1e6), mpm=True)
+        it.update(mesh=mesh, served_mesh=it["mesh"], volume_ml=float(mesh_volume(V, F) * 1e6), mpm=True, **extra)
     # dropped items: rigid pose of their particles
     for b, it in enumerate(drop):
         sel = owner == it["id"]

@@ -390,6 +390,10 @@ def food_material(obj, name: str, color, roughness: float, L: dict) -> None:
         return n.outputs["Color"]
 
     coord = nt.new("ShaderNodeTexCoord").outputs["Object"]
+    opt = L.get("optics")                # synth.looks.OPTICS class: SSS, roughness range, coat
+    zv = np.empty(len(obj.get_mesh().vertices) * 3, np.float32)
+    obj.get_mesh().vertices.foreach_get("co", zv)
+    z_lo, z_h = float(zv[2::3].min()), max(float(np.ptp(zv[2::3])), 2e-3)      # local height range (object space, m)
     tv = L.get("tint_var", 0.06)
     patch = node("ShaderNodeTexNoise", Scale=25.0, Detail=3.0)      # darker / lighter patches
     links.new(coord, patch.inputs["Vector"])
@@ -494,11 +498,42 @@ def food_material(obj, name: str, color, roughness: float, L: dict) -> None:
             t = 0.62 - 0.24 * float(cov)
             return ramp(fac, t - 0.04, t + 0.04)
 
-        puddle = cover(noise(wet.get("patch_scale", 45.0), 5.0, 3.1), wet["patch"])
+        # wetness mask (optics class): noise puddles x Voronoi cells (wet cells next to dry ones), pooled in
+        # the low, flat parts of the pile and in cavities; the drier upper surface keeps a matte skin
+        ocov = float(opt["cover"]) if opt else 1.0
+        zs = nt.new("ShaderNodeSeparateXYZ")
+        links.new(coord, zs.inputs[0])
+        lowness = ramp(zs.outputs["Z"], z_lo + 0.1 * z_h, z_lo + 0.85 * z_h, 1.0, 0.0)      # 1 at the dish, 0 at the top
+        geo = nt.new("ShaderNodeNewGeometry")
+        gz = nt.new("ShaderNodeSeparateXYZ")
+        links.new(geo.outputs["Normal"], gz.inputs[0])
+        flat = ramp(gz.outputs["Z"], 0.45, 0.95)                                             # 1 on level surface
+        vcell = nt.new("ShaderNodeTexVoronoi")
+        vcell.inputs["Scale"].default_value = 1.0 / float(opt["cell"] if opt else 0.005)
+        links.new(vec("ADD", coord, (0.0231, 0.0173, 0.0097)), vcell.inputs["Vector"])
+        vrnd = nt.new("ShaderNodeSeparateColor")
+        links.new(vcell.outputs["Color"], vrnd.inputs["Color"])
+        cellwet = math("ADD", 0.55, math("MULTIPLY", vrnd.outputs["Red"], 0.45))              # per-cell wetness 0.55..1
+        cov_n = nt.new("ShaderNodeMapRange")                  # coverage raised in the low parts: threshold lowered
+        cov_n.inputs["From Min"].default_value = 0.0
+        cov_n.inputs["From Max"].default_value = 1.0
+        cov_n.inputs["To Min"].default_value = min(0.95, wet["patch"] * ocov)
+        cov_n.inputs["To Max"].default_value = min(1.0, wet["patch"] * ocov + 0.15)
+        links.new(lowness, cov_n.inputs["Value"])
+        t_lo = math("SUBTRACT", 0.58, math("MULTIPLY", cov_n.outputs["Result"], 0.24))
+        t_hi = math("SUBTRACT", 0.66, math("MULTIPLY", cov_n.outputs["Result"], 0.24))
+        pm = nt.new("ShaderNodeMapRange")
+        pm.interpolation_type = "SMOOTHSTEP"
+        links.new(noise(wet.get("patch_scale", 45.0), 5.0, 3.1), pm.inputs["Value"])
+        links.new(t_lo, pm.inputs["From Min"])
+        links.new(t_hi, pm.inputs["From Max"])
+        puddle = math("MULTIPLY", pm.outputs["Result"], math("MULTIPLY", cellwet, math("ADD", 0.55, math("MULTIPLY", flat, 0.45))))
         W = math("MINIMUM", 1.0, math("ADD", math("MULTIPLY", cav, 1.8 * wet["cavity"]), math("MULTIPLY", puddle, 0.9)))
         if L.get("brown"):            # uneven cooking: brown on the exposed peaks, in blotches
             bm, bcov = L["brown"]
-            m = math("MULTIPLY", cover(noise(16.0, 4.0, 5.3), bcov), peak)
+            top_grad = ramp(zs.outputs["Z"], z_lo + 0.45 * z_h, z_lo + 1.0 * z_h)               # browning gradient: exposed top
+            m = math("MULTIPLY", math("MINIMUM", 1.0, math("ADD", cover(noise(16.0, 4.0, 5.3), bcov),
+                                                            math("MULTIPLY", top_grad, 0.3))), peak)
             colour = mix(math("MULTIPLY", m, 0.85), colour, mix_mul(colour, bm))
         if L.get("oil"):              # separated oil: stained, saturated, very glossy patches
             om, ocov = L["oil"]
@@ -518,7 +553,8 @@ def food_material(obj, name: str, color, roughness: float, L: dict) -> None:
         # sauce pools in crevices: darker and more saturated (colour squared), and wet
         sq = nt.new("ShaderNodeMixRGB")
         sq.blend_type = "MULTIPLY"
-        links.new(math("MULTIPLY", W, float(wet["dark"])), sq.inputs["Fac"])
+        links.new(math("MULTIPLY", math("MULTIPLY", W, float(wet["dark"])), math("SUBTRACT", 1.0, math("MULTIPLY", lowness, 0.7))),
+                  sq.inputs["Fac"])
         links.new(colour, sq.inputs["Color1"])
         links.new(colour, sq.inputs["Color2"])
         colour = sq.outputs["Color"]
@@ -536,26 +572,55 @@ def food_material(obj, name: str, color, roughness: float, L: dict) -> None:
         W = math("MAXIMUM", W, isf)
     links.new(colour, bsdf.inputs["Base Color"])
     dry_add = wet["dry"] if wet else 0.0
-    rough = float(roughness) + dry_add
+    base_dry, wet_r = float(roughness) + dry_add, 0.07
+    if opt:                         # per-class roughness range (+ small per-item jitter): dry skin .. wet film
+        jr = float(np.random.uniform(-0.04, 0.04))
+        base_dry = float(np.clip(opt["rough"][0] + (float(roughness) - 0.5) * 0.3 + 0.5 * dry_add + jr, 0.2, 0.9))
+        wet_r = float(np.clip(opt["rough"][1] * np.random.uniform(0.85, 1.2), 0.04, 0.5))
+    rough = base_dry
     if tex:                         # bright specks in the photo are wet / glossy, dark crevices rough
-        rough = math("SUBTRACT", float(roughness) + dry_add + 0.08, math("MULTIPLY", tex_lum, 0.16))
+        rough = math("SUBTRACT", base_dry + 0.08, math("MULTIPLY", tex_lum, 0.16))
     if W is not None:               # wet: smooth and clear-coated; dry peaks: rougher, little coat
-        rough = math("ADD", rough, math("MULTIPLY", W, 0.07 - float(roughness) - dry_add))
+        rough = math("ADD", rough, math("MULTIPLY", W, wet_r - base_dry))
     if isinstance(rough, float):
         bsdf.inputs["Roughness"].default_value = rough
     else:
         links.new(rough, bsdf.inputs["Roughness"])
-    bsdf.inputs["Subsurface Weight"].default_value = float(L.get("sss", 0.2))
-    bsdf.inputs["Subsurface Radius"].default_value = (1.0, 0.6, 0.35)
-    bsdf.inputs["Subsurface Scale"].default_value = 0.002          # metres: food scatters over ~mm
     coat0 = float(L.get("coat", 0.0))
+    if opt:                         # SSS by class: Voronoi cells modulate the scatter distance, shadowed (cavity) parts glow more
+        bsdf.inputs["Subsurface Weight"].default_value = float(opt["sss"])
+        bsdf.inputs["Subsurface Radius"].default_value = tuple(float(x) for x in opt["radius"])
+        sc_n = float(opt["scale"]) * float(np.random.uniform(0.85, 1.2))
+        bsdf.inputs["Subsurface Scale"].default_value = sc_n
+        if W is not None:
+            vs = nt.new("ShaderNodeTexVoronoi")
+            vs.inputs["Scale"].default_value = 1.0 / (1.7 * float(opt["cell"]))
+            links.new(vec("ADD", coord, (0.0411, 0.0313, 0.0197)), vs.inputs["Vector"])
+            vsr = nt.new("ShaderNodeSeparateColor")
+            links.new(vs.outputs["Color"], vsr.inputs["Color"])
+            links.new(math("MULTIPLY", math("ADD", 0.6, math("MULTIPLY", vsr.outputs["Green"], 0.8)), sc_n),
+                      bsdf.inputs["Subsurface Scale"])
+            if cav is not None:
+                links.new(math("MULTIPLY", math("ADD", 0.78, math("MULTIPLY", cav, 0.4)), float(opt["sss"])),
+                          bsdf.inputs["Subsurface Weight"])
+    else:
+        bsdf.inputs["Subsurface Weight"].default_value = float(L.get("sss", 0.2))
+        bsdf.inputs["Subsurface Radius"].default_value = (1.0, 0.6, 0.35)
+        bsdf.inputs["Subsurface Scale"].default_value = 0.002          # metres: food scatters over ~mm
     bsdf.inputs["Coat Weight"].default_value = coat0
     bsdf.inputs["Coat Roughness"].default_value = 0.08
     if W is not None:
-        c_dry = 0.2 * coat0
-        c_wet = min(1.0, 0.35 + 1.5 * coat0) if L.get("kind") != "grain" else 0.3
+        if opt:                     # wetness is reflection (a sharp, low-energy coat), not a boosted specular lobe
+            c_wet = min(0.85, float(opt["coat"]) * (0.7 + 0.8 * coat0))
+            c_dry = 0.12 * c_wet
+            cr_w = float(opt["coat_rough"])
+            cr_d = cr_w + 0.14
+        else:
+            c_dry = 0.2 * coat0
+            c_wet = min(1.0, 0.35 + 1.5 * coat0) if L.get("kind") != "grain" else 0.3
+            cr_w, cr_d = 0.05, 0.22
         links.new(math("ADD", c_dry, math("MULTIPLY", W, c_wet - c_dry)), bsdf.inputs["Coat Weight"])
-        links.new(math("SUBTRACT", 0.22, math("MULTIPLY", W, 0.17)), bsdf.inputs["Coat Roughness"])
+        links.new(math("SUBTRACT", cr_d, math("MULTIPLY", W, cr_d - cr_w)), bsdf.inputs["Coat Roughness"])
     elif solid is not None and not tex:
         links.new(math("ADD", float(roughness), math("MULTIPLY", solid, 0.35)), bsdf.inputs["Roughness"])
         links.new(math("MULTIPLY", coat0, math("SUBTRACT", 1.0, solid)), bsdf.inputs["Coat Weight"])
@@ -1470,6 +1535,8 @@ def add_relief(o, it: dict, seed: int) -> bool:
     L = it.get("look") or {}
     amp = float(L.get("relief_mm", 0.0)) / 1000.0
     n_smooth = int(L.get("smooth_iter", 0))
+    if it.get("geom_baked"):          # synth.mpm baked the meso geometry (and the relaxation) into the mesh: sub-mm detail only
+        n_smooth, amp = 0, 0.45 * amp
     if amp <= 0 and n_smooth <= 0:
         return False
     rng = np.random.default_rng(seed)
@@ -1749,6 +1816,14 @@ def main() -> None:
             col = it.get("color") or [0.6, 0.45, 0.3]
             # brightness varies batch to batch; hue only a little (per-channel +-15 % turned mash green)
             jitter = np.clip(np.asarray(col) * np.random.uniform(0.88, 1.12) * np.random.normal(1, 0.03, 3), 0, 1)
+            opt = (it.get("look") or {}).get("optics")
+            if opt:                       # per-item hue / saturation / value jitter (cooked a bit more or less, another batch)
+                import colorsys
+                hj, sj, vj = opt["jit"]
+                h_, s_, v_ = colorsys.rgb_to_hsv(*[float(x) for x in jitter])
+                jitter = np.clip(colorsys.hsv_to_rgb((h_ + np.random.normal(0, hj)) % 1.0,
+                                                     float(np.clip(s_ * (1 + np.random.normal(0, sj)), 0, 1)),
+                                                     float(np.clip(v_ * (1 + np.random.normal(0, vj)), 0, 1))), 0, 1)
             if it.get("cloth"):
                 leaf_uvs(o, tuple(it["cloth"].get("grid", (12, 5))))
                 leaf_material(o, f"food_{it['id']}", jitter.tolist(), it.get("roughness", 0.5))
@@ -1848,6 +1923,8 @@ def main() -> None:
         print(f"[render] cloth done at {time.time() - t0:.0f}s", flush=True)
 
     # thin sauce film at the plate contact, then surface relief (silhouette breakup) of the soft foods
+    # volume of the closed food meshes, before the film's open skin is merged in (it inflated calc_volume 2x on thin foods)
+    vol_closed = {it["id"]: world_volume_ml(o) for it, o in objs if it.get("look") and not args.no_film}
     film_bvh = None
     if any((it.get("look") or {}).get("film") for it, _ in objs) and c.get("kind") != "bowl" and not args.no_film:
         from mathutils.bvhtree import BVHTree
@@ -1952,7 +2029,7 @@ def main() -> None:
         ctr = bb.mean(0)
         items.append({"id": it["id"], "name": it["name"], "local2world": M.tolist(),
                       "bbox_world": [bb.min(0).tolist(), bb.max(0).tolist()],
-                      "scene_volume_ml": world_volume_ml(o), "spec_volume_ml": it["volume_ml"],
+                      "scene_volume_ml": vol_closed.get(it["id"], world_volume_ml(o)), "spec_volume_ml": it["volume_ml"],
                       "radius_from_axis_m": float(np.hypot(ctr[0], ctr[1])),
                       "min_z_m": float(bb[:, 2].min())})
     # surface samples of every labelled object in its final pose: per-point 3D ground truth

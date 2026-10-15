@@ -186,6 +186,85 @@ WET = {
 }
 
 
+# ---- real geometry (synth.surface_detail, applied to the MPM mesh) ---------------------------------
+# amp_mm: peak noise amplitude along the normals; wl_mm: (lump, fine) wavelengths; grooves / swirl_mm /
+# scoop: spoon marks; edge_mm: lateral wander of the pile's outline near the dish; smooth_iter: Taubin
+# relaxation of the marching-cubes terraces (was render.add_relief's blur).
+GEOM = {
+    "grain": {"amp_mm": 1.8, "wl_mm": (16.0, 6.0), "edge_mm": 2.0, "scoop": 0.3, "scoop_mm": 3.0, "smooth_iter": 3},
+    "porridge": {"amp_mm": 1.6, "wl_mm": (14.0, 5.0), "edge_mm": 1.8, "grooves": 2, "groove_mm": 1.5, "scoop": 0.35,
+                 "scoop_mm": 2.5, "smooth_iter": 8},
+    "puree": {"amp_mm": 1.4, "wl_mm": (20.0, 7.0), "edge_mm": 1.6, "grooves": 3, "groove_mm": 1.8, "swirl_mm": 1.1,
+              "scoop": 0.5, "scoop_mm": 3.0, "smooth_iter": 5},
+    "curd": {"amp_mm": 2.6, "wl_mm": (9.0, 4.0), "edge_mm": 2.4, "scoop": 0.2, "scoop_mm": 2.5, "smooth_iter": 3, "octaves": 5},
+    "liquid": {"amp_mm": 0.6, "wl_mm": (22.0, 8.0), "edge_mm": 2.2, "smooth_iter": 14, "edge_wl_mm": 22.0},
+}
+GEOM_BY_NAME = {      # chunky sauces keep a little more surface, thick ones hold spoon marks
+    "chili": {"amp_mm": 1.0, "grooves": 1, "groove_mm": 1.0}, "lentil stew": {"amp_mm": 1.0},
+    "dal": {"amp_mm": 0.8}, "guacamole": {"amp_mm": 1.6, "grooves": 2, "groove_mm": 1.5, "scoop": 0.3},
+    "pesto": {"amp_mm": 0.9}, "refried beans": {"amp_mm": 1.8}, "hummus": {"swirl_mm": 1.6, "groove_mm": 2.2},
+    "mashed potato": {"amp_mm": 1.8, "swirl_mm": 1.4}, "polenta": {"amp_mm": 1.2}, "congee": {"amp_mm": 0.9},
+    "scrambled eggs": {"amp_mm": 3.0, "wl_mm": (8.0, 3.5)}, "mac and cheese": {"amp_mm": 2.2},
+    "granola": {"amp_mm": 2.4, "wl_mm": (10.0, 4.0)}, "corn": {"amp_mm": 1.4},
+    "mixed vegetables": {"amp_mm": 1.6, "wl_mm": (12.0, 5.0)}, "brown rice": {"amp_mm": 2.0},
+    "tomato soup": {"amp_mm": 0.4}, "pumpkin soup": {"amp_mm": 0.4}, "miso soup": {"amp_mm": 0.4},
+    "ramen": {"amp_mm": 0.6}, "cereal with milk": {"amp_mm": 0.4}, "roasted eggplant": {"amp_mm": 2.6},
+}
+
+
+def geom(name: str) -> dict:
+    """Surface-geometry parameters for a food (deterministic: no rng draws, spec streams unchanged)."""
+    g = dict(GEOM[kind_of(name)])
+    g.update(GEOM_BY_NAME.get(name, {}))
+    return g
+
+
+# ---- optics classes (render.food_material) -----------------------------------------------------------
+# Subsurface weight / radius / scale (m), roughness of dry and wet surface, clear-coat weight and
+# roughness when wet, how much of the surface is wet (cover, scales the WET table) and a Voronoi cell
+# size (m) that modulates the scatter distance (cellular internal structure, Pixar's Ratatouille
+# shading). Radii follow Pixar's lesson: long red radii read as wax, so only the milky classes
+# scatter far, and there it is nearly colourless (Jensen's milk: albedo ~1, flat spectrum); pigment
+# sauces scatter short and only mildly red-shifted. jit = (hue, saturation, value) per-item jitter.
+OPTICS = {
+    "milky": {"sss": 0.75, "radius": (1.0, 0.92, 0.82), "scale": 0.0035, "rough": (0.38, 0.22), "coat": 0.45,
+              "coat_rough": 0.05, "cell": 0.006, "cover": 1.2, "jit": (0.015, 0.05, 0.04)},
+    "starchy": {"sss": 0.5, "radius": (1.0, 0.85, 0.65), "scale": 0.003, "rough": (0.62, 0.35), "coat": 0.3,
+                "coat_rough": 0.09, "cell": 0.005, "cover": 0.8, "jit": (0.02, 0.07, 0.06)},
+    "grain": {"sss": 0.4, "radius": (1.0, 0.9, 0.7), "scale": 0.0022, "rough": (0.55, 0.32), "coat": 0.25,
+              "coat_rough": 0.12, "cell": 0.004, "cover": 0.6, "jit": (0.02, 0.07, 0.07)},
+    "pigment": {"sss": 0.25, "radius": (1.0, 0.55, 0.35), "scale": 0.0008, "rough": (0.4, 0.12), "coat": 0.55,
+                "coat_rough": 0.04, "cell": 0.004, "cover": 1.1, "jit": (0.015, 0.06, 0.1)},
+    "creamy": {"sss": 0.4, "radius": (1.0, 0.75, 0.45), "scale": 0.0016, "rough": (0.45, 0.13), "coat": 0.6,
+               "coat_rough": 0.05, "cell": 0.005, "cover": 1.1, "jit": (0.02, 0.06, 0.08)},
+    "oily": {"sss": 0.35, "radius": (1.0, 0.8, 0.55), "scale": 0.0015, "rough": (0.42, 0.1), "coat": 0.7,
+             "coat_rough": 0.03, "cell": 0.005, "cover": 1.3, "jit": (0.02, 0.07, 0.1)},
+    "crust": {"sss": 0.08, "radius": (1.0, 0.7, 0.5), "scale": 0.001, "rough": (0.78, 0.55), "coat": 0.05,
+              "coat_rough": 0.2, "cell": 0.006, "cover": 0.25, "jit": (0.03, 0.08, 0.1)},
+}
+OPTICS_OF = {
+    "yogurt": "milky", "sour cream": "milky", "egg whites": "milky", "congee": "milky", "cereal with milk": "milky",
+    "melted cheese": "milky",
+    "mashed potato": "starchy", "polenta": "starchy", "oatmeal": "starchy", "risotto": "starchy", "hummus": "starchy",
+    "refried beans": "starchy", "mac and cheese": "oily", "guacamole": "starchy",
+    "white rice": "grain", "brown rice": "grain", "quinoa": "grain", "couscous": "grain",
+    "chili": "pigment", "tomato sauce": "pigment", "tomato soup": "pigment", "salsa": "pigment",
+    "baked beans": "pigment", "penne in tomato sauce": "pigment", "black beans": "pigment",
+    "chicken curry": "creamy", "curry sauce": "creamy", "green curry": "creamy", "dal": "creamy",
+    "pumpkin soup": "creamy", "gravy": "creamy", "lentil stew": "creamy", "pesto": "oily", "miso soup": "creamy",
+    "ramen": "creamy",
+    "fried rice": "oily", "scrambled eggs": "oily", "spaghetti": "oily",
+    "granola": "crust", "roasted eggplant": "oily", "corn": "crust", "mixed vegetables": "crust",
+}
+
+
+def optics(name: str) -> dict:
+    """Per-food optics class (deterministic): see OPTICS."""
+    k = OPTICS_OF.get(name) or {"grain": "grain", "porridge": "starchy", "puree": "starchy", "liquid": "creamy",
+                                "curd": "starchy"}[kind_of(name)]
+    return {"class": k, **OPTICS[k]}
+
+
 def physics(name: str) -> dict:
     return PHYSICS_BY_NAME.get(name, PHYSICS[kind_of(name)])
 
@@ -273,6 +352,8 @@ def look(name: str, rng: np.random.Generator) -> dict:
     L["film"] = x.get("film")
     L["smooth_iter"] = {"liquid": 14, "porridge": 8, "puree": 5, "curd": 3, "grain": 3}[k]   # marching-cubes terraces
     L["relief_mm"] = {"liquid": 0.0, "porridge": 1.2, "puree": 0.8, "curd": 1.2, "grain": 1.5}[k]
+    L["geom"] = geom(name)               # baked into the MPM mesh (synth.mpm); render.add_relief adds sub-mm detail on top
+    L["optics"] = optics(name)
     L["ao"] = True                       # darken the paste between real grains
     if name in PIECES and L["cells"] and L["cells"]["mode"] in ("chunk", "flake"):
         L["cells"], L["chunk_color"] = None, None     # real beans / flakes are scattered (PIECES): no painted ones
