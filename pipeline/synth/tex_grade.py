@@ -114,7 +114,7 @@ def grade_params(stats: dict, target: dict | None) -> dict:
     L50, C50 = stats["L50"], stats["C50"]
     if target is not None:
         Ls, Cs = target["L"] / RENDER_L, target["C_p50"] / RENDER_C
-        Cmax = max(1.3 * Cs, 35.0)
+        Cmax = max(1.0 * Cs, 32.0)
     else:
         Ls, Cs = GENERIC_L, GENERIC_C
         Cmax = 65.0
@@ -131,7 +131,8 @@ def grade_params(stats: dict, target: dict | None) -> dict:
         if abs(d) <= 60.0:
             dh = 0.6 * d
     return dict(L_to=float(L_to), C_to=float(C_to), dh=float(dh), Cmax=float(Cmax),
-                lift_hue=None if target is None or C50 >= 0.5 * Cs else float(target["hue"]))
+                lift_hue=None if target is None or C50 >= 0.5 * Cs else float(target["hue"]),
+                hue_ref=None if target is None else float(target["hue"]))
 
 
 def fill_grey(lab: np.ndarray, valid: np.ndarray) -> tuple[np.ndarray, float]:
@@ -174,6 +175,10 @@ def grade_lab(lab: np.ndarray, p: dict, stats: dict) -> np.ndarray:
     else:
         c = c * np.clip(p["C_to"] / C50, 0.25, 4.0)
     h = h + np.radians(p["dh"])
+    if p.get("hue_ref") is not None:          # texels of another hue family than the food (lime on a waffle): calmer
+        d = np.abs((np.degrees(h) - p["hue_ref"] + 180.0) % 360.0 - 180.0)
+        t = np.clip((d - 25.0) / 45.0, 0, 1)
+        c = c * (1.0 - 0.35 * t * t * (3 - 2 * t))
     cm = p["Cmax"]
     c = cm * np.tanh(c / cm)                  # soft clip: neon extremes
     out[:, 1], out[:, 2] = c * np.cos(h), c * np.sin(h)
