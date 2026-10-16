@@ -69,9 +69,9 @@ def orbit_poses(rng: np.random.Generator, n: int, centre: np.ndarray,
     shift0 = np.zeros(2)
     if dish_r is not None:
         el0 = np.deg2rad(rng.uniform(36, 62))
-        frac = rng.uniform(0.62, 0.90)                       # plate major axis / image width
+        frac = rng.uniform(0.55, 0.80)                       # plate outline radius vs image width; measured silhouette major axis ~1.09x (food, rim) -> U(0.60, 0.87)
         dist0 = float(np.clip(2 * dish_r * FX / (RGB_W * frac), 0.17, 0.45))
-        shift0 = rng.uniform(-0.07, 0.07, 2) * [1.0, 0.8]    # scan-wide framing bias, fraction of W
+        shift0 = rng.uniform(-0.05, 0.05, 2) * [1.0, 0.8]    # scan-wide framing bias, fraction of W
     poses, times = [], []
     duration = rng.uniform(20, 40)
     for i in range(n):
@@ -88,7 +88,7 @@ def orbit_poses(rng: np.random.Generator, n: int, centre: np.ndarray,
         tgt = centre + rng.normal(0, 0.012, 3) * [1, 1, 0.3]
         T = look_at(eye, tgt, roll=np.deg2rad(rng.normal(0, 4)))
         if dish_r is not None:        # slide the target in the image plane: the plate moves the other way
-            sh = shift0 + rng.uniform(-0.05, 0.05, 2) * [1.0, 0.8]
+            sh = shift0 + rng.uniform(-0.04, 0.04, 2) * [1.0, 0.8]
             wd = RGB_W / FX * d      # metres across the image at the plate
             T[:3, 3] += (T[:3, 0] * sh[0] + T[:3, 1] * sh[1]) * wd
         poses.append(T)
