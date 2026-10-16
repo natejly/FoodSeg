@@ -1,0 +1,241 @@
+{
+  "n_train": 2755,
+  "n_test": 507,
+  "published": {
+    "Nutrition5k 2021 (RGB-D)": {
+      "kcal": [
+        41.3,
+        16.5
+      ],
+      "mass": [
+        29.4,
+        13.7
+      ]
+    }
+  },
+  "results": {
+    "geometry only": {
+      "mass": {
+        "model": "svr_c3",
+        "cv_mae_train": {
+          "ridge": 84.05,
+          "svr_c3": 64.58,
+          "svr_c10": 65.73,
+          "gbm": 65.33
+        },
+        "test_mae": 63.57991579708633,
+        "test_pct_of_mean": 32.028752145306996
+      },
+      "kcal": {
+        "model": "gbm",
+        "cv_mae_train": {
+          "ridge": 136.31,
+          "svr_c3": 117.3,
+          "svr_c10": 119.5,
+          "gbm": 116.62
+        },
+        "test_mae": 117.67750699855608,
+        "test_pct_of_mean": 46.06367307557162
+      },
+      "fat": {
+        "model": "gbm",
+        "cv_mae_train": {
+          "ridge": 8.7,
+          "svr_c3": 7.99,
+          "svr_c10": 8.16,
+          "gbm": 7.84
+        },
+        "test_mae": 8.482141143101861,
+        "test_pct_of_mean": 66.10836939876172
+      },
+      "carb": {
+        "model": "gbm",
+        "cv_mae_train": {
+          "ridge": 11.3,
+          "svr_c3": 10.34,
+          "svr_c10": 10.32,
+          "gbm": 10.1
+        },
+        "test_mae": 10.747212393073236,
+        "test_pct_of_mean": 54.599844246697174
+      },
+      "protein": {
+        "model": "gbm",
+        "cv_mae_train": {
+          "ridge": 12.3,
+          "svr_c3": 10.89,
+          "svr_c10": 11.09,
+          "gbm": 10.78
+        },
+        "test_mae": 11.559146390851138,
+        "test_pct_of_mean": 66.13292865911376
+      }
+    },
+    "image only": {
+      "mass": {
+        "model": "svr_c3",
+        "cv_mae_train": {
+          "ridge": 29.82,
+          "svr_c3": 29.19,
+          "svr_c10": 29.84
+        },
+        "test_mae": 30.743632475764777,
+        "test_pct_of_mean": 15.487283559092187
+      },
+      "kcal": {
+        "model": "svr_c3",
+        "cv_mae_train": {
+          "ridge": 53.33,
+          "svr_c3": 47.41,
+          "svr_c10": 48.08
+        },
+        "test_mae": 51.38067539302224,
+        "test_pct_of_mean": 20.112447094373646
+      },
+      "fat": {
+        "model": "svr_c3",
+        "cv_mae_train": {
+          "ridge": 3.9,
+          "svr_c3": 3.25,
+          "svr_c10": 3.29
+        },
+        "test_mae": 3.8147523975557522,
+        "test_pct_of_mean": 29.731533159822487
+      },
+      "carb": {
+        "model": "svr_c3",
+        "cv_mae_train": {
+          "ridge": 4.95,
+          "svr_c3": 4.21,
+          "svr_c10": 4.28
+        },
+        "test_mae": 5.265388543388584,
+        "test_pct_of_mean": 26.750136114612598
+      },
+      "protein": {
+        "model": "svr_c3",
+        "cv_mae_train": {
+          "ridge": 4.71,
+          "svr_c3": 4.1,
+          "svr_c10": 4.1
+        },
+        "test_mae": 4.7309651518037095,
+        "test_pct_of_mean": 27.067100830267293
+      }
+    },
+    "image + geometry (no container)": {
+      "mass": {
+        "model": "svr_c3",
+        "cv_mae_train": {
+          "ridge": 29.53,
+          "svr_c3": 29.02,
+          "svr_c10": 29.67,
+          "pca_gbm": 36.21
+        },
+        "test_mae": 30.48367810803312,
+        "test_pct_of_mean": 15.35633003534517
+      },
+      "kcal": {
+        "model": "svr_c3",
+        "cv_mae_train": {
+          "ridge": 52.92,
+          "svr_c3": 47.24,
+          "svr_c10": 47.88,
+          "pca_gbm": 61.6
+        },
+        "test_mae": 51.43481018541908,
+        "test_pct_of_mean": 20.13363761278778
+      },
+      "fat": {
+        "model": "svr_c3",
+        "cv_mae_train": {
+          "ridge": 3.89,
+          "svr_c3": 3.26,
+          "svr_c10": 3.3,
+          "pca_gbm": 4.3
+        },
+        "test_mae": 3.8161782133534228,
+        "test_pct_of_mean": 29.74264572631446
+      },
+      "carb": {
+        "model": "svr_c3",
+        "cv_mae_train": {
+          "ridge": 4.9,
+          "svr_c3": 4.21,
+          "svr_c10": 4.27,
+          "pca_gbm": 5.5
+        },
+        "test_mae": 5.262851820007048,
+        "test_pct_of_mean": 26.737248614443896
+      },
+      "protein": {
+        "model": "svr_c3",
+        "cv_mae_train": {
+          "ridge": 4.7,
+          "svr_c3": 4.1,
+          "svr_c10": 4.1,
+          "pca_gbm": 5.39
+        },
+        "test_mae": 4.740662266974195,
+        "test_pct_of_mean": 27.12258058665108
+      }
+    },
+    "image + geometry": {
+      "mass": {
+        "model": "svr_c3",
+        "cv_mae_train": {
+          "ridge": 29.47,
+          "svr_c3": 28.69,
+          "svr_c10": 29.37,
+          "pca_gbm": 34.82
+        },
+        "test_mae": 29.61925634087228,
+        "test_pct_of_mean": 14.9208725456284
+      },
+      "kcal": {
+        "model": "svr_c3",
+        "cv_mae_train": {
+          "ridge": 52.9,
+          "svr_c3": 47.02,
+          "svr_c10": 47.63,
+          "pca_gbm": 60.58
+        },
+        "test_mae": 50.71199866296559,
+        "test_pct_of_mean": 19.850700333482887
+      },
+      "fat": {
+        "model": "svr_c3",
+        "cv_mae_train": {
+          "ridge": 3.87,
+          "svr_c3": 3.25,
+          "svr_c10": 3.3,
+          "pca_gbm": 4.26
+        },
+        "test_mae": 3.792347455818053,
+        "test_pct_of_mean": 29.556912844059635
+      },
+      "carb": {
+        "model": "svr_c3",
+        "cv_mae_train": {
+          "ridge": 4.91,
+          "svr_c3": 4.2,
+          "svr_c10": 4.25,
+          "pca_gbm": 5.36
+        },
+        "test_mae": 5.2522796635752265,
+        "test_pct_of_mean": 26.683538119720517
+      },
+      "protein": {
+        "model": "svr_c3",
+        "cv_mae_train": {
+          "ridge": 4.69,
+          "svr_c3": 4.08,
+          "svr_c10": 4.09,
+          "pca_gbm": 5.27
+        },
+        "test_mae": 4.7422877620289645,
+        "test_pct_of_mean": 27.131880473066385
+      }
+    }
+  }
+}

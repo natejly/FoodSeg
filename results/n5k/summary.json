@@ -1,0 +1,325 @@
+{
+  "n_errors": 1,
+  "f_px": 465.13674408717355,
+  "estimators": {
+    "vol_container": {
+      "n_test": 507,
+      "fitted_density_g_per_cm3": 0.4952413558536262,
+      "kcal_global_mae_pct": [
+        137.56990295397642,
+        53.850350813327815
+      ],
+      "pearson_r_volume_vs_mass": 0.5825081567879055,
+      "frac_zero_volume_test": 0.02564102564102564,
+      "mass_mae_g_pct": [
+        83.21072943187873,
+        41.91788861925452
+      ],
+      "kcal_oracle_nutr_mae_pct": [
+        112.68354800739598,
+        44.108838203649725
+      ],
+      "mass_mape_pct": 62.05765928810857
+    },
+    "vol_container+ingr_names": {
+      "n_test": 507,
+      "density": "per-ingredient, oracle names",
+      "ridge_lambda": 1.0,
+      "n_ingredients_fitted": 197,
+      "pearson_r_volume_vs_mass": 0.5825081567879055,
+      "frac_zero_volume_test": 0.02564102564102564,
+      "mass_mae_g_pct": [
+        60.482086901583834,
+        30.46820283285939
+      ],
+      "kcal_oracle_nutr_mae_pct": [
+        82.58496768132453,
+        32.327052546038885
+      ],
+      "mass_mape_pct": 33.79054450685063
+    },
+    "vol_container+ingr_frac": {
+      "n_test": 507,
+      "density": "per-ingredient, oracle frac",
+      "ridge_lambda": 3.0,
+      "n_ingredients_fitted": 197,
+      "pearson_r_volume_vs_mass": 0.5825081567879055,
+      "frac_zero_volume_test": 0.02564102564102564,
+      "mass_mae_g_pct": [
+        59.13258943169755,
+        29.788385638359625
+      ],
+      "kcal_oracle_nutr_mae_pct": [
+        81.70992952740356,
+        31.98452768738971
+      ],
+      "mass_mape_pct": 31.474738935734926
+    },
+    "vol_dish": {
+      "n_test": 507,
+      "fitted_density_g_per_cm3": 0.4922200008318092,
+      "kcal_global_mae_pct": [
+        141.229560268252,
+        55.28288675322908
+      ],
+      "pearson_r_volume_vs_mass": 0.5462215379663914,
+      "frac_zero_volume_test": 0.02564102564102564,
+      "mass_mae_g_pct": [
+        85.53455895435357,
+        43.08853124861618
+      ],
+      "kcal_oracle_nutr_mae_pct": [
+        110.01352331155852,
+        43.06368396959318
+      ],
+      "mass_mape_pct": 62.903316497692416
+    },
+    "vol_dish+ingr_names": {
+      "n_test": 507,
+      "density": "per-ingredient, oracle names",
+      "ridge_lambda": 3.0,
+      "n_ingredients_fitted": 197,
+      "pearson_r_volume_vs_mass": 0.5462215379663914,
+      "frac_zero_volume_test": 0.02564102564102564,
+      "mass_mae_g_pct": [
+        70.00559080943408,
+        35.26572328244414
+      ],
+      "kcal_oracle_nutr_mae_pct": [
+        90.42437636296877,
+        35.395709996621086
+      ],
+      "mass_mape_pct": 39.663494360680595
+    },
+    "vol_dish+ingr_frac": {
+      "n_test": 507,
+      "density": "per-ingredient, oracle frac",
+      "ridge_lambda": 3.0,
+      "n_ingredients_fitted": 197,
+      "pearson_r_volume_vs_mass": 0.5462215379663914,
+      "frac_zero_volume_test": 0.02564102564102564,
+      "mass_mae_g_pct": [
+        68.76664979130726,
+        34.641599543134994
+      ],
+      "kcal_oracle_nutr_mae_pct": [
+        89.22018018095893,
+        34.92433954816629
+      ],
+      "mass_mape_pct": 37.2194598149569
+    },
+    "vol_hm_mask": {
+      "n_test": 507,
+      "fitted_density_g_per_cm3": 0.5126564206369059,
+      "kcal_global_mae_pct": [
+        149.60784972284404,
+        58.56248364657228
+      ],
+      "pearson_r_volume_vs_mass": 0.4429599109191954,
+      "frac_zero_volume_test": 0.02564102564102564,
+      "mass_mae_g_pct": [
+        98.65664867210533,
+        49.69886021696018
+      ],
+      "kcal_oracle_nutr_mae_pct": [
+        137.7544058389908,
+        53.92257260654533
+      ],
+      "mass_mape_pct": 67.94880554192302
+    },
+    "vol_hm_mask+ingr_names": {
+      "n_test": 507,
+      "density": "per-ingredient, oracle names",
+      "ridge_lambda": 1.0,
+      "n_ingredients_fitted": 196,
+      "pearson_r_volume_vs_mass": 0.4429599109191954,
+      "frac_zero_volume_test": 0.02564102564102564,
+      "mass_mae_g_pct": [
+        74.8573386122236,
+        37.709819439208864
+      ],
+      "kcal_oracle_nutr_mae_pct": [
+        103.87629639206233,
+        40.66132839952031
+      ],
+      "mass_mape_pct": 38.66315957590369
+    },
+    "vol_hm_mask+ingr_frac": {
+      "n_test": 507,
+      "density": "per-ingredient, oracle frac",
+      "ridge_lambda": 1.0,
+      "n_ingredients_fitted": 196,
+      "pearson_r_volume_vs_mass": 0.4429599109191954,
+      "frac_zero_volume_test": 0.02564102564102564,
+      "mass_mae_g_pct": [
+        73.85174878703242,
+        37.203247719710504
+      ],
+      "kcal_oracle_nutr_mae_pct": [
+        102.30717706454101,
+        40.047112466815435
+      ],
+      "mass_mape_pct": 35.89719376463203
+    },
+    "area_mask": {
+      "n_test": 507,
+      "fitted_density_g_per_cm3": 0.6245975801119674,
+      "kcal_global_mae_pct": [
+        123.06607816544604,
+        48.172974903142766
+      ],
+      "pearson_r_volume_vs_mass": 0.6506062333585703,
+      "frac_zero_volume_test": 0.02564102564102564,
+      "mass_mae_g_pct": [
+        72.81691832784819,
+        36.681945860875
+      ],
+      "kcal_oracle_nutr_mae_pct": [
+        96.88278192381686,
+        37.923787706051236
+      ],
+      "mass_mape_pct": 61.756148312969174
+    },
+    "area_mask+ingr_names": {
+      "n_test": 507,
+      "density": "per-ingredient, oracle names",
+      "ridge_lambda": 1.0,
+      "n_ingredients_fitted": 197,
+      "pearson_r_volume_vs_mass": 0.6506062333585703,
+      "frac_zero_volume_test": 0.02564102564102564,
+      "mass_mae_g_pct": [
+        54.000085238002335,
+        27.202856817760807
+      ],
+      "kcal_oracle_nutr_mae_pct": [
+        70.65788628326519,
+        27.658316843873827
+      ],
+      "mass_mape_pct": 33.29386983988702
+    },
+    "area_mask+ingr_frac": {
+      "n_test": 507,
+      "density": "per-ingredient, oracle frac",
+      "ridge_lambda": 1.0,
+      "n_ingredients_fitted": 197,
+      "pearson_r_volume_vs_mass": 0.6506062333585703,
+      "frac_zero_volume_test": 0.02564102564102564,
+      "mass_mae_g_pct": [
+        51.19425183128064,
+        25.78940193002989
+      ],
+      "kcal_oracle_nutr_mae_pct": [
+        67.80917641758084,
+        26.54321810251751
+      ],
+      "mass_mape_pct": 29.954549707200005
+    },
+    "vol_hull_mask": {
+      "n_test": 497,
+      "fitted_density_g_per_cm3": 0.27330638946679664,
+      "kcal_global_mae_pct": [
+        148.4024502909818,
+        58.71627014205632
+      ],
+      "pearson_r_volume_vs_mass": 0.49491918955731484,
+      "frac_zero_volume_test": 0.026156941649899398,
+      "mass_mae_g_pct": [
+        105.4206633978348,
+        53.71767317577499
+      ],
+      "kcal_oracle_nutr_mae_pct": [
+        145.0933819154438,
+        57.4070184937469
+      ],
+      "mass_mape_pct": 74.2564053756688
+    },
+    "vol_hm_center": {
+      "n_test": 507,
+      "fitted_density_g_per_cm3": 0.2596127271031938,
+      "kcal_global_mae_pct": [
+        219.66582160631663,
+        85.98597005011639
+      ],
+      "pearson_r_volume_vs_mass": -0.08636647363413874,
+      "frac_zero_volume_test": 0.0,
+      "mass_mae_g_pct": [
+        164.17135992457264,
+        82.70227681904369
+      ],
+      "kcal_oracle_nutr_mae_pct": [
+        230.8573973056427,
+        90.3667994657208
+      ],
+      "mass_mape_pct": 198.92029005454415
+    },
+    "vol_hm_global": {
+      "n_test": 507,
+      "fitted_density_g_per_cm3": 0.05865451500369817,
+      "kcal_global_mae_pct": [
+        186.4897508829084,
+        72.99953181979367
+      ],
+      "pearson_r_volume_vs_mass": 0.30377166644518294,
+      "frac_zero_volume_test": 0.0,
+      "mass_mae_g_pct": [
+        141.8180198122688,
+        71.44165180718203
+      ],
+      "kcal_oracle_nutr_mae_pct": [
+        201.02201395652204,
+        78.6880396098113
+      ],
+      "mass_mape_pct": 159.75759970758506
+    },
+    "vol_hull_center": {
+      "n_test": 497,
+      "fitted_density_g_per_cm3": 0.0904153593356059,
+      "kcal_global_mae_pct": [
+        221.18794704657034,
+        86.93706590665626
+      ],
+      "pearson_r_volume_vs_mass": -0.2130559810612736,
+      "frac_zero_volume_test": 0.0,
+      "mass_mae_g_pct": [
+        165.72421542903098,
+        83.79020648046104
+      ],
+      "kcal_oracle_nutr_mae_pct": [
+        233.0298338104388,
+        91.59147363454586
+      ],
+      "mass_mape_pct": 197.10620007483845
+    },
+    "vol_hull_global": {
+      "n_test": 488,
+      "fitted_density_g_per_cm3": 0.03402872004581076,
+      "kcal_global_mae_pct": [
+        183.05641450980517,
+        71.47458957726704
+      ],
+      "pearson_r_volume_vs_mass": 0.20207125432261044,
+      "frac_zero_volume_test": 0.0,
+      "mass_mae_g_pct": [
+        133.85139105256414,
+        66.80112784934988
+      ],
+      "kcal_oracle_nutr_mae_pct": [
+        186.39247357285683,
+        72.7771577116624
+      ],
+      "mass_mape_pct": 151.03425759145023
+    }
+  },
+  "baseline_train_mean": {
+    "mass": [
+      121.90378635200155,
+      61.40974094875481
+    ],
+    "kcal": [
+      168.505890651964,
+      65.95993113956204
+    ]
+  },
+  "n_train": 2754,
+  "n_test": 507
+}

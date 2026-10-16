@@ -1,0 +1,18 @@
+{
+  "full": {
+    "eps_m": 0.008,
+    "mIoU": 0.630062205170813,
+    "recall@IoU0.5": 0.6501333333333333,
+    "item_volume_mape_pct": 99.73909404667738,
+    "item_volume_median_ape_pct": 27.667609112578173,
+    "count_exact_pct": 12.4
+  },
+  "top": {
+    "eps_m": 0.008,
+    "mIoU": 0.6757573441714544,
+    "recall@IoU0.5": 0.7285333333333333,
+    "item_volume_mape_pct": 58.57608578345616,
+    "item_volume_median_ape_pct": 2.556615496825222,
+    "count_exact_pct": 2.8000000000000003
+  }
+}

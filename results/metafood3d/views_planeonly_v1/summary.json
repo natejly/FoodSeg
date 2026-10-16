@@ -1,0 +1,68 @@
+{
+  "n_objects": 632,
+  "n_watertight": 0,
+  "volume": {
+    "mesh_vol": {
+      "n": 0,
+      "mape_pct": NaN,
+      "median_ape_pct": NaN,
+      "median_bias_pct": NaN
+    },
+    "top1": {
+      "n": 632,
+      "mape_pct": 70.86726175769812,
+      "median_ape_pct": 44.426332411354274,
+      "median_bias_pct": 44.426332411354274
+    },
+    "oblique1": {
+      "n": 632,
+      "mape_pct": 52.441897257105595,
+      "median_ape_pct": 28.55352742606994,
+      "median_bias_pct": 28.268641764383926
+    },
+    "orbit2": {
+      "n": 632,
+      "mape_pct": 84.69539272960222,
+      "median_ape_pct": 56.31883758529125,
+      "median_bias_pct": 56.31883758529125
+    },
+    "orbit4": {
+      "n": 632,
+      "mape_pct": 90.285591241829,
+      "median_ape_pct": 59.89556876287828,
+      "median_bias_pct": 59.89556876287828
+    },
+    "orbit8": {
+      "n": 632,
+      "mape_pct": 95.10092935190002,
+      "median_ape_pct": 63.47650762244673,
+      "median_bias_pct": 63.47650762244673
+    },
+    "orbit16": {
+      "n": 632,
+      "mape_pct": 100.16081380666687,
+      "median_ape_pct": 66.70979649590231,
+      "median_bias_pct": 66.70979649590231
+    }
+  },
+  "mass_loo_category_density": {
+    "vol_gt": 27.74579595635045,
+    "mesh_vol": NaN,
+    "top1": 36.57607213444186,
+    "oblique1": 37.120932973228484,
+    "orbit2": 35.64623898542347,
+    "orbit4": 35.46923034921426,
+    "orbit8": 35.14353305133615,
+    "orbit16": 35.139955743446656
+  },
+  "kcal_loo_category": {
+    "vol_gt": 32.226492204932136,
+    "mesh_vol": NaN,
+    "top1": 39.90619578133673,
+    "oblique1": 40.47788326422223,
+    "orbit2": 39.03316547458994,
+    "orbit4": 38.870976023446474,
+    "orbit8": 38.55355054304571,
+    "orbit16": 38.51820657471009
+  }
+}

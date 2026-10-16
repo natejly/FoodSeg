@@ -1,0 +1,11 @@
+401 train / 95 test objects
+  50 objects, 1539 files
+  100 objects, 3115 files
+  150 objects, 4773 files
+  200 objects, 6229 files
+  250 objects, 7529 files
+  300 objects, 8986 files
+  350 objects, 10298 files
+  400 objects, 11640 files
+  450 objects, 13080 files
+done: 454 objects, 13231 files; missing 42: ['Almond(bowl)/Almond_1', 'Almonds/new_almonds_3', 'Apple/apple_5', 'Applesauce/new_applesauce_1', 'Applesauce/new_applesauce_2', 'Bacon/bacon2', 'Bagel/bagel_1', 'Beans/baked_bean_2', 'Burger/new_burger_2', 'Carrot/carrot_3']

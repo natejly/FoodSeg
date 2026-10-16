@@ -1,0 +1,9 @@
+{
+  "view": "full",
+  "eps_dm": 0.05,
+  "mIoU": 0.9453019911231877,
+  "recall@IoU0.5": 0.9744666666666667,
+  "item_volume_mape_pct": 9.823351917753998,
+  "item_volume_median_ape_pct": 0.09971070163928117,
+  "count_exact_pct": 52.6
+}

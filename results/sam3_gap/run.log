@@ -1,0 +1,86 @@
+/home/kyle/src/sam3/sam3/model/model_misc.py:71: UserWarning: Flash Attention is disabled as it requires a GPU with Ampere (8.0) CUDA capability.
+  OLD_GPU, USE_FLASH_ATTN, MATH_KERNEL_ON = get_sdpa_settings()
+/home/kyle/miniconda3/envs/foodseg/lib/python3.12/site-packages/timm/models/layers/__init__.py:49: FutureWarning: Importing from timm.models.layers is deprecated, please import via timm.layers
+  warnings.warn(f"Importing from {__name__} is deprecated, please import via timm.layers", FutureWarning)
+load 10s
+s000000_top: 7 items, 13s
+s000000_obl: 7 items, 15s
+s000001_top: 5 items, 17s
+s000001_obl: 5 items, 18s
+s000002_top: 10 items, 21s
+s000002_obl: 10 items, 24s
+s000003_top: 14 items, 28s
+s000003_obl: 14 items, 32s
+s000004_top: 10 items, 34s
+s000004_obl: 10 items, 36s
+s000005_top: 8 items, 38s
+s000005_obl: 8 items, 40s
+s000006_top: 8 items, 42s
+s000006_obl: 8 items, 44s
+s000007_top: 6 items, 46s
+s000007_obl: 6 items, 48s
+s000008_top: 31 items, 53s
+s000008_obl: 31 items, 58s
+s000009_top: 3 items, 60s
+s000009_obl: 3 items, 62s
+s000010_top: 8 items, 63s
+s000010_obl: 8 items, 65s
+s000011_top: 3 items, 67s
+s000011_obl: 3 items, 69s
+s000012_top: 5 items, 70s
+s000012_obl: 5 items, 72s
+s000013_top: 5 items, 74s
+s000013_obl: 5 items, 75s
+s000014_top: 7 items, 77s
+s000014_obl: 7 items, 79s
+s000015_top: 8 items, 81s
+s000015_obl: 8 items, 83s
+s000016_top: 5 items, 85s
+s000016_obl: 5 items, 87s
+s000017_top: 4 items, 89s
+s000017_obl: 4 items, 90s
+s000018_top: 4 items, 92s
+s000018_obl: 4 items, 94s
+s000019_top: 26 items, 100s
+s000019_obl: 26 items, 104s
+real dish_1560370833: {'ice cream cones': 'ice cream', 'frozen yogurt': 'yogurt'}, 108s
+real dish_1562085672: {'bread': 'yeast bread'}, 109s
+real dish_1561492519: {'wheat bread': 'yeast bread'}, 110s
+real dish_1565894910: {'cheese pizza': 'melted cheese', 'cookies': 'cookies'}, 111s
+real dish_1559244649: {'olive oil': 'olive', 'mustard greens': 'mixed greens', 'brown rice': 'rice', 'blueberries': 'blueberries', 'chicken': 'chicken thighs', 'cookies': 'cookies'}, 113s
+real dish_1564086709: {'pesto': 'pesto', 'cheese pizza': 'melted cheese', 'cherry tomatoes': 'cherry tomato', 'pasta': 'pasta mixed dishes', 'spinach (raw)': 'mixed greens', 'corn on the cob': 'corn'}, 115s
+real dish_1563998513: {'chicken': 'chicken thighs', 'cookies': 'cookies', 'brown rice': 'rice', 'arugula': 'mixed greens', 'olive oil': 'olive', 'cauliflower': 'cauliflower'}, 117s
+real dish_1565809033: {'cherry tomatoes': 'cherry tomato', 'tuna': 'tuna salad'}, 119s
+real dish_1565117962: {'chicken breast': 'chicken breast', 'tuna': 'tuna salad'}, 120s
+real dish_1565117934: {'chicken breast': 'chicken breast', 'tuna': 'tuna salad'}, 122s
+real dish_1563824155: {'broccoli': 'broccoli', 'squash': 'squash', 'olive oil': 'olive', 'cauliflower': 'cauliflower', 'couscous': 'couscous'}, 123s
+real dish_1559590202: {'couscous': 'couscous', 'chicken': 'chicken thighs', 'asparagus': 'asparagus'}, 125s
+real dish_1565637123: {'pasta salad': 'pasta mixed dishes'}, 126s
+real dish_1559589902: {'asparagus': 'asparagus'}, 127s
+real dish_1560370114: {'asparagus': 'asparagus'}, 128s
+real dish_1564588889: {'egg whites': 'boiled egg', 'blueberries': 'blueberries', 'greek yogurt': 'yogurt'}, 130s
+real dish_1562602888: {'strawberries': 'strawberry', 'watermelon': 'melons', 'egg whites': 'boiled egg', 'greek yogurt': 'yogurt'}, 132s
+real dish_1565035858: {'cherry tomatoes': 'cherry tomato', 'chicken breast': 'chicken breast', 'watermelon': 'melons', 'cauliflower': 'cauliflower'}, 134s
+real dish_1559235639: {'strawberries': 'strawberry'}, 135s
+real dish_1563811639: {'strawberries': 'strawberry', 'scrambled eggs': 'boiled egg'}, 137s
+real dish_1564588719: {'sausage': 'sausages'}, 138s
+real dish_1562947436: {'sausage': 'sausages'}, 139s
+real dish_1562173381: {'sausage': 'sausages'}, 140s
+real dish_1558113154: {'grapes': 'grapes'}, 141s
+real dish_1558639195: {'grapes': 'grapes', 'corn on the cob': 'corn'}, 142s
+real dish_1559841781: {'grapes': 'grapes'}, 144s
+real dish_1562788506: {'corn on the cob': 'corn'}, 145s
+real dish_1562094621: {'green beans': 'green beans'}, 146s
+real dish_1561661972: {'green beans': 'green beans'}, 147s
+real dish_1558381708: {'green beans': 'green beans'}, 148s
+real dish_1568666263: {'lettuce': 'lettuce', 'broccoli': 'broccoli'}, 150s
+real dish_1568666184: {'lettuce': 'lettuce'}, 151s
+real dish_1568666230: {'lettuce': 'lettuce', 'broccoli': 'broccoli'}, 153s
+real dish_1562961609: {'pork': 'pork chop', 'white rice': 'rice'}, 154s
+real dish_1562949162: {'bacon': 'bacon'}, 155s
+real dish_1562173267: {'bacon': 'bacon'}, 156s
+real dish_1558628760: {'bacon': 'bacon'}, 157s
+real dish_1565721828: {'chayote squash': 'squash'}, 159s
+real dish_1565721800: {'chayote squash': 'squash'}, 160s
+real dish_1567007751: {'cantaloupe': 'melons'}, 161s
+done 161s, peak 2554 MiB

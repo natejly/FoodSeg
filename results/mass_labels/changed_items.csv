@@ -1,0 +1,245 @@
+batch,scan,id,category,kind,mass_synth_g,mass_usda_bulk_g,ratio
+hard,s000000,2,Blueberries,pile,2.000,1.199,0.600
+hard,s000002,2,Quickbread,single,67.000,105.947,1.581
+hard,s000003,1,Bell Pepper,single,13.000,23.643,1.819
+hard,s000004,2,Almonds,pile,1.000,1.558,1.558
+hard,s000004,3,Almonds,pile,3.000,4.129,1.376
+hard,s000004,4,Almonds,pile,1.000,1.381,1.381
+hard,s000004,5,Almonds,pile,3.000,17.916,5.972
+hard,s000004,6,Almonds,pile,2.000,3.917,1.958
+hard_v3,s000000,2,Blueberries,pile,2.000,1.198,0.599
+hard_v3,s000002,2,Quickbread,single,67.000,118.709,1.772
+hard_v3,s000003,1,Bell Pepper,single,13.000,23.641,1.819
+hard_v3,s000004,5,Almonds,pile,3.000,7.347,2.449
+hard_v9,s000000,2,lettuce,leaves,1.104,21.587,19.558
+hard_v9,s000001,1,arugula,leaves,0.340,3417.513,10047.522
+hard_v9,s000002,2,mac and cheese,piece,23.838,15.811,0.663
+hard_v9,s000002,3,olive,single,2.846,4.022,1.413
+hard_v9,s000003,1,Brownies,single,94.000,48.399,0.515
+hard_v9,s000004,1,kale,leaves,1.819,9.163,5.039
+hard_v9,s000005,1,Fried mushrooms,pile,16.000,8.094,0.506
+hard_v9,s000005,2,Fried mushrooms,pile,11.000,7.172,0.652
+hard_v9,s000006,3,Blueberries,pile,2.000,3.795,1.897
+hard_v9,s000006,4,Blueberries,pile,1.000,3.829,3.829
+hard_v9,s000006,5,Blueberries,pile,2.330,6.446,2.766
+hard_v9,s000006,6,Blueberries,pile,3.000,11.632,3.877
+hard_v9,s000006,7,Blueberries,pile,1.000,5.042,5.042
+hard_v9,s000007,3,Melons,pile,31.000,46.791,1.509
+hard_v9,s000008,4,pesto,topping,1.316,11.754,8.934
+hard_v9,s000008,5,cheese cube,single,9.252,14.532,1.571
+hard_v9,s000008,6,Blueberries,single,2.000,0.841,0.420
+hard_v9,s000009,4,pesto,topping,2.219,31.303,14.109
+hard_v9,s000009,5,Sushi,pile,26.000,43.143,1.659
+hard_v9,s000009,6,Sushi,pile,37.000,81.310,2.198
+hard_v9,s000010,4,melted cheese,topping,1.561,12.996,8.327
+hard_v9,s000010,5,Chicken_Nugget,single,23.000,61.915,2.692
+hard_v9,s000012,3,melted cheese,topping,2.940,5.348,1.819
+hard_v9,s000013,1,mac and cheese,piece,42.875,28.531,0.665
+hard_v9,s000013,4,sour cream,topping,1.763,5.843,3.314
+hard_v9,s000013,5,pesto,topping,0.999,10.625,10.638
+hard_v9,s000013,6,Falafel,pile,28.000,40.323,1.440
+hard_v9,s000013,8,Falafel,pile,29.000,42.238,1.456
+hard_v9,s000014,4,spinach (raw),leaves,0.858,22.930,26.731
+hard_v9,s000014,5,cheese cube,single,7.799,10.446,1.339
+hard_v9,s000015,2,salsa,topping,2.978,41.718,14.008
+hard_v9,s000015,3,Strawberry,single,34.000,62.248,1.831
+hard_v9,s000016,1,spinach (raw),leaves,1.296,14.254,10.998
+hard_v9,s000018,3,Peanuts,single,10.000,74.263,7.426
+hard_v9,s000019,2,pesto,topping,1.265,14.219,11.240
+hard_v9,s000019,3,arugula,leaves,0.523,1394.282,2667.626
+hard_v10,s000000,1,granola,piece,35.485,49.348,1.391
+hard_v10,s000000,3,Green_Bean,single,7.000,9.155,1.308
+hard_v10,s000001,2,Yeast_bread,single,32.000,59.071,1.846
+hard_v10,s000005,4,Almonds,pile,2.000,4.177,2.089
+hard_v10,s000005,5,Almonds,pile,3.000,7.269,2.423
+hard_v10,s000006,2,gravy,topping,3.968,7.656,1.930
+hard_v10,s000007,1,mixed greens,leaves,2.747,14.080,5.125
+hard_v10,s000008,4,melted cheese,topping,2.099,13.056,6.221
+hard_v10,s000008,5,curry sauce,topping,3.391,19.216,5.666
+hard_v10,s000008,6,Blueberries,pile,1.000,3.642,3.642
+hard_v10,s000008,7,Blueberries,pile,3.000,8.937,2.979
+hard_v10,s000008,8,Blueberries,pile,1.000,2.648,2.648
+hard_v10,s000010,1,spinach (raw),leaves,1.942,14.540,7.489
+hard_v10,s000011,1,green curry,piece,44.116,198.920,4.509
+hard_v10,s000013,2,salsa,topping,5.449,35.929,6.593
+hard_v10,s000014,1,Broccoli,single,19.000,41.066,2.161
+hard_v10,s000015,2,Blueberries,pile,1.000,1.812,1.812
+hard_v10,s000016,3,Chicken_Nugget,single,11.000,70.252,6.387
+hard_v10,s000017,2,spinach (raw),leaves,1.057,15.310,14.484
+hard_v10,s000018,2,lettuce,leaves,2.166,93.318,43.076
+hard_v10,s000019,2,Tofu,single,24.000,56.459,2.352
+hard_v11,s000000,3,strawberry,pile,28.994,38.732,1.336
+hard_v11,s000000,4,strawberry,pile,28.994,49.047,1.692
+hard_v11,s000000,6,Strawberry,pile,25.400,36.077,1.420
+hard_v11,s000000,7,Blueberries,single,16.000,55.587,3.474
+hard_v11,s000001,1,Strawberry,pile,12.000,6.534,0.544
+hard_v11,s000001,2,Strawberry,pile,17.700,11.069,0.625
+hard_v11,s000001,8,Melons,pile,20.000,30.534,1.527
+hard_v11,s000001,9,Melons,pile,24.000,35.245,1.469
+hard_v11,s000001,11,Blueberries,single,1.000,0.217,0.217
+hard_v11,s000002,3,sour cream,topping,0.158,0.602,3.801
+hard_v11,s000002,4,Hashbrown,single,49.000,31.235,0.637
+hard_v11,s000002,5,Blueberries,single,16.000,9.881,0.618
+hard_v11,s000003,2,Almonds,single,3.000,5.881,1.960
+hard_v11,s000004,2,Rice,single,195.000,289.743,1.486
+hard_v11,s000006,4,sour cream,topping,1.380,8.736,6.331
+hard_v11,s000006,5,lettuce,leaves,1.994,70.985,35.592
+hard_v11,s000007,2,Chicken_tender,single,32.000,93.128,2.910
+hard_v11,s000007,3,Chicken_tender,single,44.000,74.398,1.691
+hard_v11,s000007,4,Chicken_tender,single,37.000,73.495,1.986
+hard_v11,s000007,5,Broccoli,single,17.000,29.940,1.761
+hard_v11,s000007,6,Broccoli,single,19.000,32.679,1.720
+hard_v11,s000007,7,Broccoli,single,17.000,38.722,2.278
+hard_v11,s000007,8,tofu,pile,11.264,20.392,1.810
+hard_v11,s000007,9,Tofu,pile,13.000,28.628,2.202
+hard_v11,s000007,11,cherry tomato,pile,7.169,4.680,0.653
+hard_v11,s000007,12,cherry tomato,pile,7.322,4.823,0.659
+hard_v11,s000007,13,cherry tomato,pile,6.963,4.796,0.689
+hard_v11,s000008,1,Asparagus,single,8.000,0.217,0.027
+hard_v11,s000008,3,Asparagus,single,373.000,224.287,0.601
+hard_v11,s000008,4,Asparagus,single,45.000,144.448,3.210
+hard_v11,s000008,5,Asparagus,single,4.000,0.864,0.216
+hard_v11,s000008,6,Tortilla,single,40.000,236.849,5.921
+hard_v11,s000008,7,Almonds,single,1.000,0.214,0.214
+hard_v11,s000009,2,Broccoli,single,9.000,11.886,1.321
+hard_v11,s000009,4,Broccoli,single,55.100,92.185,1.673
+hard_v11,s000009,5,Green_beans,single,1.500,9.568,6.379
+hard_v11,s000010,4,Shrimp,single,8.000,4.755,0.594
+hard_v11,s000010,7,Shrimp,single,9.000,12.340,1.371
+hard_v11,s000010,9,Cucumber,pile,45.000,72.521,1.612
+hard_v11,s000010,10,Cucumber,pile,45.000,71.515,1.589
+hard_v11,s000010,11,Cucumber,pile,14.000,6.303,0.450
+hard_v11,s000011,2,Omelet,single,124.000,207.788,1.676
+hard_v11,s000011,3,Carrot,single,9.000,62.719,6.969
+hard_v11,s000012,2,melted cheese,topping,2.685,9.946,3.705
+hard_v11,s000012,6,Shrimp,single,13.000,20.189,1.553
+hard_v11,s000012,7,Shrimp,single,9.000,14.157,1.573
+hard_v11,s000012,9,brussels sprout,pile,7.300,10.508,1.439
+hard_v11,s000012,11,brussels sprout,pile,7.300,10.512,1.440
+hard_v11,s000012,12,brussels sprout,pile,5.659,8.502,1.503
+hard_v11,s000013,1,Bacon,single,5.000,1.854,0.371
+hard_v11,s000013,3,Bacon,single,12.000,28.736,2.395
+hard_v11,s000013,5,Yeast_bread,single,30.000,55.842,1.861
+hard_v11,s000014,1,Bacon,single,12.000,18.761,1.563
+hard_v11,s000014,2,Bacon,single,12.000,19.860,1.655
+hard_v11,s000014,3,Bacon,single,8.000,25.814,3.227
+hard_v11,s000014,5,French_toast,single,54.000,75.873,1.405
+hard_v11,s000014,6,Blueberries,single,16.000,31.530,1.971
+hard_v11,s000015,2,tomato sauce,topping,0.000,0.099,333.448
+hard_v11,s000015,3,arugula,leaves,0.294,3.149,10.722
+hard_v11,s000015,5,strawberry,pile,28.994,51.263,1.768
+hard_v11,s000015,8,Strawberry,pile,12.000,21.299,1.775
+hard_v11,s000015,10,Fried mushrooms,pile,10.000,5.578,0.558
+hard_v11,s000015,12,Fried mushrooms,pile,10.000,4.576,0.458
+hard_v11,s000016,1,Yeast_bread,single,33.000,21.565,0.653
+hard_v11,s000016,2,cherry tomato,pile,7.665,5.260,0.686
+hard_v11,s000016,3,cherry tomato,pile,7.274,3.800,0.522
+hard_v11,s000016,5,cherry tomato,pile,6.963,4.058,0.583
+hard_v11,s000016,9,olive,pile,3.175,4.499,1.417
+hard_v11,s000017,1,green curry,piece,107.872,371.116,3.440
+hard_v11,s000018,1,penne in tomato sauce,piece,207.118,131.819,0.636
+hard_v11,s000018,3,Pancake,single,90.000,145.883,1.621
+hard_v11,s000018,4,Chicken_thighs,single,207.000,454.668,2.196
+hard_v11,s000018,5,Strawberry,pile,17.700,24.323,1.374
+hard_v11,s000018,7,Strawberry,pile,13.000,34.022,2.617
+hard_v11,s000018,8,Strawberry,pile,13.000,42.997,3.307
+hard_v11,s000018,9,strawberry,pile,28.994,98.390,3.393
+hard_v11,s000018,10,Pie,single,110.000,243.857,2.217
+hard_v11,s000019,2,Broccoli,single,19.000,32.512,1.711
+hard_v11,s000019,3,Broccoli,single,15.000,20.138,1.343
+hard_v11,s000019,4,Broccoli,single,20.000,33.224,1.661
+hard_v11,s000019,5,Steak,single,124.000,170.388,1.374
+hard_v12,s000000,1,lettuce,leaves,1.018,45.107,44.310
+hard_v12,s000000,2,Tuna_salad,single,81.000,45.764,0.565
+hard_v12,s000000,5,Cucumber,pile,45.000,62.194,1.382
+hard_v12,s000000,6,Cucumber,pile,45.000,142.117,3.158
+hard_v12,s000000,7,Cucumber,pile,45.000,27.136,0.603
+hard_v12,s000001,2,Grapes,single,43.000,28.817,0.670
+hard_v12,s000001,3,Broccoli,single,170.100,277.229,1.630
+hard_v12,s000001,5,Broccoli,single,17.000,44.023,2.590
+hard_v12,s000002,2,Chicken_thighs,single,181.000,318.846,1.762
+hard_v12,s000002,3,Rice,single,162.436,243.645,1.500
+hard_v12,s000002,5,Sushi,pile,29.000,53.221,1.835
+hard_v12,s000002,6,sushi,pile,19.417,39.094,2.013
+hard_v12,s000002,7,Sushi,pile,17.000,22.598,1.329
+hard_v12,s000002,10,sushi,pile,19.417,51.224,2.638
+hard_v12,s000003,3,gravy,topping,0.574,2.212,3.855
+hard_v12,s000003,4,melted cheese,topping,0.916,2.750,3.001
+hard_v12,s000003,5,cookies,single,8.464,62.384,7.370
+hard_v12,s000003,6,Cookies,single,36.000,65.029,1.806
+hard_v12,s000003,7,bread roll,single,66.736,38.179,0.572
+hard_v12,s000003,14,squash,pile,10.282,16.272,1.583
+hard_v12,s000004,1,Grapes,single,19.000,7.871,0.414
+hard_v12,s000004,2,Kiwi,single,39.000,23.570,0.604
+hard_v12,s000004,3,Melons,pile,35.000,18.278,0.522
+hard_v12,s000004,8,Strawberry,pile,12.000,7.609,0.634
+hard_v12,s000004,10,strawberry,pile,2.124,4.808,2.263
+hard_v12,s000005,2,Green_beans,single,1.500,6.840,4.560
+hard_v12,s000005,6,cherry tomato,pile,7.274,3.487,0.479
+hard_v12,s000005,7,cherry tomato,pile,7.991,5.322,0.666
+hard_v12,s000005,8,cherry tomato,pile,7.665,4.596,0.600
+hard_v12,s000006,2,cookies,single,20.131,54.499,2.707
+hard_v12,s000006,3,Cookies,single,36.000,116.792,3.244
+hard_v12,s000006,4,strawberry,pile,8.754,13.707,1.566
+hard_v12,s000006,6,strawberry,pile,3.795,9.853,2.596
+hard_v12,s000007,2,Pasta_mixed_dishes,single,184.075,119.714,0.650
+hard_v12,s000007,4,Broccoli,single,170.100,321.722,1.891
+hard_v12,s000007,5,Broccoli,single,19.000,78.210,4.116
+hard_v12,s000007,6,Broccoli,single,55.100,149.007,2.704
+hard_v12,s000008,1,Bacon,single,5.000,0.304,0.061
+hard_v12,s000008,2,Bacon,single,5.000,0.633,0.127
+hard_v12,s000008,3,Cucumber,pile,14.000,1.898,0.136
+hard_v12,s000008,4,Cucumber,pile,14.000,1.158,0.083
+hard_v12,s000008,5,Cucumber,pile,14.000,0.422,0.030
+hard_v12,s000008,6,Cucumber,pile,14.000,0.688,0.049
+hard_v12,s000008,7,Cucumber,pile,45.000,9.692,0.215
+hard_v12,s000008,8,Cucumber,pile,45.000,21.139,0.470
+hard_v12,s000008,9,Cucumber,pile,45.000,27.799,0.618
+hard_v12,s000008,10,Cucumber,pile,45.000,14.115,0.314
+hard_v12,s000008,11,Cucumber,pile,14.000,0.911,0.065
+hard_v12,s000008,12,Cucumber,pile,45.000,25.359,0.564
+hard_v12,s000008,13,Cucumber,pile,14.000,2.233,0.159
+hard_v12,s000008,14,Cucumber,pile,14.000,4.954,0.354
+hard_v12,s000008,15,Cucumber,pile,45.000,64.614,1.436
+hard_v12,s000008,16,Cucumber,pile,14.000,2.527,0.180
+hard_v12,s000008,19,Cucumber,pile,14.000,9.736,0.695
+hard_v12,s000008,23,Cucumber,pile,14.000,9.771,0.698
+hard_v12,s000008,26,cherry tomato,pile,7.169,2.914,0.406
+hard_v12,s000008,27,cherry tomato,pile,7.991,3.245,0.406
+hard_v12,s000008,28,cherry tomato,pile,7.274,2.866,0.394
+hard_v12,s000008,29,cherry tomato,pile,7.991,4.097,0.513
+hard_v12,s000008,30,cherry tomato,pile,7.274,3.690,0.507
+hard_v12,s000009,2,cake slice,single,94.338,49.534,0.525
+hard_v12,s000010,3,olive,pile,3.175,1.580,0.497
+hard_v12,s000011,2,mixed greens,leaves,0.149,0.485,3.253
+hard_v12,s000011,3,cookies,single,3.409,71.447,20.961
+hard_v12,s000012,2,Broccoli,single,17.000,24.171,1.422
+hard_v12,s000012,3,Broccoli,single,20.000,31.496,1.575
+hard_v12,s000012,4,Broccoli,single,15.000,21.632,1.442
+hard_v12,s000013,1,lettuce,leaves,2.319,47.655,20.554
+hard_v12,s000013,2,Broccoli,single,17.000,26.640,1.567
+hard_v12,s000013,3,Broccoli,single,17.000,30.951,1.821
+hard_v12,s000013,4,Broccoli,single,9.000,14.505,1.612
+hard_v12,s000014,2,Broccoli,single,170.100,286.081,1.682
+hard_v12,s000014,3,Broccoli,single,15.000,56.234,3.749
+hard_v12,s000015,1,Asparagus,single,0.658,0.091,0.138
+hard_v12,s000015,2,Asparagus,single,7.405,13.096,1.768
+hard_v12,s000015,3,Asparagus,single,1.316,0.327,0.249
+hard_v12,s000015,4,Asparagus,single,61.379,80.939,1.319
+hard_v12,s000015,5,Asparagus,single,7.405,27.962,3.776
+hard_v12,s000015,8,Sausages,single,94.000,130.251,1.386
+hard_v12,s000016,2,melted cheese,topping,2.196,3.834,1.746
+hard_v12,s000016,3,radicchio,leaves,0.299,6.813,22.774
+hard_v12,s000016,5,Papaya,single,10.000,22.395,2.239
+hard_v12,s000017,3,gravy,topping,1.251,9.014,7.203
+hard_v12,s000017,4,chicken breast,single,97.664,132.727,1.359
+hard_v12,s000018,4,sour cream,topping,2.856,13.792,4.828
+hard_v12,s000019,3,mixed greens,leaves,2.696,25.298,9.384
+hard_v12,s000019,11,Falafel,pile,28.000,38.152,1.363
+hard_v12,s000019,13,Falafel,pile,26.000,43.772,1.684
+hard_v12,s000019,14,Falafel,pile,28.000,41.757,1.491
+hard_v12,s000019,20,Cucumber,pile,14.000,9.229,0.659
+hard_v12,s000019,22,cherry tomato,pile,7.169,4.059,0.566
+hard_v12,s000019,23,cherry tomato,pile,7.274,4.022,0.553
+hard_v12,s000019,24,cherry tomato,pile,7.991,4.696,0.588
+hard_v12,s000019,25,cherry tomato,pile,7.274,4.504,0.619

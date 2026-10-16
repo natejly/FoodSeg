@@ -1,0 +1,10 @@
+## Reading (8 lines)
+
+1. Baselines: the stored lift is 0.632; today's `lift_scan` (repair + min_nvotes 2) is already 0.655 and is the `current` reference for every delta below.
+2. What raises the ceiling is how mask ids are linked across views, not how votes are weighted: co-vote clustering (average-linkage, cosine, cut 0.8) gives 0.709 (+0.043, CI [-0.015, +0.089], better in most scans) and also lifts PQ 0.40 to 0.57 and exact count 0.09 to 0.27; mutual-best-overlap is a smaller +0.008.
+3. Weighting: SAM score and edge-distance weights hurt or do nothing (score -0.011, CI excludes 0 on the wrong side); mask-quality weighting (solidity x area) is neutral alone (+0.005 inst) but adds about +0.03 on top of clustering (0.741, CI [-0.009, +0.120]).
+4. Decision rule: margins always hurt (-0.04 at 0.1, -0.09 at 0.2); min_nvotes 1/2/3 and background-as-abstention are within +-0.001 because nearly every point has >= 3 votes; so keep plain argmax.
+5. Smoothing radius 2-4 mm is the only change whose CI excludes 0 (+0.006) but it costs boundary IoU (0.297 to 0.285), so it stays off.
+6. Superpoints (GT-free, 200-600) do not raise instance mIoU (colour-aware 200: 0.665, CI [-0.037, +0.033]; geometry-only is clearly worse, -0.05 to -0.09) but they merge fragments: PQ 0.40 to 0.51, exact count 0.09 to 0.27, fragmented items 20 to 14, and with clustering 7 / 52 fragmented, PQ 0.63.
+7. Ceilings: perfect merge of whole ids is 0.735 for current, 0.745-0.778 after clustering (+quality); a perfect GT-majority label per superpoint would give 0.79-0.82, so superpoints do NOT make the refiner/merge question moot: even with clustering the best honest result (0.744) is 0.05-0.08 below the superpoint oracle and boundary IoU stays at 0.30-0.33.
+8. Default: nothing is switched on, because no substantive gain has a CI excluding 0 on 11 scans; recommended next trial is `labels.cluster_ids` (+ `weighting="cos+qual"`) in the segment linker (not edited here; the per-scan win counts are 8-9 of 11), then confirm on the 47 train scans / a new real-SAM run.

@@ -1,0 +1,4 @@
+401 train / 95 test objects
+reading _MetaFood3D_new_RGBD_videos_flipped_food.tar.gz, 42 objects to find
+reading _MetaFood3D_new_RGBD_videos.tar.gz, 41 objects to find
+done: 2 objects, 60 files; missing 40: ['Almonds/new_almonds_3', 'Apple/apple_5', 'Applesauce/new_applesauce_1', 'Applesauce/new_applesauce_2', 'Bacon/bacon2', 'Bagel/bagel_1', 'Beans/baked_bean_2', 'Burger/new_burger_2', 'Carrot/carrot_3', 'Carrot/carrot_4']
