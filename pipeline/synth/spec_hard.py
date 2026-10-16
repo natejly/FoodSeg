@@ -766,6 +766,9 @@ CROWD_COVER = (1.7, 1.2)   # share of the well the scans' footprints may add up 
 CROWD_N = 20                # pieces (scans + piles + foods) on a plate with a 0.085 m well, scaled with the well area
 
 
+CUBE_PRIMS = {"squash", "cheese cube", "roasted potato"}
+
+
 def sample_scene_hard(rng: np.random.Generator, assets: list[dict], out: Path, scene_id: str,
                       n_views: int = 24, res_scale: float = 1.0, max_items: int = 14,
                       hdris: list[str] | None = None, surfaces: list[dict] | None = None,
@@ -846,8 +849,11 @@ def _sample_scene_hard(rng: np.random.Generator, assets: list[dict], out: Path, 
             return True
         return max(a["extent_m"]) < WHOLE_RAW[cat]
 
+    # plain boxes (squash / cheese / roasted potato) read as each other and SAM 3 cannot name them: mostly dropped
+    drop_cubes = rng.random() > 0.15
     pool = [a for a in assets if a.get("role", "food") == "food" and a.get("volume_ok", a["watertight"])
-            and not a.get("container_shaped") and servable(a)]
+            and not a.get("container_shaped") and servable(a)
+            and not (drop_cubes and a["procedural"] and str(a["category"]).lower() in CUBE_PRIMS)]
     real = [a for a in pool if not a["procedural"]]
     by_cat: dict[str, list[dict]] = {}
     for a in real:

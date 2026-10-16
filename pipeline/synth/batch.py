@@ -63,6 +63,9 @@ def main() -> None:
                     help="hard preset: mpm settles soft food and dropped scans together, rigid-only scenes too "
                          "(synth.mpm); bullet: Blender rigid bodies only (fallback, time-limited)")
     ap.add_argument("--mpm-time", type=float, default=1.0)
+    ap.add_argument("--max-attempts", type=int, default=3,
+                    help="hard preset: resample a scene (new rng stream) when its finalized gt fails the cheap QC "
+                         "flags (item off the dish, item seen in < 3 frames, volume mismatch); 1 = never")
     ap.add_argument("--shard", default=None, metavar="I/N", help="process only scenes with index %% N == I")
     ap.add_argument("--render-timeout", type=float, default=1800.0, help="seconds per Blender subprocess")
     args = ap.parse_args()
@@ -104,7 +107,19 @@ def main() -> None:
             continue
         out_log: list[str] = []         # subprocess stdout/stderr for the failure log
         try:
-            gt = run_scene(i, sid, args, assets, cache, hdris, surfaces, n5k, bproc, sdir, rdir, odir, out_log)
+            for attempt in range(max(1, args.max_attempts)):
+                try:
+                    gt = run_scene(i, sid, args, assets, cache, hdris, surfaces, n5k, bproc, sdir, rdir, odir,
+                                   out_log, attempt=attempt)
+                    bad = [] if args.settle_only else gt_qc_problems(gt)
+                except Resample as e:           # settled spec already fails: resample before any rendering
+                    gt, bad = None, e.problems
+                if not bad or attempt + 1 >= args.max_attempts:
+                    break
+                print(f"{sid}: attempt {attempt + 1} fails QC ({', '.join(bad)}); resampling", flush=True)
+                shutil.rmtree(odir, ignore_errors=True)
+                shutil.rmtree(rdir, ignore_errors=True)
+                shutil.rmtree(sdir, ignore_errors=True)
             if args.settle_only:        # spec + MPM only, nothing rendered
                 continue
             report["done"].append(sid)
@@ -167,11 +182,32 @@ def _run(cmd: list[str], timeout: float, log: list[str]) -> subprocess.Completed
     return subprocess.CompletedProcess(cmd, rc)
 
 
-def run_scene(i, sid, args, assets, cache, hdris, surfaces, n5k, bproc, sdir, rdir, odir, out_log) -> dict:
+class Resample(Exception):
+    def __init__(self, problems):
+        super().__init__(", ".join(problems))
+        self.problems = problems
+
+
+def gt_qc_problems(gt: dict) -> list[str]:
+    """The manifest flags that are known right after rendering (manifest.VOLUME_TOL; seg_export-based ones are not)."""
+    from .manifest import VOLUME_TOL
+    its = gt["items"]
+    bad = []
+    if any(it["off_container"] for it in its):
+        bad.append("off_container")
+    if any(it["frames_visible"] < 3 for it in its):
+        bad.append("barely_visible")
+    if any(abs(it["scene_volume_ml"] - it["volume_ml"]) > VOLUME_TOL * it["volume_ml"] for it in its):
+        bad.append("volume_mismatch")
+    return bad
+
+
+def run_scene(i, sid, args, assets, cache, hdris, surfaces, n5k, bproc, sdir, rdir, odir, out_log,
+              attempt: int = 0) -> dict:
     t0 = time.time()
     sampler = sample_scene_hard if args.preset == "hard" else sample_scene
     extra = {"surfaces": surfaces, "n5k": n5k} if args.preset == "hard" else {}
-    spec = sampler(np.random.default_rng([args.seed, i]), assets, sdir, sid, n_views=args.views,
+    spec = sampler(np.random.default_rng([args.seed, i] + ([attempt] if attempt else [])), assets, sdir, sid, n_views=args.views,
                    res_scale=args.res_scale, hdris=hdris, **extra)
     if args.preset == "hard" and not args.hull_only:   # true-shape compound colliders for dropped scans
         by_id = {a["id"]: a for a in assets}
@@ -195,6 +231,11 @@ def run_scene(i, sid, args, assets, cache, hdris, surfaces, n5k, bproc, sdir, rd
         physics = "bullet"
     if args.settle_only:                    # spec + MPM only (render elsewhere, e.g. A/B of looks)
         return {}
+    if args.preset == "hard" and physics == "mpm" and attempt + 1 < args.max_attempts:
+        from .presettle import settled_problems          # off the dish / volume mismatch / unseen item, pre-render
+        bad = settled_problems(spec, sdir)
+        if bad:
+            raise Resample(bad)
     shutil.rmtree(rdir, ignore_errors=True)    # never finalize a previous attempt's frames
     shutil.rmtree(odir.with_name(odir.name + ".tmp"), ignore_errors=True)
     cmd = [str(bproc), "run", "--custom-blender-path", args.blender, str(RENDER),
