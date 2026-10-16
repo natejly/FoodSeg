@@ -63,6 +63,11 @@ def test_finalize_writes_gt_last(tmp_path):
     assert (d / "gt" / "seg_ids" / "000000.png").exists()
     assert gt["provenance"]["seed"] == 3 and gt["provenance"]["n_views"] == 4
     assert all(it["mass_g"] and it["mass_source"] for it in gt["items"])
+    assert gt["provenance"]["generator_version"] == "synth-2.2"
+    on_disk = json.loads((d / "gt.json").read_text())
+    for it in on_disk["items"]:
+        for k in ("volume_envelope_ml", "hull_volume_ml", "envelope_ratio", "bulk_density_g_ml"):
+            assert k in it
 
 
 def test_finalize_pose_noise_and_sampled_lidar(tmp_path):
@@ -195,3 +200,31 @@ def test_manifest_tiny_item_scales_with_views(tmp_path, monkeypatch):
     assert "tiny_item" not in r["qc"] and abs(r["min_item_points_threshold"] - 50 / 3) < 1e-9
     r = M.describe(_fake_scan(tmp_path, "g", None, 1, 1, 24, n_pts=20))
     assert "tiny_item" in r["qc"]
+
+
+def _sphere_pts(c, r, n, rng):
+    v = rng.normal(size=(n, 3))
+    return np.asarray(c) + r * v / np.linalg.norm(v, axis=1, keepdims=True)
+
+
+def test_envelope_hemisphere_matches_analytic():
+    from synth.itemstats import envelope_volume
+    rng = np.random.default_rng(0)
+    r = 0.04
+    p = _sphere_pts([0, 0, 0], r, 400000, rng)
+    p = p[p[:, 2] >= 0]
+    env, hull = envelope_volume(p, lambda xy, zmin: np.zeros(len(xy)))
+    assert env == pytest.approx(2 / 3 * np.pi * r ** 3 * 1e6, rel=0.03)
+    assert hull == pytest.approx(2 / 3 * np.pi * r ** 3 * 1e6, rel=0.03)
+
+
+def test_envelope_sphere_pile_exceeds_solid():
+    from synth.itemstats import envelope_volume
+    rng = np.random.default_rng(1)
+    r, d = 0.01, 0.022
+    pts = np.concatenate([_sphere_pts([x * d, y * d, r + z * d], r, 20000, rng)
+                          for x in (0, 1) for y in (0, 1) for z in (0, 1)])
+    solid = 8 * 4 / 3 * np.pi * r ** 3 * 1e6
+    env, hull = envelope_volume(pts, lambda xy, zmin: np.zeros(len(xy)))
+    assert env / solid > 1.3
+    assert hull / solid > env / solid

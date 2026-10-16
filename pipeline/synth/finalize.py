@@ -36,7 +36,7 @@ from .density import mass_from_volume
 from .itemstats import item_gt_stats, with_table
 from .lidar import D_H, D_W, LidarParams, PoseNoiseParams, perturb_poses, simulate, translucent_ids
 
-GENERATOR_VERSION = "synth-2.1"     # 2.1: atomic scans, full gt/seg_ids, table label 252, mass/volume stats
+GENERATOR_VERSION = "synth-2.2"     # 2.2: + envelope/hull volume, bulk density; 2.1: atomic scans, full gt/seg_ids, table label 252, mass/volume stats
 
 CONTAINER_ID = 254
 DISTRACTOR_ID = 253     # non-food clutter (hard preset)
@@ -181,6 +181,8 @@ def _finalize(scene_dir: Path, raw_dir: Path, out: Path, seed: int, keep_hr: boo
         item_gt_stats({"items": items, "world_to_arkit": W2A.tolist()}, xyz, lab)
     else:
         for it in items:
+            for k in ("volume_envelope_ml", "hull_volume_ml", "envelope_ratio", "bulk_density_g_ml"):
+                it.setdefault(k, None)
             if it.get("mass_g") is None:
                 it["mass_g"], it["mass_source"] = mass_from_volume(it)
     gt = {"scene_id": spec["scene_id"], "synthetic": True, "preset": spec.get("preset", "v0"),
