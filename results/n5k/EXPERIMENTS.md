@@ -454,7 +454,80 @@ ConvNeXt-B is 0.46 g of mass and 1.19 g of kcal better than its matched `raw` tw
 18.75, 33.57 against 34.76), both outside the noise floor, and it is the first new best single
 model since round 5: 18.29 g beats `b3_raw_full_s2` 18.61 g. The third-ranked lever, never before
 run at ConvNeXt-B, was worth more than another seed (~0.1 g) or another architecture (≈0.35 g,
-below); the ranking in `## Levers, ranked` moves it to the top open slot. Architecture diversity
+below); the ranking in `### Round 14: per-target loss weighting for fat / protein (2026-10-16), pre-registered
+
+Question. The multi-target loss averages the five per-target L1 terms with equal weight
+(verified in `loss_fn` of `eval/n5k_train.py`: `F.l1_loss` over the (B,5) output, i.e. weight 1
+each; the head is one 5-way linear layer). Fat and protein are the largest remaining gap to
+NuNet (ours 21.2 / 20.4 %, NuNet 19.67 / 18.42 %; 16-model average, the pre-registered headline).
+Can re-weighting the loss close it without hurting mass / kcal?
+
+Code (this round only): `--target-weights a,b,c,d,e` (mass,kcal,fat,carb,protein; normalised to
+mean 1 so the effective step size is unchanged) and `--uncertainty` (learned per-target
+log-variance s_t, Laplace form `exp(-s_t) * L1_t + s_t`, own param group lr 1e-2, no weight decay,
+same cosine schedule). Defaults leave the loss bit-identical. `summary.json` now also stores a
+`val` block (per-target MAE g / % at the kept epoch, 4-flip TTA).
+
+Design (fixed before launching). Config: ConvNeXt-T, `rgbd_thick`, cache `n5k_448`, `--loss log`,
+40 epochs, `--bs 16`, seed 0, split-seed 0, i.e. the log's reference run `rgbd_thick`
+(test 10.74 % / 15.20 %). The reference is re-run in this round, because the original has no
+val predictions or per-target val and used `--select masskcal`; all three runs here use
+`--select all5` (kept epoch = lowest mean val % over all five targets, val only), so the three
+differ in the loss only. Runs:
+  - `w14_ref`: equal weights.
+  - `w14_tw`: `--target-weights 1,1,2,1.5,2`.
+  - `w14_unc`: `--uncertainty`.
+Selection rule: the variant with the lowest val mean of (fat % + protein %)/2 (val split seed 0)
+is the selected one; a variant is only taken over the reference if its val mass and kcal are not
+worse by more than 0.5 point each. Every test number is reported for all variants; only the
+val-selected one is claimable, and even then as a single ConvNeXt-T draw (not comparable to the
+16-model average without the seed check). Checkpoints kept only for the val-selected variant.
+If time remains: a second seed (`--seed 1`) of the selected variant.
+GPU: `flock` on the shared lock, one run at a time, budget about 100 min.
+
+**Results (run 2026-10-16; GPU about 84 min wall: 35 + 24 + 25 min, one run at a time under the lock).**
+Common flags: `python -m eval.n5k_train ../data/datasets/Nutrition5k --channels rgbd_thick --bs 16
+--epochs 40 --loss log --select all5 --seed 0 --split-seed 0 [variant flag] --out ../results/n5k/train/<name>`
+(cache default `n5k_448`; launcher `/tmp/n5k_r14.sh`). Variant flags: `w14_ref` none;
+`w14_tw` `--target-weights 1,1,2,1.5,2`; `w14_unc` `--uncertainty`. Val = 275 dishes, kept epoch, 4-flip TTA, MAPE %.
+
+| run | kept ep | val mass | val kcal | val fat | val carb | val protein | val (fat+prot)/2 |
+|---|---|---|---|---|---|---|---|
+| w14_ref | 31 | 9.42 | 13.46 | 22.48 | 17.79 | 16.27 | **19.37** |
+| w14_tw | 33 | 9.79 | 15.36 | 23.05 | 16.83 | 17.61 | 20.33 |
+| w14_unc | 37 | 8.89 | 13.43 | 22.67 | 17.61 | 16.26 | 19.46 |
+
+Test (507 dishes), all variants reported as required; MAE g / MAPE %:
+
+| run | mass | kcal | fat | carb | protein |
+|---|---|---|---|---|---|
+| w14_ref | 22.29 / 11.23 | 38.75 / 15.17 | 3.26 / 25.42 | 4.39 / 22.28 | 4.27 / 24.44 |
+| w14_tw | 22.74 / 11.45 | 40.93 / 16.02 | 3.34 / 25.99 | 4.36 / 22.13 | 4.27 / 24.43 |
+| w14_unc | 21.61 / 10.89 | 38.64 / 15.12 | 3.33 / 25.96 | 4.40 / 22.35 | 4.01 / 22.94 |
+
+Learned log-variances (`w14_unc`): mass -2.58, kcal -2.63, fat -2.45, carb -2.18, protein -2.68, i.e. relative
+weights within about 1.3x of each other: the learned scheme stays near equal weighting, with carb down-weighted.
+
+Reading.
+- **Val-selected variant: `w14_ref` (equal weights).** Its val (fat+protein)/2 of 19.37 is lowest; `w14_unc`
+  is 0.09 behind (noise), `w14_tw` is 0.96 worse and also 1.9 points worse on val kcal. Neither variant
+  improved fat on val (22.48 -> 23.05 / 22.67) and the 2x fat weight did not help fat at all.
+  Under the pre-registered rule nothing replaces the reference, so **no claim of a fat / protein gain is made**.
+- Test shows the same for `w14_tw` (worse everywhere but carb). `w14_unc` is better on test protein
+  (-1.5 points, 24.44 -> 22.94) and mass (-0.34 points) with fat +0.5; it was not val-selected (val
+  protein 16.27 vs 16.26, identical), so the test protein gain is a single-seed draw and not claimable.
+  Seed spread of this recipe is not measured here (one seed each; earlier rounds put the mass spread
+  at 0.3-0.8 g), so differences of this size are inside the noise.
+- The 2-seed check was not run: three runs used the 100 min budget (they were slower than the 21 min
+  estimate because the card was shared).
+- This reference re-run (11.23 % / 15.17 %) differs from the log's `rgbd_thick` (10.74 % / 15.20 %) only in
+  `--select all5` and nondeterminism; it is not a new best.
+- Disk: `best.pt` kept only for `w14_ref` (the val-selected run); deleted for `w14_tw` and `w14_unc`.
+- Claimable statement vs NuNet: unchanged. The headline stays the pre-registered 16-model average
+  (fat 21.2 / carb 19.7 / protein 20.4 against NuNet 19.67 / 18.66 / 18.42); loss re-weighting at
+  ConvNeXt-T did not close the gap.
+
+## Levers, ranked` moves it to the top open slot. Architecture diversity
 gives the third reading: `cv2b_raw_full` at 18.44 g is 0.31 g worse than the ConvNeXt-B `raw` twin
 (18.75 g), about the size of the S-to-B step, but it is the member that pays in the mean
 - adding it to the six-member `log` mean takes mass from 18.0 to 17.8 g and kcal from 33.6 to

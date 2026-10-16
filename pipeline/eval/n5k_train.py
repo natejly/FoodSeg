@@ -160,6 +160,10 @@ def main() -> None:
     ap.add_argument("--ingr-min", type=int, default=10, help="ingredients seen in >= this many train dishes")
     ap.add_argument("--select", choices=["masskcal", "all5"], default="masskcal",
                     help="val score that picks the epoch: mean %% of mass and kcal, or of all five targets")
+    ap.add_argument("--target-weights", default="",
+                    help="comma list of 5 loss weights for mass,kcal,fat,carb,protein (normalised to mean 1); empty = equal")
+    ap.add_argument("--uncertainty", action="store_true",
+                    help="learned per-target log-variance weighting (Kendall-style, Laplace form: exp(-s)*L1 + s)")
     ap.add_argument("--max-steps", type=int, default=0, help="stop each epoch after this many steps (smoke test)")
     ap.add_argument("--out", type=Path, required=True)
     args = ap.parse_args()
@@ -265,14 +269,28 @@ def main() -> None:
     raw_mean = decode(y_tr).mean(0).to(dev)
     mu_d, sd_d = mu.to(dev), sd.to(dev)
 
+    tw = None
+    if args.target_weights:
+        tw = torch.tensor([float(v) for v in args.target_weights.split(",")], device=dev)
+        assert len(tw) == NT
+        tw = tw / tw.mean()
+    log_var = nn.Parameter(torch.zeros(NT, device=dev)) if args.uncertainty else None
+    if log_var is not None:
+        opt.add_param_group({"params": [log_var], "lr": 1e-2, "weight_decay": 0.0})
+        sched.base_lrs.append(1e-2); sched.lr_lambdas.append(sched.lr_lambdas[0])
+
     def loss_fn(out: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
-        l_log = F.l1_loss(out, y)
+        l_log = (out - y).abs().mean(0)                 # (NT,) per-target
         if args.loss == "log":
-            return l_log
-        raw_p = torch.expm1((out * sd_d + mu_d).clamp(max=12))
-        raw_y = torch.expm1(y * sd_d + mu_d)
-        l_raw = ((raw_p - raw_y).abs() / raw_mean).mean()
-        return l_raw if args.loss == "raw" else 0.5 * (l_log + l_raw)
+            lt = l_log
+        else:
+            raw_p = torch.expm1((out * sd_d + mu_d).clamp(max=12))
+            raw_y = torch.expm1(y * sd_d + mu_d)
+            l_raw = ((raw_p - raw_y).abs() / raw_mean).mean(0)
+            lt = l_raw if args.loss == "raw" else 0.5 * (l_log + l_raw)
+        if log_var is not None:
+            return (torch.exp(-log_var) * lt + log_var).mean()
+        return (lt * tw).mean() if tw is not None else lt.mean()
     for ep in range(args.epochs):
         model.train()
         t0 = time.time()
@@ -339,6 +357,10 @@ def main() -> None:
     res = score(test, pred)
     summary = {"args": {k: str(v) for k, v in vars(args).items()}, "best_val": best_key,
                "test": res, "log": log}
+    if val:
+        summary["val"] = score(val, vpred)               # per-target, best epoch, 4-flip TTA
+    if log_var is not None:
+        summary["log_var"] = dict(zip(TARGETS, log_var.detach().cpu().tolist()))
     json.dump(summary, open(args.out / "summary.json", "w"), indent=2)
     with open(args.out / "test_predictions.csv", "w", newline="") as fh:
         w = csv.writer(fh)
