@@ -525,9 +525,162 @@ def apply_scan(scan, out=None):
     return merged
 
 
+# ----------------------------------------------------------------------------- 40-scan validation (hard_v12 + hard_v13, co-vote lift)
+# python -m seg3d.merge val40 [--procs 22]   (needs `python -m foodscan.boundary_refine replay40`); -> results/seg3d/merge/val40.json
+_G40 = {}
+
+
+def scene40(sid, crf):
+    """Scene of one real-vote scan carrying the co-vote lift (optionally followed by the fixed-parameter boundary CRF)."""
+    from eval.lift_sweep import roots
+    from foodscan import boundary_refine as BR
+    sc = load_scene(roots(sid)[0])
+    c = np.load(BR.CACHE40 / f"{BR.tag40(sid)}.npz")
+    vi = voxelize_idx(roots(sid)[0])
+    sc.update(lift=c["lift_label"][vi].astype(np.int32), share=c["lift_share"][vi], nv=c["lift_nvotes"][vi])
+    if crf:
+        bs = BR.scene40(sid)
+        sc["lift"], _ = BR.refine_labels(bs.lift, bs.votes, bs.ids, bs.graph, BR.RefineParams(), bs.share)
+        sc["lift"] = sc["lift"].astype(np.int32)
+    return sc
+
+
+def voxelize_idx(scan_dir):
+    from .data import load_scan, voxelize
+    return voxelize(load_scan(Path(scan_dir), "manifest")["xyz"], 2e-3)[0]
+
+
+GRID40 = dict(t1=[0.2, 0.3, 0.45, 0.6], t2=[5, 8, 12, 1e9], t3=[45, 60, 181], t4=[0.0015, 0.003, 0.012, 1e9])   # coarser than GRID (runtime)
+
+
+def _grid40():
+    import itertools
+    return [dict(zip(GRID40, v)) for v in itertools.product(*GRID40.values())]
+
+
+def _w40(a):
+    """Worker: one scan/variant -> initial-lift baseline, grid table, oracle-collected + initial edges."""
+    sid, crf = a
+    sc = scene40(sid, crf)
+    geo = SceneGeo(sc)
+    memo, table = {}, {}
+    for cfg in _grid40():
+        root = agglomerate(geo, heuristic_decider(**cfg, safety=SAFE0))
+        k = tuple(root[geo.ids])
+        if k not in memo:
+            memo[k] = fast_iou(sc, root[sc["lift"].astype(np.int64)])
+        table[json.dumps(cfg, sort_keys=True)] = (memo[k], int(sum(root[i] != i for i in geo.ids)))
+    col, init = [], []
+    agglomerate(geo, oracle_decider(), collect=col, tag=sid)
+    agglomerate(geo, lambda f: None, collect=init, tag=sid)
+    return (sid, crf), table, col, init
+
+
+def _a40(a):
+    """Worker: merged lifts of every arm for one scan/variant (models/thresholds come from _G40, set before the fork)."""
+    sid, crf = a
+    sc = scene40(sid, crf)
+    geo = SceneGeo(sc)
+    li = sc["lift"].astype(np.int64)
+    mapit = lambda root: root[li].astype(np.int32)                                        # noqa: E731
+    b = sid.split("/")[0]
+    out = {"lift": sc["lift"], "heur_fixed": mapit(agglomerate(geo, heuristic_decider(**HEUR_FINAL))),
+           "heur_lobo": mapit(agglomerate(geo, heuristic_decider(**_G40["cfg"][(b, crf)]))),
+           "hgb_lobo": mapit(agglomerate(geo, learned_decider(_G40["hgb"][(b, crf)]))),
+           "oracle": mapit(agglomerate(geo, oracle_decider()))}
+    return (sid, crf), out
+
+
+def _m40(sc, lift):
+    acc = scan_eval(sc, lift)
+    return acc
+
+
+def val40(procs=22, n_seed_train=8):
+    import multiprocessing as mp
+    from foodscan import boundary_refine as BR
+    sids = BR.sids40()
+    batch = {s: s.split("/")[0] for s in sids}
+    split = json.loads((REPO / "results/seg3d/split_v3.json").read_text())
+    ctx = mp.get_context("fork")
+    jobs = [(s, c) for c in (False, True) for s in sids]
+    with ctx.Pool(procs) as pool:
+        pe = pool.map(_w_pseudo_edges, [(s, k) for s in split["train"] for k in range(n_seed_train)], chunksize=2)
+        print("pseudo edges done", flush=True)
+        W = dict(pool.map(_w40_wrap, jobs, chunksize=1))
+    pseudo_rows = [r for c in pe for r in c]
+    print("grid/edges done", len(pseudo_rows), flush=True)
+    keyof = lambda c: json.dumps(c, sort_keys=True)                                       # noqa: E731
+    cfgs = _grid40()
+    _G40["cfg"], _G40["hgb"] = {}, {}
+    for crf in (False, True):
+        for b in ("v12", "v13"):
+            tr = [s for s in sids if batch[s] != b]
+            best, bs = None, -1
+            for c in cfgs:
+                v = [x for s in tr for x in W[(s, crf)][0][keyof(c)][0]]
+                nm = sum(W[(s, crf)][0][keyof(c)][1] for s in tr)
+                sc_ = np.mean(v) - 1e-6 * nm
+                if sc_ > bs:
+                    best, bs = c, sc_
+            _G40["cfg"][(b, crf)] = best
+            rr = [r for s in tr for r in W[(s, crf)][1]]
+            _G40["hgb"][(b, crf)] = fit("hgb", pseudo_rows, rr)
+            print("LOBO", crf, "test", b, best, "real train edges", len(rr), flush=True)
+    with ctx.Pool(procs) as pool:
+        A = dict(pool.map(_a40, jobs, chunksize=1))
+    print("arms done", flush=True)
+    return sids, batch, A, W
+
+
+def _w40_wrap(a):
+    k, table, col, init = _w40(a)
+    return k, (table, col, init)
+
+
+def report40(sids, batch, A, W, out=OUT / "val40.json"):
+    """Metrics per arm x CRF-before x set (v12 / v13 / pooled); paired per-scan d vs the raw lift and vs the CRF-only lift."""
+    from . import metrics as Mx
+    scs = {(s, c): scene40(s, c) for s in sids for c in (False, True)}
+    arms = ["heur_fixed", "heur_lobo", "hgb_lobo", "oracle"]
+    res = {}
+
+    def pts(sc, l0, l1):
+        sel = ~sc["ignore"]
+        a0, a1 = Mx.lift_baseline_pred(np.asarray(l0)[sel]), Mx.lift_baseline_pred(np.asarray(l1)[sel])
+        gs, gi = sc["sem"][sel], sc["inst"][sel]
+        r0, r1 = Mx.point_correct(*a0, gs, gi), Mx.point_correct(*a1, gs, gi)
+        return int((~r0 & r1).sum()), int((r0 & ~r1).sum()), int(sel.sum())
+
+    for crf in (False, True):
+        for arm in ["lift"] + arms:
+            for setname, sub in (("v12", [s for s in sids if batch[s] == "v12"]), ("v13", [s for s in sids if batch[s] == "v13"]), ("pooled", sids)):
+                l1 = [A[(s, crf)][arm] for s in sub]
+                lraw = [scs[(s, False)]["lift"] for s in sub]
+                lcrf = [scs[(s, True)]["lift"] for s in sub]
+                sl = [scs[(s, crf)] for s in sub]
+                r = summarize(sl, [scs[(s, crf)]["lift"] for s in sub], l1)     # vs the lift entering the merge
+                raw = summarize(sl, lraw, l1)                                                         # vs the raw co-vote lift
+                accs = [scan_eval(sc, l) for sc, l in zip(sl, l1)]
+                bnd = float(np.mean([x for a in accs for x in a.bnd_iou])) if any(a.bnd_iou for a in accs) else float("nan")
+                pc = [pts(sc, a, b) for sc, a, b in zip(sl, lraw, l1)]
+                res[f"crf={crf}|{arm}|{setname}"] = dict(
+                    n_scans=len(sub), inst=r["merge"]["inst"], pq=r["merge"]["pq"], count=r["merge"]["count"], bnd=bnd,
+                    d_vs_entering=r["d_scan"], d_vs_raw=raw["d_scan"], frag_whole=r["frag_made_whole"], n_frag=r["n_frag"],
+                    items_broken=r["broken"], n_correct=r["n_correct_lift"], fixed=r["fixed"], ids_merged=r["n_merges"],
+                    raw_inst=raw["lift"]["inst"], raw_pq=raw["lift"]["pq"], raw_count=raw["lift"]["count"],
+                    pts_corrected=sum(c[0] for c in pc), pts_broken=sum(c[1] for c in pc), pts_total=sum(c[2] for c in pc),
+                    scans_up=int(sum(x > 1e-9 for x in np.array(raw["merge"]["scan"]) - np.array(raw["lift"]["scan"]))),
+                    scans_down=int(sum(x < -1e-9 for x in np.array(raw["merge"]["scan"]) - np.array(raw["lift"]["scan"]))))
+    out.write_text(json.dumps(dict(res=res, cfg={f"{k[1]}|{k[0]}": v for k, v in _G40["cfg"].items()}), indent=1, default=float))
+    return res
+
+
 if __name__ == "__main__":
     if len(sys.argv) > 1 and sys.argv[1] == "run":
         run_experiment()
+    elif len(sys.argv) > 1 and sys.argv[1] == "val40":
+        report40(*val40(int(sys.argv[2]) if len(sys.argv) > 2 else 22))
     elif len(sys.argv) > 2 and sys.argv[1] == "apply":
         apply_scan(sys.argv[2], sys.argv[4] if len(sys.argv) > 4 else None)
     else:
