@@ -1,0 +1,1145 @@
+{
+ "seed": 0,
+ "filter": "manifest",
+ "train": [
+  "data/synth/hard/scans/s000000",
+  "data/synth/hard/scans/s000001",
+  "data/synth/hard/scans/s000004",
+  "data/synth/hard/scans/s000005",
+  "data/synth/hard_v10/scans/s000004",
+  "data/synth/hard_v10/scans/s000007",
+  "data/synth/hard_v10/scans/s000008",
+  "data/synth/hard_v10/scans/s000009",
+  "data/synth/hard_v10/scans/s000010",
+  "data/synth/hard_v10/scans/s000011",
+  "data/synth/hard_v10/scans/s000017",
+  "data/synth/hard_v10/scans/s000018",
+  "data/synth/hard_v11/scans/s000000",
+  "data/synth/hard_v11/scans/s000005",
+  "data/synth/hard_v11/scans/s000006",
+  "data/synth/hard_v11/scans/s000010",
+  "data/synth/hard_v11/scans/s000011",
+  "data/synth/hard_v11/scans/s000012",
+  "data/synth/hard_v11/scans/s000013",
+  "data/synth/hard_v11/scans/s000016",
+  "data/synth/hard_v11/scans/s000017",
+  "data/synth/hard_v11/scans/s000019",
+  "data/synth/hard_v12/scans/s000000",
+  "data/synth/hard_v12/scans/s000003",
+  "data/synth/hard_v12/scans/s000004",
+  "data/synth/hard_v12/scans/s000006",
+  "data/synth/hard_v12/scans/s000008",
+  "data/synth/hard_v12/scans/s000009",
+  "data/synth/hard_v12/scans/s000011",
+  "data/synth/hard_v12/scans/s000013",
+  "data/synth/hard_v12/scans/s000015",
+  "data/synth/hard_v12/scans/s000016",
+  "data/synth/hard_v12/scans/s000017",
+  "data/synth/hard_v12/scans/s000018",
+  "data/synth/hard_v12/scans/s000019",
+  "data/synth/hard_v3/scans/s000000",
+  "data/synth/hard_v3/scans/s000001",
+  "data/synth/hard_v3/scans/s000004",
+  "data/synth/hard_v3/scans/s000005",
+  "data/synth/hard_v9/scans/s000000",
+  "data/synth/hard_v9/scans/s000011",
+  "data/synth/hard_v9/scans/s000013",
+  "data/synth/hard_v9/scans/s000014",
+  "data/synth/hard_v9/scans/s000015",
+  "data/synth/hard_v9/scans/s000017",
+  "data/synth/hard_v9/scans/s000018",
+  "data/synth/hard_v9/scans/s000019"
+ ],
+ "val": [
+  "data/synth/hard/scans/s000002",
+  "data/synth/hard/scans/s000003",
+  "data/synth/hard_v10/scans/s000000",
+  "data/synth/hard_v10/scans/s000001",
+  "data/synth/hard_v10/scans/s000002",
+  "data/synth/hard_v10/scans/s000005",
+  "data/synth/hard_v10/scans/s000019",
+  "data/synth/hard_v11/scans/s000002",
+  "data/synth/hard_v11/scans/s000004",
+  "data/synth/hard_v11/scans/s000008",
+  "data/synth/hard_v11/scans/s000014",
+  "data/synth/hard_v11/scans/s000015",
+  "data/synth/hard_v11/scans/s000018",
+  "data/synth/hard_v12/scans/s000001",
+  "data/synth/hard_v12/scans/s000002",
+  "data/synth/hard_v12/scans/s000005",
+  "data/synth/hard_v12/scans/s000007",
+  "data/synth/hard_v12/scans/s000010",
+  "data/synth/hard_v12/scans/s000012",
+  "data/synth/hard_v12/scans/s000014",
+  "data/synth/hard_v3/scans/s000002",
+  "data/synth/hard_v3/scans/s000003",
+  "data/synth/hard_v9/scans/s000003",
+  "data/synth/hard_v9/scans/s000004",
+  "data/synth/hard_v9/scans/s000007",
+  "data/synth/hard_v9/scans/s000009",
+  "data/synth/hard_v9/scans/s000012"
+ ],
+ "stats": {
+  "unusable_scans": [
+   "data/synth/hard_v10/scans/s000003",
+   "data/synth/hard_v10/scans/s000006",
+   "data/synth/hard_v10/scans/s000012",
+   "data/synth/hard_v10/scans/s000013",
+   "data/synth/hard_v10/scans/s000014",
+   "data/synth/hard_v10/scans/s000015",
+   "data/synth/hard_v10/scans/s000016",
+   "data/synth/hard_v11/scans/s000003",
+   "data/synth/hard_v11/scans/s000007",
+   "data/synth/hard_v11/scans/s000009",
+   "data/synth/hard_v9/scans/s000001",
+   "data/synth/hard_v9/scans/s000002",
+   "data/synth/hard_v9/scans/s000005",
+   "data/synth/hard_v9/scans/s000006",
+   "data/synth/hard_v9/scans/s000008",
+   "data/synth/hard_v9/scans/s000010",
+   "data/synth/hard_v9/scans/s000016"
+  ],
+  "train": {
+   "scans": 47,
+   "valid_items": 170,
+   "ignored_items": 37,
+   "categories": 48,
+   "by_batch": {
+    "hard": {
+     "scans": 4,
+     "valid_items": 10
+    },
+    "hard_v3": {
+     "scans": 4,
+     "valid_items": 10
+    },
+    "hard_v9": {
+     "scans": 8,
+     "valid_items": 13
+    },
+    "hard_v10": {
+     "scans": 8,
+     "valid_items": 13
+    },
+    "hard_v11": {
+     "scans": 10,
+     "valid_items": 23
+    },
+    "hard_v12": {
+     "scans": 13,
+     "valid_items": 101
+    }
+   }
+  },
+  "val": {
+   "scans": 27,
+   "valid_items": 70,
+   "ignored_items": 15,
+   "categories": 32,
+   "by_batch": {
+    "hard": {
+     "scans": 2,
+     "valid_items": 3
+    },
+    "hard_v3": {
+     "scans": 2,
+     "valid_items": 3
+    },
+    "hard_v9": {
+     "scans": 5,
+     "valid_items": 5
+    },
+    "hard_v10": {
+     "scans": 5,
+     "valid_items": 6
+    },
+    "hard_v11": {
+     "scans": 6,
+     "valid_items": 8
+    },
+    "hard_v12": {
+     "scans": 7,
+     "valid_items": 45
+    }
+   }
+  },
+  "leaked_categories": [
+   "broccoli",
+   "cherry tomato",
+   "green curry",
+   "oatmeal",
+   "rice",
+   "risotto",
+   "yeast_bread"
+  ],
+  "usable_by_batch": {
+   "hard": 6,
+   "hard_v3": 6,
+   "hard_v9": 13,
+   "hard_v10": 13,
+   "hard_v11": 16,
+   "hard_v12": 20
+  }
+ },
+ "scans": {
+  "data/synth/hard/scans/s000000": {
+   "batch": "hard",
+   "n_items_gt_json": 3,
+   "n_valid": 2,
+   "n_ignored": 1,
+   "has_lift": false,
+   "cats": [
+    "blueberries"
+   ]
+  },
+  "data/synth/hard/scans/s000001": {
+   "batch": "hard",
+   "n_items_gt_json": 2,
+   "n_valid": 2,
+   "n_ignored": 0,
+   "has_lift": false,
+   "cats": [
+    "curry sauce",
+    "fried rice"
+   ]
+  },
+  "data/synth/hard/scans/s000002": {
+   "batch": "hard",
+   "n_items_gt_json": 2,
+   "n_valid": 2,
+   "n_ignored": 0,
+   "has_lift": false,
+   "cats": [
+    "lentil stew",
+    "quickbread"
+   ]
+  },
+  "data/synth/hard/scans/s000003": {
+   "batch": "hard",
+   "n_items_gt_json": 1,
+   "n_valid": 1,
+   "n_ignored": 0,
+   "has_lift": false,
+   "cats": [
+    "bell pepper"
+   ]
+  },
+  "data/synth/hard/scans/s000004": {
+   "batch": "hard",
+   "n_items_gt_json": 6,
+   "n_valid": 3,
+   "n_ignored": 3,
+   "has_lift": false,
+   "cats": [
+    "almonds",
+    "yogurt"
+   ]
+  },
+  "data/synth/hard/scans/s000005": {
+   "batch": "hard",
+   "n_items_gt_json": 3,
+   "n_valid": 3,
+   "n_ignored": 0,
+   "has_lift": false,
+   "cats": [
+    "chili",
+    "mashed potato",
+    "white rice"
+   ]
+  },
+  "data/synth/hard_v3/scans/s000000": {
+   "batch": "hard_v3",
+   "n_items_gt_json": 3,
+   "n_valid": 2,
+   "n_ignored": 0,
+   "has_lift": false,
+   "cats": [
+    "blueberries"
+   ]
+  },
+  "data/synth/hard_v3/scans/s000001": {
+   "batch": "hard_v3",
+   "n_items_gt_json": 2,
+   "n_valid": 2,
+   "n_ignored": 0,
+   "has_lift": false,
+   "cats": [
+    "curry sauce",
+    "fried rice"
+   ]
+  },
+  "data/synth/hard_v3/scans/s000002": {
+   "batch": "hard_v3",
+   "n_items_gt_json": 2,
+   "n_valid": 2,
+   "n_ignored": 0,
+   "has_lift": false,
+   "cats": [
+    "lentil stew",
+    "quickbread"
+   ]
+  },
+  "data/synth/hard_v3/scans/s000003": {
+   "batch": "hard_v3",
+   "n_items_gt_json": 1,
+   "n_valid": 1,
+   "n_ignored": 0,
+   "has_lift": false,
+   "cats": [
+    "bell pepper"
+   ]
+  },
+  "data/synth/hard_v3/scans/s000004": {
+   "batch": "hard_v3",
+   "n_items_gt_json": 6,
+   "n_valid": 3,
+   "n_ignored": 3,
+   "has_lift": false,
+   "cats": [
+    "almonds",
+    "yogurt"
+   ]
+  },
+  "data/synth/hard_v3/scans/s000005": {
+   "batch": "hard_v3",
+   "n_items_gt_json": 3,
+   "n_valid": 3,
+   "n_ignored": 0,
+   "has_lift": false,
+   "cats": [
+    "chili",
+    "mashed potato",
+    "white rice"
+   ]
+  },
+  "data/synth/hard_v9/scans/s000000": {
+   "batch": "hard_v9",
+   "n_items_gt_json": 2,
+   "n_valid": 2,
+   "n_ignored": 0,
+   "has_lift": true,
+   "cats": [
+    "lettuce",
+    "mashed potato"
+   ]
+  },
+  "data/synth/hard_v9/scans/s000001": {
+   "batch": "hard_v9",
+   "n_items_gt_json": 1,
+   "n_valid": 0,
+   "n_ignored": 0,
+   "has_lift": true,
+   "cats": []
+  },
+  "data/synth/hard_v9/scans/s000002": {
+   "batch": "hard_v9",
+   "n_items_gt_json": 4,
+   "n_valid": 0,
+   "n_ignored": 2,
+   "has_lift": true,
+   "cats": []
+  },
+  "data/synth/hard_v9/scans/s000003": {
+   "batch": "hard_v9",
+   "n_items_gt_json": 1,
+   "n_valid": 1,
+   "n_ignored": 0,
+   "has_lift": true,
+   "cats": [
+    "brownies"
+   ]
+  },
+  "data/synth/hard_v9/scans/s000004": {
+   "batch": "hard_v9",
+   "n_items_gt_json": 1,
+   "n_valid": 1,
+   "n_ignored": 0,
+   "has_lift": true,
+   "cats": [
+    "kale"
+   ]
+  },
+  "data/synth/hard_v9/scans/s000005": {
+   "batch": "hard_v9",
+   "n_items_gt_json": 2,
+   "n_valid": 0,
+   "n_ignored": 1,
+   "has_lift": true,
+   "cats": []
+  },
+  "data/synth/hard_v9/scans/s000006": {
+   "batch": "hard_v9",
+   "n_items_gt_json": 7,
+   "n_valid": 0,
+   "n_ignored": 0,
+   "has_lift": true,
+   "cats": []
+  },
+  "data/synth/hard_v9/scans/s000007": {
+   "batch": "hard_v9",
+   "n_items_gt_json": 3,
+   "n_valid": 1,
+   "n_ignored": 0,
+   "has_lift": true,
+   "cats": [
+    "oatmeal"
+   ]
+  },
+  "data/synth/hard_v9/scans/s000008": {
+   "batch": "hard_v9",
+   "n_items_gt_json": 6,
+   "n_valid": 0,
+   "n_ignored": 0,
+   "has_lift": true,
+   "cats": []
+  },
+  "data/synth/hard_v9/scans/s000009": {
+   "batch": "hard_v9",
+   "n_items_gt_json": 6,
+   "n_valid": 1,
+   "n_ignored": 4,
+   "has_lift": true,
+   "cats": [
+    "oatmeal"
+   ]
+  },
+  "data/synth/hard_v9/scans/s000010": {
+   "batch": "hard_v9",
+   "n_items_gt_json": 5,
+   "n_valid": 0,
+   "n_ignored": 0,
+   "has_lift": true,
+   "cats": []
+  },
+  "data/synth/hard_v9/scans/s000011": {
+   "batch": "hard_v9",
+   "n_items_gt_json": 3,
+   "n_valid": 2,
+   "n_ignored": 1,
+   "has_lift": true,
+   "cats": [
+    "fried rice",
+    "oatmeal"
+   ]
+  },
+  "data/synth/hard_v9/scans/s000012": {
+   "batch": "hard_v9",
+   "n_items_gt_json": 3,
+   "n_valid": 1,
+   "n_ignored": 1,
+   "has_lift": true,
+   "cats": [
+    "lentil stew"
+   ]
+  },
+  "data/synth/hard_v9/scans/s000013": {
+   "batch": "hard_v9",
+   "n_items_gt_json": 8,
+   "n_valid": 1,
+   "n_ignored": 3,
+   "has_lift": true,
+   "cats": [
+    "fried rice"
+   ]
+  },
+  "data/synth/hard_v9/scans/s000014": {
+   "batch": "hard_v9",
+   "n_items_gt_json": 5,
+   "n_valid": 2,
+   "n_ignored": 1,
+   "has_lift": true,
+   "cats": [
+    "chili",
+    "spinach (raw)"
+   ]
+  },
+  "data/synth/hard_v9/scans/s000015": {
+   "batch": "hard_v9",
+   "n_items_gt_json": 3,
+   "n_valid": 1,
+   "n_ignored": 1,
+   "has_lift": true,
+   "cats": [
+    "white rice"
+   ]
+  },
+  "data/synth/hard_v9/scans/s000016": {
+   "batch": "hard_v9",
+   "n_items_gt_json": 1,
+   "n_valid": 0,
+   "n_ignored": 0,
+   "has_lift": true,
+   "cats": []
+  },
+  "data/synth/hard_v9/scans/s000017": {
+   "batch": "hard_v9",
+   "n_items_gt_json": 1,
+   "n_valid": 1,
+   "n_ignored": 0,
+   "has_lift": true,
+   "cats": [
+    "brown rice"
+   ]
+  },
+  "data/synth/hard_v9/scans/s000018": {
+   "batch": "hard_v9",
+   "n_items_gt_json": 3,
+   "n_valid": 3,
+   "n_ignored": 0,
+   "has_lift": true,
+   "cats": [
+    "egg whites",
+    "mashed potato",
+    "peanuts"
+   ]
+  },
+  "data/synth/hard_v9/scans/s000019": {
+   "batch": "hard_v9",
+   "n_items_gt_json": 3,
+   "n_valid": 1,
+   "n_ignored": 2,
+   "has_lift": true,
+   "cats": [
+    "brown rice"
+   ]
+  },
+  "data/synth/hard_v10/scans/s000000": {
+   "batch": "hard_v10",
+   "n_items_gt_json": 3,
+   "n_valid": 1,
+   "n_ignored": 1,
+   "has_lift": true,
+   "cats": [
+    "lentil stew"
+   ]
+  },
+  "data/synth/hard_v10/scans/s000001": {
+   "batch": "hard_v10",
+   "n_items_gt_json": 2,
+   "n_valid": 2,
+   "n_ignored": 0,
+   "has_lift": true,
+   "cats": [
+    "pumpkin soup",
+    "yeast_bread"
+   ]
+  },
+  "data/synth/hard_v10/scans/s000002": {
+   "batch": "hard_v10",
+   "n_items_gt_json": 1,
+   "n_valid": 1,
+   "n_ignored": 0,
+   "has_lift": true,
+   "cats": [
+    "polenta"
+   ]
+  },
+  "data/synth/hard_v10/scans/s000003": {
+   "batch": "hard_v10",
+   "n_items_gt_json": 1,
+   "n_valid": 0,
+   "n_ignored": 1,
+   "has_lift": true,
+   "cats": []
+  },
+  "data/synth/hard_v10/scans/s000004": {
+   "batch": "hard_v10",
+   "n_items_gt_json": 2,
+   "n_valid": 2,
+   "n_ignored": 0,
+   "has_lift": true,
+   "cats": [
+    "egg whites",
+    "sausages"
+   ]
+  },
+  "data/synth/hard_v10/scans/s000005": {
+   "batch": "hard_v10",
+   "n_items_gt_json": 5,
+   "n_valid": 1,
+   "n_ignored": 0,
+   "has_lift": true,
+   "cats": [
+    "risotto"
+   ]
+  },
+  "data/synth/hard_v10/scans/s000006": {
+   "batch": "hard_v10",
+   "n_items_gt_json": 3,
+   "n_valid": 0,
+   "n_ignored": 1,
+   "has_lift": true,
+   "cats": []
+  },
+  "data/synth/hard_v10/scans/s000007": {
+   "batch": "hard_v10",
+   "n_items_gt_json": 1,
+   "n_valid": 1,
+   "n_ignored": 0,
+   "has_lift": true,
+   "cats": [
+    "mixed greens"
+   ]
+  },
+  "data/synth/hard_v10/scans/s000008": {
+   "batch": "hard_v10",
+   "n_items_gt_json": 8,
+   "n_valid": 2,
+   "n_ignored": 1,
+   "has_lift": true,
+   "cats": [
+    "curry sauce",
+    "risotto"
+   ]
+  },
+  "data/synth/hard_v10/scans/s000009": {
+   "batch": "hard_v10",
+   "n_items_gt_json": 2,
+   "n_valid": 2,
+   "n_ignored": 0,
+   "has_lift": true,
+   "cats": [
+    "green curry",
+    "white rice"
+   ]
+  },
+  "data/synth/hard_v10/scans/s000010": {
+   "batch": "hard_v10",
+   "n_items_gt_json": 1,
+   "n_valid": 1,
+   "n_ignored": 0,
+   "has_lift": true,
+   "cats": [
+    "spinach (raw)"
+   ]
+  },
+  "data/synth/hard_v10/scans/s000011": {
+   "batch": "hard_v10",
+   "n_items_gt_json": 2,
+   "n_valid": 2,
+   "n_ignored": 0,
+   "has_lift": true,
+   "cats": [
+    "green curry",
+    "white rice"
+   ]
+  },
+  "data/synth/hard_v10/scans/s000012": {
+   "batch": "hard_v10",
+   "n_items_gt_json": 6,
+   "n_valid": 0,
+   "n_ignored": 2,
+   "has_lift": true,
+   "cats": []
+  },
+  "data/synth/hard_v10/scans/s000013": {
+   "batch": "hard_v10",
+   "n_items_gt_json": 2,
+   "n_valid": 0,
+   "n_ignored": 1,
+   "has_lift": true,
+   "cats": []
+  },
+  "data/synth/hard_v10/scans/s000014": {
+   "batch": "hard_v10",
+   "n_items_gt_json": 1,
+   "n_valid": 0,
+   "n_ignored": 0,
+   "has_lift": true,
+   "cats": []
+  },
+  "data/synth/hard_v10/scans/s000015": {
+   "batch": "hard_v10",
+   "n_items_gt_json": 2,
+   "n_valid": 0,
+   "n_ignored": 0,
+   "has_lift": true,
+   "cats": []
+  },
+  "data/synth/hard_v10/scans/s000016": {
+   "batch": "hard_v10",
+   "n_items_gt_json": 3,
+   "n_valid": 0,
+   "n_ignored": 1,
+   "has_lift": true,
+   "cats": []
+  },
+  "data/synth/hard_v10/scans/s000017": {
+   "batch": "hard_v10",
+   "n_items_gt_json": 2,
+   "n_valid": 1,
+   "n_ignored": 0,
+   "has_lift": true,
+   "cats": [
+    "spinach (raw)"
+   ]
+  },
+  "data/synth/hard_v10/scans/s000018": {
+   "batch": "hard_v10",
+   "n_items_gt_json": 2,
+   "n_valid": 2,
+   "n_ignored": 0,
+   "has_lift": true,
+   "cats": [
+    "brown rice",
+    "lettuce"
+   ]
+  },
+  "data/synth/hard_v10/scans/s000019": {
+   "batch": "hard_v10",
+   "n_items_gt_json": 2,
+   "n_valid": 1,
+   "n_ignored": 0,
+   "has_lift": true,
+   "cats": [
+    "congee"
+   ]
+  },
+  "data/synth/hard_v11/scans/s000000": {
+   "batch": "hard_v11",
+   "n_items_gt_json": 7,
+   "n_valid": 3,
+   "n_ignored": 1,
+   "has_lift": true,
+   "cats": [
+    "oatmeal",
+    "strawberry"
+   ]
+  },
+  "data/synth/hard_v11/scans/s000002": {
+   "batch": "hard_v11",
+   "n_items_gt_json": 6,
+   "n_valid": 3,
+   "n_ignored": 1,
+   "has_lift": true,
+   "cats": [
+    "chicken curry",
+    "green curry",
+    "hashbrown"
+   ]
+  },
+  "data/synth/hard_v11/scans/s000003": {
+   "batch": "hard_v11",
+   "n_items_gt_json": 2,
+   "n_valid": 0,
+   "n_ignored": 0,
+   "has_lift": true,
+   "cats": []
+  },
+  "data/synth/hard_v11/scans/s000004": {
+   "batch": "hard_v11",
+   "n_items_gt_json": 2,
+   "n_valid": 1,
+   "n_ignored": 1,
+   "has_lift": true,
+   "cats": [
+    "green curry"
+   ]
+  },
+  "data/synth/hard_v11/scans/s000005": {
+   "batch": "hard_v11",
+   "n_items_gt_json": 3,
+   "n_valid": 2,
+   "n_ignored": 0,
+   "has_lift": true,
+   "cats": [
+    "burrito",
+    "rice"
+   ]
+  },
+  "data/synth/hard_v11/scans/s000006": {
+   "batch": "hard_v11",
+   "n_items_gt_json": 5,
+   "n_valid": 3,
+   "n_ignored": 1,
+   "has_lift": true,
+   "cats": [
+    "black beans",
+    "brown rice",
+    "lettuce"
+   ]
+  },
+  "data/synth/hard_v11/scans/s000007": {
+   "batch": "hard_v11",
+   "n_items_gt_json": 13,
+   "n_valid": 0,
+   "n_ignored": 1,
+   "has_lift": true,
+   "cats": []
+  },
+  "data/synth/hard_v11/scans/s000008": {
+   "batch": "hard_v11",
+   "n_items_gt_json": 7,
+   "n_valid": 1,
+   "n_ignored": 3,
+   "has_lift": true,
+   "cats": [
+    "tortilla"
+   ]
+  },
+  "data/synth/hard_v11/scans/s000009": {
+   "batch": "hard_v11",
+   "n_items_gt_json": 5,
+   "n_valid": 0,
+   "n_ignored": 3,
+   "has_lift": true,
+   "cats": []
+  },
+  "data/synth/hard_v11/scans/s000010": {
+   "batch": "hard_v11",
+   "n_items_gt_json": 11,
+   "n_valid": 4,
+   "n_ignored": 6,
+   "has_lift": true,
+   "cats": [
+    "cucumber",
+    "fried rice",
+    "shrimp"
+   ]
+  },
+  "data/synth/hard_v11/scans/s000011": {
+   "batch": "hard_v11",
+   "n_items_gt_json": 3,
+   "n_valid": 2,
+   "n_ignored": 0,
+   "has_lift": true,
+   "cats": [
+    "egg whites",
+    "omelet"
+   ]
+  },
+  "data/synth/hard_v11/scans/s000012": {
+   "batch": "hard_v11",
+   "n_items_gt_json": 13,
+   "n_valid": 1,
+   "n_ignored": 1,
+   "has_lift": true,
+   "cats": [
+    "risotto"
+   ]
+  },
+  "data/synth/hard_v11/scans/s000013": {
+   "batch": "hard_v11",
+   "n_items_gt_json": 8,
+   "n_valid": 4,
+   "n_ignored": 1,
+   "has_lift": true,
+   "cats": [
+    "bacon",
+    "coleslaw",
+    "yeast_bread"
+   ]
+  },
+  "data/synth/hard_v11/scans/s000014": {
+   "batch": "hard_v11",
+   "n_items_gt_json": 6,
+   "n_valid": 1,
+   "n_ignored": 1,
+   "has_lift": true,
+   "cats": [
+    "french_toast"
+   ]
+  },
+  "data/synth/hard_v11/scans/s000015": {
+   "batch": "hard_v11",
+   "n_items_gt_json": 13,
+   "n_valid": 1,
+   "n_ignored": 0,
+   "has_lift": true,
+   "cats": [
+    "arugula"
+   ]
+  },
+  "data/synth/hard_v11/scans/s000016": {
+   "batch": "hard_v11",
+   "n_items_gt_json": 11,
+   "n_valid": 1,
+   "n_ignored": 1,
+   "has_lift": true,
+   "cats": [
+    "yeast_bread"
+   ]
+  },
+  "data/synth/hard_v11/scans/s000017": {
+   "batch": "hard_v11",
+   "n_items_gt_json": 2,
+   "n_valid": 2,
+   "n_ignored": 0,
+   "has_lift": true,
+   "cats": [
+    "green curry",
+    "white rice"
+   ]
+  },
+  "data/synth/hard_v11/scans/s000018": {
+   "batch": "hard_v11",
+   "n_items_gt_json": 10,
+   "n_valid": 1,
+   "n_ignored": 0,
+   "has_lift": true,
+   "cats": [
+    "penne in tomato sauce"
+   ]
+  },
+  "data/synth/hard_v11/scans/s000019": {
+   "batch": "hard_v11",
+   "n_items_gt_json": 5,
+   "n_valid": 1,
+   "n_ignored": 0,
+   "has_lift": true,
+   "cats": [
+    "fried rice"
+   ]
+  },
+  "data/synth/hard_v12/scans/s000000": {
+   "batch": "hard_v12",
+   "n_items_gt_json": 7,
+   "n_valid": 4,
+   "n_ignored": 1,
+   "has_lift": true,
+   "cats": [
+    "cucumber",
+    "lettuce",
+    "yeast_bread"
+   ]
+  },
+  "data/synth/hard_v12/scans/s000001": {
+   "batch": "hard_v12",
+   "n_items_gt_json": 5,
+   "n_valid": 5,
+   "n_ignored": 0,
+   "has_lift": true,
+   "cats": [
+    "broccoli",
+    "grapes",
+    "pork_chop"
+   ]
+  },
+  "data/synth/hard_v12/scans/s000002": {
+   "batch": "hard_v12",
+   "n_items_gt_json": 10,
+   "n_valid": 10,
+   "n_ignored": 0,
+   "has_lift": true,
+   "cats": [
+    "boiled egg",
+    "chicken_thighs",
+    "rice",
+    "sushi"
+   ]
+  },
+  "data/synth/hard_v12/scans/s000003": {
+   "batch": "hard_v12",
+   "n_items_gt_json": 14,
+   "n_valid": 14,
+   "n_ignored": 0,
+   "has_lift": true,
+   "cats": [
+    "black beans",
+    "blueberries",
+    "bread roll",
+    "cookies",
+    "gravy",
+    "melted cheese",
+    "squash",
+    "yogurt"
+   ]
+  },
+  "data/synth/hard_v12/scans/s000004": {
+   "batch": "hard_v12",
+   "n_items_gt_json": 10,
+   "n_valid": 9,
+   "n_ignored": 1,
+   "has_lift": true,
+   "cats": [
+    "kiwi",
+    "melons",
+    "strawberry"
+   ]
+  },
+  "data/synth/hard_v12/scans/s000005": {
+   "batch": "hard_v12",
+   "n_items_gt_json": 8,
+   "n_valid": 7,
+   "n_ignored": 1,
+   "has_lift": true,
+   "cats": [
+    "cherry tomato",
+    "green_beans",
+    "mashed_potato"
+   ]
+  },
+  "data/synth/hard_v12/scans/s000006": {
+   "batch": "hard_v12",
+   "n_items_gt_json": 8,
+   "n_valid": 8,
+   "n_ignored": 0,
+   "has_lift": true,
+   "cats": [
+    "cookies",
+    "ice_cream",
+    "strawberry"
+   ]
+  },
+  "data/synth/hard_v12/scans/s000007": {
+   "batch": "hard_v12",
+   "n_items_gt_json": 6,
+   "n_valid": 5,
+   "n_ignored": 0,
+   "has_lift": true,
+   "cats": [
+    "broccoli",
+    "pasta_mixed_dishes",
+    "yeast_bread"
+   ]
+  },
+  "data/synth/hard_v12/scans/s000008": {
+   "batch": "hard_v12",
+   "n_items_gt_json": 31,
+   "n_valid": 20,
+   "n_ignored": 3,
+   "has_lift": true,
+   "cats": [
+    "bacon",
+    "cherry tomato",
+    "cucumber"
+   ]
+  },
+  "data/synth/hard_v12/scans/s000009": {
+   "batch": "hard_v12",
+   "n_items_gt_json": 3,
+   "n_valid": 3,
+   "n_ignored": 0,
+   "has_lift": true,
+   "cats": [
+    "cake slice",
+    "ice_cream",
+    "kiwi"
+   ]
+  },
+  "data/synth/hard_v12/scans/s000010": {
+   "batch": "hard_v12",
+   "n_items_gt_json": 8,
+   "n_valid": 8,
+   "n_ignored": 0,
+   "has_lift": true,
+   "cats": [
+    "boiled egg",
+    "olive",
+    "yeast_bread"
+   ]
+  },
+  "data/synth/hard_v12/scans/s000011": {
+   "batch": "hard_v12",
+   "n_items_gt_json": 3,
+   "n_valid": 3,
+   "n_ignored": 0,
+   "has_lift": true,
+   "cats": [
+    "cookies",
+    "hummus",
+    "mixed greens"
+   ]
+  },
+  "data/synth/hard_v12/scans/s000012": {
+   "batch": "hard_v12",
+   "n_items_gt_json": 5,
+   "n_valid": 4,
+   "n_ignored": 1,
+   "has_lift": true,
+   "cats": [
+    "broccoli",
+    "salmon_grill",
+    "yeast_bread"
+   ]
+  },
+  "data/synth/hard_v12/scans/s000013": {
+   "batch": "hard_v12",
+   "n_items_gt_json": 5,
+   "n_valid": 4,
+   "n_ignored": 1,
+   "has_lift": true,
+   "cats": [
+    "broccoli",
+    "cucumber",
+    "lettuce"
+   ]
+  },
+  "data/synth/hard_v12/scans/s000014": {
+   "batch": "hard_v12",
+   "n_items_gt_json": 7,
+   "n_valid": 6,
+   "n_ignored": 1,
+   "has_lift": true,
+   "cats": [
+    "boiled egg",
+    "broccoli",
+    "cauliflower"
+   ]
+  },
+  "data/synth/hard_v12/scans/s000015": {
+   "batch": "hard_v12",
+   "n_items_gt_json": 8,
+   "n_valid": 6,
+   "n_ignored": 1,
+   "has_lift": true,
+   "cats": [
+    "asparagus",
+    "omelet",
+    "sausages"
+   ]
+  },
+  "data/synth/hard_v12/scans/s000016": {
+   "batch": "hard_v12",
+   "n_items_gt_json": 5,
+   "n_valid": 4,
+   "n_ignored": 0,
+   "has_lift": true,
+   "cats": [
+    "bread roll",
+    "papaya",
+    "radicchio",
+    "yogurt"
+   ]
+  },
+  "data/synth/hard_v12/scans/s000017": {
+   "batch": "hard_v12",
+   "n_items_gt_json": 4,
+   "n_valid": 4,
+   "n_ignored": 0,
+   "has_lift": true,
+   "cats": [
+    "chicken breast",
+    "corn",
+    "gravy",
+    "mashed potato"
+   ]
+  },
+  "data/synth/hard_v12/scans/s000018": {
+   "batch": "hard_v12",
+   "n_items_gt_json": 4,
+   "n_valid": 4,
+   "n_ignored": 0,
+   "has_lift": true,
+   "cats": [
+    "black beans",
+    "brown rice",
+    "corn",
+    "sour cream"
+   ]
+  },
+  "data/synth/hard_v12/scans/s000019": {
+   "batch": "hard_v12",
+   "n_items_gt_json": 26,
+   "n_valid": 18,
+   "n_ignored": 3,
+   "has_lift": true,
+   "cats": [
+    "couscous",
+    "cucumber",
+    "falafel",
+    "mixed greens"
+   ]
+  }
+ }
+}

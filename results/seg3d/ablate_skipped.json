@@ -1,0 +1,1 @@
+[["nodropout_r2",1,"budget (driver stopped by hand to make room for DGCNN re-runs)"],["nocorrupt_r2",1,"budget"],["dgcnn_xyz_r2",1,"budget"],["scratch_r2",1,"budget"],["unfreeze_top_r2",0,"GPU not free: other processes (Blender synth job) held 1.8-4 GB"]]

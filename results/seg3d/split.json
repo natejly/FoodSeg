@@ -1,0 +1,451 @@
+{
+ "seed": 0,
+ "train": [
+  "data/synth/hard/scans/s000000",
+  "data/synth/hard/scans/s000001",
+  "data/synth/hard/scans/s000004",
+  "data/synth/hard/scans/s000005",
+  "data/synth/hard_v3/scans/s000000",
+  "data/synth/hard_v3/scans/s000001",
+  "data/synth/hard_v3/scans/s000002",
+  "data/synth/hard_v3/scans/s000003",
+  "data/synth/hard_v9/scans/s000001",
+  "data/synth/hard_v9/scans/s000002",
+  "data/synth/hard_v9/scans/s000003",
+  "data/synth/hard_v9/scans/s000005",
+  "data/synth/hard_v9/scans/s000006",
+  "data/synth/hard_v9/scans/s000007",
+  "data/synth/hard_v9/scans/s000008",
+  "data/synth/hard_v9/scans/s000009",
+  "data/synth/hard_v9/scans/s000010",
+  "data/synth/hard_v9/scans/s000011",
+  "data/synth/hard_v9/scans/s000012",
+  "data/synth/hard_v9/scans/s000013",
+  "data/synth/hard_v9/scans/s000014",
+  "data/synth/hard_v9/scans/s000015",
+  "data/synth/hard_v9/scans/s000016",
+  "data/synth/hard_v9/scans/s000018",
+  "data/synth/hard_v9/scans/s000019",
+  "data/synth/hard_v10/scans/s000000",
+  "data/synth/hard_v10/scans/s000001",
+  "data/synth/hard_v10/scans/s000003",
+  "data/synth/hard_v10/scans/s000005",
+  "data/synth/hard_v10/scans/s000006",
+  "data/synth/hard_v10/scans/s000008",
+  "data/synth/hard_v10/scans/s000009",
+  "data/synth/hard_v10/scans/s000010",
+  "data/synth/hard_v10/scans/s000011",
+  "data/synth/hard_v10/scans/s000012",
+  "data/synth/hard_v10/scans/s000013",
+  "data/synth/hard_v10/scans/s000014",
+  "data/synth/hard_v10/scans/s000015",
+  "data/synth/hard_v10/scans/s000016",
+  "data/synth/hard_v10/scans/s000017",
+  "data/synth/hard_v10/scans/s000019"
+ ],
+ "val": [
+  "data/synth/hard/scans/s000002",
+  "data/synth/hard/scans/s000003",
+  "data/synth/hard_v3/scans/s000004",
+  "data/synth/hard_v3/scans/s000005",
+  "data/synth/hard_v9/scans/s000000",
+  "data/synth/hard_v9/scans/s000004",
+  "data/synth/hard_v9/scans/s000017",
+  "data/synth/hard_v10/scans/s000002",
+  "data/synth/hard_v10/scans/s000004",
+  "data/synth/hard_v10/scans/s000007",
+  "data/synth/hard_v10/scans/s000018"
+ ],
+ "stats": {
+  "train": {
+   "scans": 41,
+   "items_gt_json": 131,
+   "items_in_cloud": 72,
+   "by_batch": {
+    "hard": 4,
+    "hard_v3": 4,
+    "hard_v9": 17,
+    "hard_v10": 16
+   },
+   "ok_scans": 14
+  },
+  "val": {
+   "scans": 11,
+   "items_gt_json": 22,
+   "items_in_cloud": 22,
+   "by_batch": {
+    "hard": 2,
+    "hard_v3": 2,
+    "hard_v9": 3,
+    "hard_v10": 4
+   },
+   "ok_scans": 11
+  }
+ },
+ "scans": {
+  "data/synth/hard/scans/s000000": {
+   "batch": "hard",
+   "ok": true,
+   "n_items": 3,
+   "n_items_in_cloud": 3,
+   "has_lift": false
+  },
+  "data/synth/hard/scans/s000001": {
+   "batch": "hard",
+   "ok": true,
+   "n_items": 2,
+   "n_items_in_cloud": 2,
+   "has_lift": false
+  },
+  "data/synth/hard/scans/s000002": {
+   "batch": "hard",
+   "ok": true,
+   "n_items": 2,
+   "n_items_in_cloud": 2,
+   "has_lift": false
+  },
+  "data/synth/hard/scans/s000003": {
+   "batch": "hard",
+   "ok": true,
+   "n_items": 1,
+   "n_items_in_cloud": 1,
+   "has_lift": false
+  },
+  "data/synth/hard/scans/s000004": {
+   "batch": "hard",
+   "ok": true,
+   "n_items": 6,
+   "n_items_in_cloud": 6,
+   "has_lift": false
+  },
+  "data/synth/hard/scans/s000005": {
+   "batch": "hard",
+   "ok": true,
+   "n_items": 3,
+   "n_items_in_cloud": 3,
+   "has_lift": false
+  },
+  "data/synth/hard_v3/scans/s000000": {
+   "batch": "hard_v3",
+   "ok": true,
+   "n_items": 3,
+   "n_items_in_cloud": 2,
+   "has_lift": false
+  },
+  "data/synth/hard_v3/scans/s000001": {
+   "batch": "hard_v3",
+   "ok": true,
+   "n_items": 2,
+   "n_items_in_cloud": 2,
+   "has_lift": false
+  },
+  "data/synth/hard_v3/scans/s000002": {
+   "batch": "hard_v3",
+   "ok": true,
+   "n_items": 2,
+   "n_items_in_cloud": 2,
+   "has_lift": false
+  },
+  "data/synth/hard_v3/scans/s000003": {
+   "batch": "hard_v3",
+   "ok": true,
+   "n_items": 1,
+   "n_items_in_cloud": 1,
+   "has_lift": false
+  },
+  "data/synth/hard_v3/scans/s000004": {
+   "batch": "hard_v3",
+   "ok": true,
+   "n_items": 6,
+   "n_items_in_cloud": 6,
+   "has_lift": false
+  },
+  "data/synth/hard_v3/scans/s000005": {
+   "batch": "hard_v3",
+   "ok": true,
+   "n_items": 3,
+   "n_items_in_cloud": 3,
+   "has_lift": false
+  },
+  "data/synth/hard_v9/scans/s000000": {
+   "batch": "hard_v9",
+   "ok": true,
+   "n_items": 2,
+   "n_items_in_cloud": 2,
+   "has_lift": true
+  },
+  "data/synth/hard_v9/scans/s000001": {
+   "batch": "hard_v9",
+   "ok": false,
+   "n_items": 1,
+   "n_items_in_cloud": 0,
+   "has_lift": true
+  },
+  "data/synth/hard_v9/scans/s000002": {
+   "batch": "hard_v9",
+   "ok": false,
+   "n_items": 4,
+   "n_items_in_cloud": 2,
+   "has_lift": true
+  },
+  "data/synth/hard_v9/scans/s000003": {
+   "batch": "hard_v9",
+   "ok": true,
+   "n_items": 1,
+   "n_items_in_cloud": 1,
+   "has_lift": true
+  },
+  "data/synth/hard_v9/scans/s000004": {
+   "batch": "hard_v9",
+   "ok": true,
+   "n_items": 1,
+   "n_items_in_cloud": 1,
+   "has_lift": true
+  },
+  "data/synth/hard_v9/scans/s000005": {
+   "batch": "hard_v9",
+   "ok": false,
+   "n_items": 2,
+   "n_items_in_cloud": 1,
+   "has_lift": true
+  },
+  "data/synth/hard_v9/scans/s000006": {
+   "batch": "hard_v9",
+   "ok": false,
+   "n_items": 7,
+   "n_items_in_cloud": 0,
+   "has_lift": true
+  },
+  "data/synth/hard_v9/scans/s000007": {
+   "batch": "hard_v9",
+   "ok": false,
+   "n_items": 3,
+   "n_items_in_cloud": 1,
+   "has_lift": true
+  },
+  "data/synth/hard_v9/scans/s000008": {
+   "batch": "hard_v9",
+   "ok": false,
+   "n_items": 6,
+   "n_items_in_cloud": 0,
+   "has_lift": true
+  },
+  "data/synth/hard_v9/scans/s000009": {
+   "batch": "hard_v9",
+   "ok": false,
+   "n_items": 6,
+   "n_items_in_cloud": 5,
+   "has_lift": true
+  },
+  "data/synth/hard_v9/scans/s000010": {
+   "batch": "hard_v9",
+   "ok": false,
+   "n_items": 5,
+   "n_items_in_cloud": 0,
+   "has_lift": true
+  },
+  "data/synth/hard_v9/scans/s000011": {
+   "batch": "hard_v9",
+   "ok": false,
+   "n_items": 3,
+   "n_items_in_cloud": 3,
+   "has_lift": true
+  },
+  "data/synth/hard_v9/scans/s000012": {
+   "batch": "hard_v9",
+   "ok": false,
+   "n_items": 3,
+   "n_items_in_cloud": 2,
+   "has_lift": true
+  },
+  "data/synth/hard_v9/scans/s000013": {
+   "batch": "hard_v9",
+   "ok": false,
+   "n_items": 8,
+   "n_items_in_cloud": 4,
+   "has_lift": true
+  },
+  "data/synth/hard_v9/scans/s000014": {
+   "batch": "hard_v9",
+   "ok": false,
+   "n_items": 5,
+   "n_items_in_cloud": 3,
+   "has_lift": true
+  },
+  "data/synth/hard_v9/scans/s000015": {
+   "batch": "hard_v9",
+   "ok": false,
+   "n_items": 3,
+   "n_items_in_cloud": 2,
+   "has_lift": true
+  },
+  "data/synth/hard_v9/scans/s000016": {
+   "batch": "hard_v9",
+   "ok": false,
+   "n_items": 1,
+   "n_items_in_cloud": 0,
+   "has_lift": true
+  },
+  "data/synth/hard_v9/scans/s000017": {
+   "batch": "hard_v9",
+   "ok": true,
+   "n_items": 1,
+   "n_items_in_cloud": 1,
+   "has_lift": true
+  },
+  "data/synth/hard_v9/scans/s000018": {
+   "batch": "hard_v9",
+   "ok": true,
+   "n_items": 3,
+   "n_items_in_cloud": 3,
+   "has_lift": true
+  },
+  "data/synth/hard_v9/scans/s000019": {
+   "batch": "hard_v9",
+   "ok": false,
+   "n_items": 3,
+   "n_items_in_cloud": 3,
+   "has_lift": true
+  },
+  "data/synth/hard_v10/scans/s000000": {
+   "batch": "hard_v10",
+   "ok": false,
+   "n_items": 3,
+   "n_items_in_cloud": 2,
+   "has_lift": true
+  },
+  "data/synth/hard_v10/scans/s000001": {
+   "batch": "hard_v10",
+   "ok": true,
+   "n_items": 2,
+   "n_items_in_cloud": 2,
+   "has_lift": true
+  },
+  "data/synth/hard_v10/scans/s000002": {
+   "batch": "hard_v10",
+   "ok": true,
+   "n_items": 1,
+   "n_items_in_cloud": 1,
+   "has_lift": true
+  },
+  "data/synth/hard_v10/scans/s000003": {
+   "batch": "hard_v10",
+   "ok": false,
+   "n_items": 1,
+   "n_items_in_cloud": 1,
+   "has_lift": true
+  },
+  "data/synth/hard_v10/scans/s000004": {
+   "batch": "hard_v10",
+   "ok": true,
+   "n_items": 2,
+   "n_items_in_cloud": 2,
+   "has_lift": true
+  },
+  "data/synth/hard_v10/scans/s000005": {
+   "batch": "hard_v10",
+   "ok": false,
+   "n_items": 5,
+   "n_items_in_cloud": 1,
+   "has_lift": true
+  },
+  "data/synth/hard_v10/scans/s000006": {
+   "batch": "hard_v10",
+   "ok": false,
+   "n_items": 3,
+   "n_items_in_cloud": 1,
+   "has_lift": true
+  },
+  "data/synth/hard_v10/scans/s000007": {
+   "batch": "hard_v10",
+   "ok": true,
+   "n_items": 1,
+   "n_items_in_cloud": 1,
+   "has_lift": true
+  },
+  "data/synth/hard_v10/scans/s000008": {
+   "batch": "hard_v10",
+   "ok": false,
+   "n_items": 8,
+   "n_items_in_cloud": 3,
+   "has_lift": true
+  },
+  "data/synth/hard_v10/scans/s000009": {
+   "batch": "hard_v10",
+   "ok": true,
+   "n_items": 2,
+   "n_items_in_cloud": 2,
+   "has_lift": true
+  },
+  "data/synth/hard_v10/scans/s000010": {
+   "batch": "hard_v10",
+   "ok": true,
+   "n_items": 1,
+   "n_items_in_cloud": 1,
+   "has_lift": true
+  },
+  "data/synth/hard_v10/scans/s000011": {
+   "batch": "hard_v10",
+   "ok": true,
+   "n_items": 2,
+   "n_items_in_cloud": 2,
+   "has_lift": true
+  },
+  "data/synth/hard_v10/scans/s000012": {
+   "batch": "hard_v10",
+   "ok": false,
+   "n_items": 6,
+   "n_items_in_cloud": 2,
+   "has_lift": true
+  },
+  "data/synth/hard_v10/scans/s000013": {
+   "batch": "hard_v10",
+   "ok": false,
+   "n_items": 2,
+   "n_items_in_cloud": 1,
+   "has_lift": true
+  },
+  "data/synth/hard_v10/scans/s000014": {
+   "batch": "hard_v10",
+   "ok": false,
+   "n_items": 1,
+   "n_items_in_cloud": 0,
+   "has_lift": true
+  },
+  "data/synth/hard_v10/scans/s000015": {
+   "batch": "hard_v10",
+   "ok": false,
+   "n_items": 2,
+   "n_items_in_cloud": 0,
+   "has_lift": true
+  },
+  "data/synth/hard_v10/scans/s000016": {
+   "batch": "hard_v10",
+   "ok": false,
+   "n_items": 3,
+   "n_items_in_cloud": 1,
+   "has_lift": true
+  },
+  "data/synth/hard_v10/scans/s000017": {
+   "batch": "hard_v10",
+   "ok": false,
+   "n_items": 2,
+   "n_items_in_cloud": 1,
+   "has_lift": true
+  },
+  "data/synth/hard_v10/scans/s000018": {
+   "batch": "hard_v10",
+   "ok": true,
+   "n_items": 2,
+   "n_items_in_cloud": 2,
+   "has_lift": true
+  },
+  "data/synth/hard_v10/scans/s000019": {
+   "batch": "hard_v10",
+   "ok": false,
+   "n_items": 2,
+   "n_items_in_cloud": 1,
+   "has_lift": true
+  }
+ }
+}

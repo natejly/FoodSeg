@@ -1,0 +1,1 @@
+{"name": "norgb_r2", "seed": 0, "rc": 0, "wall_s": 246.67867875099182, "train_regime": "r2", "eval_regime": "r2", "sets": ["data.zero_groups=[\"rgb\"]"]}

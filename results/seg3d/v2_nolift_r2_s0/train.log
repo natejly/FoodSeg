@@ -1,0 +1,15 @@
+scans: 72 train 61 val 10
+Loading checkpoint from HuggingFace: sonata ...
+model: sonata loaded; missing=0 unexpected=0; stem embedding.stem.linear.weight widened (48, 9)->(48, 30)
+W1015 07:00:46.309000 1628396 site-packages/torch/fx/_symbolic_trace.py:53] is_fx_tracing will return true for both fx.symbolic_trace and torch.export. Please use is_fx_tracing_symbolic_tracing() for specifically fx.symbolic_trace or torch.compiler.is_compiling() for specifically torch.export/compile.
+{"epoch": 0, "phase": "none", "iters": 244, "train_loss": 0.8000628348653678, "peak_gib": 0.8904199600219727, "minutes": 0.6839035749435425, "train_s": 41.02610230445862, "ep_iters": 244, "s_per_iter": 0.16813976647423917}
+{"epoch": 1, "phase": "none", "iters": 488, "train_loss": 0.45265398876833135, "peak_gib": 0.8904199600219727, "minutes": 1.627549910545349, "train_s": 56.14000225067139, "ep_iters": 244, "s_per_iter": 0.2300819793685538}
+{"epoch": 2, "phase": "none", "iters": 732, "train_loss": 0.3976925241591058, "peak_gib": 0.8927936553955078, "minutes": 2.7585179448127746, "train_s": 66.72183895111084, "ep_iters": 244, "s_per_iter": 0.2734501606128255}
+{"epoch": 3, "phase": "none", "iters": 976, "train_loss": 0.2653071246645223, "peak_gib": 0.92681884765625, "minutes": 3.4961180289586387, "train_s": 43.33200407028198, "ep_iters": 244, "s_per_iter": 0.17759018061590975}
+  val sem_miou 0.728 inst_miou 0.362 pq 0.297 count 0.30
+{"epoch": 4, "phase": "none", "iters": 1220, "train_loss": 0.25032405804396135, "peak_gib": 1.2519207000732422, "minutes": 4.421423979600271, "train_s": 51.82545852661133, "ep_iters": 244, "s_per_iter": 0.21239942116815536}
+{"epoch": 5, "phase": "none", "iters": 1464, "train_loss": 0.17489305892114748, "peak_gib": 1.2519207000732422, "minutes": 5.115107452869415, "train_s": 40.56695103645325, "ep_iters": 244, "s_per_iter": 0.16625799800528854}
+{"epoch": 6, "phase": "none", "iters": 1708, "train_loss": 0.17712244218011142, "peak_gib": 1.2519207000732422, "minutes": 5.847077365716299, "train_s": 42.363200426101685, "ep_iters": 244, "s_per_iter": 0.17361967485459123}
+{"epoch": 7, "phase": "none", "iters": 1763, "train_loss": 0.1418940395370803, "peak_gib": 1.2519207000732422, "minutes": 6.003529286384582, "train_s": 8.15312385559082, "ep_iters": 55, "s_per_iter": 0.14823862422596323}
+  val sem_miou 0.802 inst_miou 0.530 pq 0.414 count 0.40
+done: 1763 iters, 364s, peak 1.26 GiB

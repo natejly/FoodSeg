@@ -1,0 +1,5 @@
+r4_c_mix_f0_s0: rc=0 wall 997s
+W1016 03:58:58.836000 777202 site-packages/torch/fx/_symbolic_trace.py:53] is_fx_tracing will return true for both fx.symbolic_trace and torch.export. Please use is_fx_tracing_symbolic_tracing() for specifically fx.symbolic_trace or torch.compiler.is_compiling() for specifically torch.export/compile.
+final done r4_c_mix_f0_s0 {'lift': 4, 'plain': 4, 'anchored': 4, 'koc': 4, 'koc2': 4}
+r4_c_mix_f1_s0: rc=0 wall 372s
+LOCK WAIT TIMEOUT: stop launching GPU runs

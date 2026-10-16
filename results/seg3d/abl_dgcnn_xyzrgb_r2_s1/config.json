@@ -1,0 +1,115 @@
+{
+ "run": "abl_dgcnn_xyzrgb_r2_s1",
+ "model": "dgcnn",
+ "pretrained": true,
+ "patch_size": 512,
+ "drop_path": 0.1,
+ "mass_head": false,
+ "mass_w": 0.0,
+ "epochs": 8,
+ "freeze_epochs": 8,
+ "unfreeze": "top",
+ "batch_size": 1,
+ "grad_accum": 2,
+ "lr": 0.001,
+ "lr_backbone": 5e-05,
+ "weight_decay": 0.02,
+ "warmup_iters": 30,
+ "amp": true,
+ "cls_weights": [
+  0.5,
+  1.0,
+  1.0,
+  2.0
+ ],
+ "off_w": 1.0,
+ "dir_w": 0.1,
+ "num_workers": 2,
+ "val_every": 4,
+ "max_minutes": 6,
+ "seed": 1,
+ "train_regime": "r2",
+ "eval_regime": "r2",
+ "max_mem_gb": 4.0,
+ "data": {
+  "roots": [
+   "data/synth/hard",
+   "data/synth/hard_v3",
+   "data/synth/hard_v9",
+   "data/synth/hard_v10"
+  ],
+  "voxel_mm": 2.0,
+  "coord_scale": 10.0,
+  "nv_norm": 20.0,
+  "val_frac": 0.2,
+  "split_seed": 0,
+  "split_by": "scan",
+  "max_points": 20000,
+  "max_points_eval": 40000,
+  "epoch_repeat": 4,
+  "val_lift_seed": 1234,
+  "split_file": "results/seg3d/split.json",
+  "zero_groups": [
+   "normal",
+   "lift"
+  ]
+ },
+ "aug": {
+  "enable": true,
+  "rot_z": true,
+  "tilt_deg": 3.0,
+  "scale": 0.05,
+  "flip": true,
+  "jitter": true,
+  "jitter_sigma_mm": [
+   0.5,
+   1.0
+  ],
+  "jitter_clip_mm": 3.0,
+  "crop_p": 0.5,
+  "crop_radius_m": [
+   0.12,
+   0.25
+  ],
+  "cap_p": 0.3,
+  "cap_frac": [
+   0.2,
+   0.5
+  ],
+  "voxel_mm": [
+   1.5,
+   3.0
+  ],
+  "color": true,
+  "brightness": 0.3,
+  "hue": 0.05,
+  "wb_gain": 0.1,
+  "grey_p": 0.1,
+  "color_noise": 0.02,
+  "drop_rgb_p": 0.15,
+  "drop_normal_p": 0.1,
+  "drop_lift_p": 0.15,
+  "lift_corrupt": true,
+  "lift_corrupt_p_present": 1.0,
+  "blob_p": 0.5,
+  "blob_radius_mm": [
+   15.0,
+   40.0
+  ],
+  "merge_p": 0.6,
+  "drop_inst_p": 0.15,
+  "morph_p": 0.7,
+  "morph_vox": [
+   2,
+   4
+  ],
+  "share_noise": 0.1,
+  "eval_corrupt_stored": false
+ },
+ "cluster": {
+  "eps": 0.006,
+  "min_samples": 8,
+  "min_pts": 20,
+  "method": "dbscan"
+ }
+}

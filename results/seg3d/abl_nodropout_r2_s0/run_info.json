@@ -1,0 +1,1 @@
+{"name": "nodropout_r2", "seed": 0, "rc": 0, "wall_s": 382.789630651474, "train_regime": "r2", "eval_regime": "r2", "sets": ["aug.drop_rgb_p=0.0", "aug.drop_normal_p=0.0", "aug.drop_lift_p=0.0"]}

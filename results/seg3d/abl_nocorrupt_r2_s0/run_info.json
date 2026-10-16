@@ -1,0 +1,1 @@
+{"name": "nocorrupt_r2", "seed": 0, "rc": 0, "wall_s": 339.11564922332764, "train_regime": "r2", "eval_regime": "r2", "sets": ["aug.lift_corrupt=false"]}

@@ -1,0 +1,1 @@
+{"name": "scratch_r2", "seed": 0, "rc": 0, "wall_s": 250.4272358417511, "train_regime": "r2", "eval_regime": "r2", "sets": ["pretrained=false", "freeze_epochs=0", "unfreeze=all"]}

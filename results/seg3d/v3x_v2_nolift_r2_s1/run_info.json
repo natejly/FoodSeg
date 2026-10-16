@@ -1,0 +1,1 @@
+{"name": "nolift_r2", "seed": 1, "rc": 0, "wall_s": 245.72394442558289, "train_regime": "r2", "eval_regime": "r2", "sets": ["data.zero_groups=[\"lift\"]"], "src": "v2_nolift_r2_s1"}

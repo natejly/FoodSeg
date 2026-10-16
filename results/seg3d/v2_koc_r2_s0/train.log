@@ -1,0 +1,9 @@
+scans: 72 train 61 val 10
+Loading checkpoint from HuggingFace: sonata ...
+model: sonata loaded; missing=0 unexpected=0; stem embedding.stem.linear.weight widened (48, 9)->(48, 30)
+W1015 14:23:08.116000 2624483 site-packages/torch/fx/_symbolic_trace.py:53] is_fx_tracing will return true for both fx.symbolic_trace and torch.export. Please use is_fx_tracing_symbolic_tracing() for specifically fx.symbolic_trace or torch.compiler.is_compiling() for specifically torch.export/compile.
+{"epoch": 0, "phase": "none", "iters": 244, "train_loss": 0.9968340856893385, "peak_gib": 0.8273253440856934, "minutes": 2.691969366868337, "train_s": 161.51236057281494, "ep_iters": 244, "s_per_iter": 0.6619359088725731}
+{"epoch": 1, "phase": "none", "iters": 488, "train_loss": 0.5092600535560345, "peak_gib": 0.8289523124694824, "minutes": 5.047097873687744, "train_s": 140.48284554481506, "ep_iters": 244, "s_per_iter": 0.5757493699183229}
+{"epoch": 2, "phase": "none", "iters": 621, "train_loss": 0.5579005338871306, "peak_gib": 0.8289523124694824, "minutes": 6.0054800073305765, "train_s": 56.77393293380737, "ep_iters": 133, "s_per_iter": 0.4268716779866613}
+  val sem_miou 0.771 inst_miou 0.607 pq 0.594 count 0.80
+done: 621 iters, 364s, peak 1.39 GiB

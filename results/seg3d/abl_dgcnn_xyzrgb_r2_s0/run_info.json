@@ -1,0 +1,1 @@
+{"name": "dgcnn_xyzrgb_r2", "seed": 0, "rc": 0, "wall_s": 95.65431523323059, "train_regime": "r2", "eval_regime": "r2", "sets": ["model=dgcnn", "data.zero_groups=[\"normal\",\"lift\"]"]}

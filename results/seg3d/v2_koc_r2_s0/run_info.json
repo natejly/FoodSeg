@@ -1,0 +1,1 @@
+{"name": "koc_r2", "seed": 0, "rc": 0, "wall_s": 380.48645067214966, "train_regime": "r2", "eval_regime": "r2", "sets": ["decoder=koc"]}

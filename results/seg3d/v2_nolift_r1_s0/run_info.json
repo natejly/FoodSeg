@@ -1,0 +1,1 @@
+{"name": "nolift_r1", "seed": 0, "rc": 0, "wall_s": 271.50078654289246, "train_regime": "r1", "eval_regime": "r1", "sets": ["data.zero_groups=[\"lift\"]"]}

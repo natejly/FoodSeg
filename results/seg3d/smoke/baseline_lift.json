@@ -1,0 +1,30 @@
+{
+ "sem_iou": {
+  "table": 0.9920429085477629,
+  "container": 1.0,
+  "clutter": 1.0,
+  "food": 0.8962280857092262
+ },
+ "sem_miou": 0.9720677485642473,
+ "inst_miou": 0.9329519450800916,
+ "recall50": 1.0,
+ "pq": 0.9329519450800916,
+ "boundary_iou": 0.9535398230088495,
+ "exact_count": 1.0,
+ "vol_ape": 0.6275399518577818,
+ "vol_ape_median": 0.6008310150093773,
+ "vol_ape_gtpts": 0.6220927625945689,
+ "n_items": 5,
+ "n_scans": 3,
+ "scan_inst_miou": [
+  1.0,
+  0.8323798627002288,
+  1.0
+ ],
+ "corrected_all": 0.0,
+ "broken_all": 0.0,
+ "corrected_food": 0.0,
+ "broken_food": 0.0,
+ "n_wrong_all": 586,
+ "n_wrong_food": 586
+}

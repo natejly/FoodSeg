@@ -1,0 +1,13 @@
+scans: 52 train 41 val 11
+model: dgcnn
+{"epoch": 0, "phase": "none", "iters": 164, "train_loss": 1.1478610594825047, "peak_gib": 0.2469348907470703, "minutes": 0.11570247809092203, "train_s": 6.941812753677368, "ep_iters": 164, "s_per_iter": 0.04232813090812869}
+{"epoch": 1, "phase": "none", "iters": 328, "train_loss": 0.9305333649603332, "peak_gib": 0.2469348907470703, "minutes": 0.2558998664220174, "train_s": 8.406747817993164, "ep_iters": 164, "s_per_iter": 0.05126066324187488}
+{"epoch": 2, "phase": "none", "iters": 492, "train_loss": 0.8803256804623255, "peak_gib": 0.2469348907470703, "minutes": 0.4341841578483582, "train_s": 10.68974781036377, "ep_iters": 164, "s_per_iter": 0.06518139054135579}
+{"epoch": 3, "phase": "none", "iters": 656, "train_loss": 0.7799378226443034, "peak_gib": 0.2469348907470703, "minutes": 0.596886404355367, "train_s": 9.754478693008423, "ep_iters": 164, "s_per_iter": 0.05947853152344867}
+  val sem_miou 0.600 inst_miou 0.352 pq 0.378 count 0.55
+{"epoch": 4, "phase": "none", "iters": 820, "train_loss": 0.6222914774425146, "peak_gib": 0.2469348907470703, "minutes": 0.8053933540980022, "train_s": 10.167846918106079, "ep_iters": 164, "s_per_iter": 0.06199906802758938}
+{"epoch": 5, "phase": "none", "iters": 984, "train_loss": 0.6386152959724025, "peak_gib": 0.2469348907470703, "minutes": 0.969698425134023, "train_s": 9.850422859191895, "ep_iters": 164, "s_per_iter": 0.060063555473234595}
+{"epoch": 6, "phase": "none", "iters": 1148, "train_loss": 0.566641510577827, "peak_gib": 0.2469348907470703, "minutes": 1.1346327741940816, "train_s": 9.889326333999634, "ep_iters": 164, "s_per_iter": 0.06030077032926606}
+{"epoch": 7, "phase": "none", "iters": 1312, "train_loss": 0.5585567806279514, "peak_gib": 0.2469348907470703, "minutes": 1.3049304763476053, "train_s": 10.210043668746948, "ep_iters": 164, "s_per_iter": 0.06225636528759468}
+  val sem_miou 0.628 inst_miou 0.383 pq 0.367 count 0.27
+done: 1312 iters, 80s, peak 0.25 GiB
