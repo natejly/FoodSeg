@@ -1,0 +1,82 @@
+{
+ "1": {
+  "name": "bread",
+  "concept_index": 0,
+  "kind": "food",
+  "n_frames": 24,
+  "n_raw": 24,
+  "mean_score": 0.8497314453125
+ },
+ "2": {
+  "name": "bread",
+  "concept_index": 0,
+  "kind": "food",
+  "n_frames": 24,
+  "n_raw": 24,
+  "mean_score": 0.7833251953125
+ },
+ "3": {
+  "name": "broccoli",
+  "concept_index": 0,
+  "kind": "food",
+  "n_frames": 24,
+  "n_raw": 24,
+  "mean_score": 0.91162109375
+ },
+ "4": {
+  "name": "broccoli",
+  "concept_index": 0,
+  "kind": "food",
+  "n_frames": 24,
+  "n_raw": 25,
+  "mean_score": 0.89396484375
+ },
+ "5": {
+  "name": "bread",
+  "concept_index": 0,
+  "kind": "food",
+  "n_frames": 5,
+  "n_raw": 5,
+  "mean_score": 0.79482421875
+ },
+ "6": {
+  "name": "broccoli",
+  "concept_index": 0,
+  "kind": "food",
+  "n_frames": 3,
+  "n_raw": 3,
+  "mean_score": 0.6474609375
+ },
+ "7": {
+  "name": "bread",
+  "concept_index": 0,
+  "kind": "food",
+  "n_frames": 2,
+  "n_raw": 2,
+  "mean_score": 0.7373046875
+ },
+ "8": {
+  "name": "bread",
+  "concept_index": 0,
+  "kind": "food",
+  "n_frames": 2,
+  "n_raw": 2,
+  "mean_score": 0.82861328125
+ },
+ "9": {
+  "name": "bread",
+  "concept_index": 0,
+  "kind": "food",
+  "n_frames": 2,
+  "n_raw": 2,
+  "mean_score": 0.754638671875
+ },
+ "10": {
+  "name": "bread",
+  "concept_index": 0,
+  "kind": "food",
+  "n_frames": 2,
+  "n_raw": 2,
+  "mean_score": 0.84716796875
+ }
+}

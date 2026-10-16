@@ -1,0 +1,58 @@
+{
+ "1": {
+  "name": "fruit",
+  "concept_index": 0,
+  "kind": "food",
+  "n_frames": 24,
+  "n_raw": 24,
+  "mean_score": 0.8147379557291666
+ },
+ "2": {
+  "name": "yogurt",
+  "concept_index": 0,
+  "kind": "food",
+  "n_frames": 24,
+  "n_raw": 24,
+  "mean_score": 0.6513926188151041
+ },
+ "3": {
+  "name": "food",
+  "concept_index": 0,
+  "kind": "food",
+  "n_frames": 24,
+  "n_raw": 25,
+  "mean_score": 0.528857421875
+ },
+ "4": {
+  "name": "fruit",
+  "concept_index": 0,
+  "kind": "food",
+  "n_frames": 24,
+  "n_raw": 24,
+  "mean_score": 0.6706339518229166
+ },
+ "5": {
+  "name": "food",
+  "concept_index": 0,
+  "kind": "food",
+  "n_frames": 19,
+  "n_raw": 19,
+  "mean_score": 0.5425575657894737
+ },
+ "6": {
+  "name": "yogurt",
+  "concept_index": 0,
+  "kind": "food",
+  "n_frames": 4,
+  "n_raw": 4,
+  "mean_score": 0.277252197265625
+ },
+ "7": {
+  "name": "fruit",
+  "concept_index": 0,
+  "kind": "food",
+  "n_frames": 2,
+  "n_raw": 2,
+  "mean_score": 0.6748046875
+ }
+}

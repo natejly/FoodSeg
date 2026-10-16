@@ -1,0 +1,82 @@
+{
+ "1": {
+  "name": "broccoli",
+  "concept_index": 0,
+  "kind": "food",
+  "n_frames": 24,
+  "n_raw": 25,
+  "mean_score": 0.780556640625
+ },
+ "2": {
+  "name": "cauliflower",
+  "concept_index": 0,
+  "kind": "food",
+  "n_frames": 24,
+  "n_raw": 24,
+  "mean_score": 0.8587849934895834
+ },
+ "3": {
+  "name": "cauliflower",
+  "concept_index": 0,
+  "kind": "food",
+  "n_frames": 23,
+  "n_raw": 23,
+  "mean_score": 0.7892111073369565
+ },
+ "4": {
+  "name": "cauliflower",
+  "concept_index": 0,
+  "kind": "food",
+  "n_frames": 22,
+  "n_raw": 23,
+  "mean_score": 0.6765773607336957
+ },
+ "5": {
+  "name": "broccoli",
+  "concept_index": 0,
+  "kind": "food",
+  "n_frames": 16,
+  "n_raw": 16,
+  "mean_score": 0.5940399169921875
+ },
+ "6": {
+  "name": "cauliflower",
+  "concept_index": 0,
+  "kind": "food",
+  "n_frames": 6,
+  "n_raw": 6,
+  "mean_score": 0.6183268229166666
+ },
+ "7": {
+  "name": "broccoli",
+  "concept_index": 0,
+  "kind": "food",
+  "n_frames": 4,
+  "n_raw": 4,
+  "mean_score": 0.33721923828125
+ },
+ "8": {
+  "name": "cauliflower",
+  "concept_index": 0,
+  "kind": "food",
+  "n_frames": 3,
+  "n_raw": 3,
+  "mean_score": 0.2568766276041667
+ },
+ "9": {
+  "name": "cauliflower",
+  "concept_index": 0,
+  "kind": "food",
+  "n_frames": 2,
+  "n_raw": 2,
+  "mean_score": 0.856201171875
+ },
+ "10": {
+  "name": "broccoli",
+  "concept_index": 0,
+  "kind": "food",
+  "n_frames": 2,
+  "n_raw": 2,
+  "mean_score": 0.2484130859375
+ }
+}

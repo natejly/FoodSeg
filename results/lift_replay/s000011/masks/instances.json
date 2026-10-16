@@ -1,0 +1,42 @@
+{
+ "1": {
+  "name": "food",
+  "concept_index": 0,
+  "kind": "food",
+  "n_frames": 24,
+  "n_raw": 24,
+  "mean_score": 0.621002197265625
+ },
+ "2": {
+  "name": "food",
+  "concept_index": 0,
+  "kind": "food",
+  "n_frames": 24,
+  "n_raw": 24,
+  "mean_score": 0.6089274088541666
+ },
+ "3": {
+  "name": "cookie",
+  "concept_index": 0,
+  "kind": "food",
+  "n_frames": 23,
+  "n_raw": 23,
+  "mean_score": 0.7305324388586957
+ },
+ "4": {
+  "name": "food",
+  "concept_index": 0,
+  "kind": "food",
+  "n_frames": 23,
+  "n_raw": 23,
+  "mean_score": 0.7587253736413043
+ },
+ "5": {
+  "name": "cookie",
+  "concept_index": 0,
+  "kind": "food",
+  "n_frames": 2,
+  "n_raw": 2,
+  "mean_score": 0.43060302734375
+ }
+}

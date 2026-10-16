@@ -1,0 +1,34 @@
+{
+ "1": {
+  "name": "potato",
+  "concept_index": 0,
+  "kind": "food",
+  "n_frames": 24,
+  "n_raw": 24,
+  "mean_score": 0.80859375
+ },
+ "2": {
+  "name": "corn",
+  "concept_index": 0,
+  "kind": "food",
+  "n_frames": 24,
+  "n_raw": 24,
+  "mean_score": 0.8662516276041666
+ },
+ "3": {
+  "name": "food",
+  "concept_index": 0,
+  "kind": "food",
+  "n_frames": 24,
+  "n_raw": 24,
+  "mean_score": 0.7180989583333334
+ },
+ "4": {
+  "name": "food",
+  "concept_index": 0,
+  "kind": "food",
+  "n_frames": 23,
+  "n_raw": 23,
+  "mean_score": 0.5488493546195652
+ }
+}

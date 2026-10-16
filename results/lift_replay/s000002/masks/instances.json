@@ -1,0 +1,138 @@
+{
+ "1": {
+  "name": "chicken",
+  "concept_index": 0,
+  "kind": "food",
+  "n_frames": 23,
+  "n_raw": 26,
+  "mean_score": 0.5103008563701923
+ },
+ "2": {
+  "name": "chicken",
+  "concept_index": 0,
+  "kind": "food",
+  "n_frames": 23,
+  "n_raw": 23,
+  "mean_score": 0.6311459748641305
+ },
+ "3": {
+  "name": "chicken",
+  "concept_index": 0,
+  "kind": "food",
+  "n_frames": 20,
+  "n_raw": 21,
+  "mean_score": 0.6131649925595238
+ },
+ "4": {
+  "name": "chicken",
+  "concept_index": 0,
+  "kind": "food",
+  "n_frames": 18,
+  "n_raw": 19,
+  "mean_score": 0.49446828741776316
+ },
+ "5": {
+  "name": "chicken",
+  "concept_index": 0,
+  "kind": "food",
+  "n_frames": 17,
+  "n_raw": 17,
+  "mean_score": 0.5664636948529411
+ },
+ "6": {
+  "name": "chicken",
+  "concept_index": 0,
+  "kind": "food",
+  "n_frames": 13,
+  "n_raw": 13,
+  "mean_score": 0.5006385216346154
+ },
+ "7": {
+  "name": "chicken",
+  "concept_index": 0,
+  "kind": "food",
+  "n_frames": 13,
+  "n_raw": 13,
+  "mean_score": 0.42239145132211536
+ },
+ "8": {
+  "name": "chicken",
+  "concept_index": 0,
+  "kind": "food",
+  "n_frames": 12,
+  "n_raw": 12,
+  "mean_score": 0.44451904296875
+ },
+ "9": {
+  "name": "chicken",
+  "concept_index": 0,
+  "kind": "food",
+  "n_frames": 10,
+  "n_raw": 10,
+  "mean_score": 0.4919921875
+ },
+ "10": {
+  "name": "chicken",
+  "concept_index": 0,
+  "kind": "food",
+  "n_frames": 6,
+  "n_raw": 6,
+  "mean_score": 0.49267578125
+ },
+ "11": {
+  "name": "egg",
+  "concept_index": 0,
+  "kind": "food",
+  "n_frames": 5,
+  "n_raw": 5,
+  "mean_score": 0.43359375
+ },
+ "12": {
+  "name": "chicken",
+  "concept_index": 0,
+  "kind": "food",
+  "n_frames": 5,
+  "n_raw": 5,
+  "mean_score": 0.42568359375
+ },
+ "13": {
+  "name": "chicken",
+  "concept_index": 0,
+  "kind": "food",
+  "n_frames": 4,
+  "n_raw": 4,
+  "mean_score": 0.626708984375
+ },
+ "14": {
+  "name": "chicken",
+  "concept_index": 0,
+  "kind": "food",
+  "n_frames": 3,
+  "n_raw": 3,
+  "mean_score": 0.3883463541666667
+ },
+ "15": {
+  "name": "chicken",
+  "concept_index": 0,
+  "kind": "food",
+  "n_frames": 2,
+  "n_raw": 2,
+  "mean_score": 0.460205078125
+ },
+ "16": {
+  "name": "chicken",
+  "concept_index": 0,
+  "kind": "food",
+  "n_frames": 2,
+  "n_raw": 2,
+  "mean_score": 0.5172119140625
+ },
+ "17": {
+  "name": "food",
+  "concept_index": 0,
+  "kind": "food",
+  "n_frames": 2,
+  "n_raw": 2,
+  "mean_score": 0.4166259765625
+ }
+}

@@ -1,0 +1,122 @@
+{
+ "1": {
+  "name": "broccoli",
+  "concept_index": 0,
+  "kind": "food",
+  "n_frames": 24,
+  "n_raw": 24,
+  "mean_score": 0.93670654296875
+ },
+ "2": {
+  "name": "meat",
+  "concept_index": 0,
+  "kind": "food",
+  "n_frames": 24,
+  "n_raw": 24,
+  "mean_score": 0.7876180013020834
+ },
+ "3": {
+  "name": "broccoli",
+  "concept_index": 0,
+  "kind": "food",
+  "n_frames": 24,
+  "n_raw": 24,
+  "mean_score": 0.92755126953125
+ },
+ "4": {
+  "name": "grapes",
+  "concept_index": 0,
+  "kind": "food",
+  "n_frames": 14,
+  "n_raw": 14,
+  "mean_score": 0.772705078125
+ },
+ "5": {
+  "name": "grapes",
+  "concept_index": 0,
+  "kind": "food",
+  "n_frames": 13,
+  "n_raw": 15,
+  "mean_score": 0.4901529947916667
+ },
+ "6": {
+  "name": "meat",
+  "concept_index": 0,
+  "kind": "food",
+  "n_frames": 7,
+  "n_raw": 8,
+  "mean_score": 0.68133544921875
+ },
+ "7": {
+  "name": "meat",
+  "concept_index": 0,
+  "kind": "food",
+  "n_frames": 3,
+  "n_raw": 3,
+  "mean_score": 0.56689453125
+ },
+ "8": {
+  "name": "grapes",
+  "concept_index": 0,
+  "kind": "food",
+  "n_frames": 3,
+  "n_raw": 3,
+  "mean_score": 0.3201090494791667
+ },
+ "9": {
+  "name": "grapes",
+  "concept_index": 0,
+  "kind": "food",
+  "n_frames": 2,
+  "n_raw": 2,
+  "mean_score": 0.4647216796875
+ },
+ "10": {
+  "name": "food",
+  "concept_index": 0,
+  "kind": "food",
+  "n_frames": 2,
+  "n_raw": 2,
+  "mean_score": 0.681884765625
+ },
+ "11": {
+  "name": "food",
+  "concept_index": 0,
+  "kind": "food",
+  "n_frames": 2,
+  "n_raw": 2,
+  "mean_score": 0.55517578125
+ },
+ "12": {
+  "name": "grapes",
+  "concept_index": 0,
+  "kind": "food",
+  "n_frames": 2,
+  "n_raw": 2,
+  "mean_score": 0.760498046875
+ },
+ "13": {
+  "name": "food",
+  "concept_index": 0,
+  "kind": "food",
+  "n_frames": 2,
+  "n_raw": 2,
+  "mean_score": 0.4781494140625
+ },
+ "14": {
+  "name": "grapes",
+  "concept_index": 0,
+  "kind": "food",
+  "n_frames": 2,
+  "n_raw": 2,
+  "mean_score": 0.442626953125
+ },
+ "15": {
+  "name": "broccoli",
+  "concept_index": 0,
+  "kind": "food",
+  "n_frames": 2,
+  "n_raw": 2,
+  "mean_score": 0.457275390625
+ }
+}

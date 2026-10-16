@@ -1,0 +1,18 @@
+{
+ "1": {
+  "name": "salad",
+  "concept_index": 0,
+  "kind": "food",
+  "n_frames": 24,
+  "n_raw": 24,
+  "mean_score": 0.9238688151041666
+ },
+ "2": {
+  "name": "broccoli",
+  "concept_index": 0,
+  "kind": "food",
+  "n_frames": 16,
+  "n_raw": 20,
+  "mean_score": 0.6374755859375
+ }
+}

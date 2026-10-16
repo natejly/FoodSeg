@@ -1,0 +1,82 @@
+{
+ "1": {
+  "name": "broccoli",
+  "concept_index": 0,
+  "kind": "food",
+  "n_frames": 24,
+  "n_raw": 24,
+  "mean_score": 0.8539835611979166
+ },
+ "2": {
+  "name": "broccoli",
+  "concept_index": 0,
+  "kind": "food",
+  "n_frames": 22,
+  "n_raw": 22,
+  "mean_score": 0.8623268821022727
+ },
+ "3": {
+  "name": "bread",
+  "concept_index": 0,
+  "kind": "food",
+  "n_frames": 21,
+  "n_raw": 21,
+  "mean_score": 0.7915736607142857
+ },
+ "4": {
+  "name": "pasta",
+  "concept_index": 0,
+  "kind": "food",
+  "n_frames": 18,
+  "n_raw": 18,
+  "mean_score": 0.72216796875
+ },
+ "5": {
+  "name": "broccoli",
+  "concept_index": 0,
+  "kind": "food",
+  "n_frames": 6,
+  "n_raw": 6,
+  "mean_score": 0.66162109375
+ },
+ "6": {
+  "name": "pasta",
+  "concept_index": 0,
+  "kind": "food",
+  "n_frames": 3,
+  "n_raw": 3,
+  "mean_score": 0.7360026041666666
+ },
+ "7": {
+  "name": "food",
+  "concept_index": 0,
+  "kind": "food",
+  "n_frames": 2,
+  "n_raw": 2,
+  "mean_score": 0.56005859375
+ },
+ "8": {
+  "name": "pasta",
+  "concept_index": 0,
+  "kind": "food",
+  "n_frames": 2,
+  "n_raw": 2,
+  "mean_score": 0.51318359375
+ },
+ "9": {
+  "name": "bread",
+  "concept_index": 0,
+  "kind": "food",
+  "n_frames": 2,
+  "n_raw": 2,
+  "mean_score": 0.73291015625
+ },
+ "10": {
+  "name": "broccoli",
+  "concept_index": 0,
+  "kind": "food",
+  "n_frames": 2,
+  "n_raw": 2,
+  "mean_score": 0.5093994140625
+ }
+}

@@ -1,0 +1,142 @@
+{
+ "clutter_label": 253,
+ "container_label": 254,
+ "mode": "image",
+ "food_thresh": 0.3,
+ "link": {
+  "linker": "covote",
+  "raw_ids": 50,
+  "clusters": 2,
+  "dropped": 6,
+  "repair": {
+   "ids": 47,
+   "merges": 42,
+   "merged": {
+    "1003": 1002,
+    "1011": 1000,
+    "1013": 1002,
+    "1021": 1000,
+    "1023": 1002,
+    "1031": 1000,
+    "1033": 1002,
+    "1034": 1002,
+    "1045": 1000,
+    "1047": 1002,
+    "1051": 1002,
+    "1060": 1000,
+    "1065": 1002,
+    "1074": 1000,
+    "1078": 1000,
+    "1079": 1000,
+    "1081": 1000,
+    "1083": 1000,
+    "1093": 1000,
+    "1096": 1000,
+    "1102": 1002,
+    "1106": 1000,
+    "1108": 1002,
+    "1113": 1000,
+    "1115": 1002,
+    "1124": 1000,
+    "1126": 1002,
+    "1131": 1000,
+    "1133": 1002,
+    "1145": 1000,
+    "1147": 1002,
+    "1156": 1000,
+    "1158": 1002,
+    "1164": 1000,
+    "1166": 1002,
+    "1174": 1000,
+    "1176": 1002,
+    "1188": 1000,
+    "1190": 1002,
+    "1192": 1002,
+    "1194": 1000,
+    "1202": 1000
+   }
+  }
+ },
+ "oom_rebuilds": 0,
+ "concepts": [
+  {
+   "name": "food",
+   "kind": "food",
+   "concept_index": 0,
+   "thresh": 0.3,
+   "labels": []
+  },
+  {
+   "name": "plate",
+   "kind": "container",
+   "concept_index": 1,
+   "thresh": 0.3,
+   "labels": [
+    254
+   ]
+  },
+  {
+   "name": "bowl",
+   "kind": "container",
+   "concept_index": 2,
+   "thresh": 0.3,
+   "labels": [
+    254
+   ]
+  },
+  {
+   "name": "cup",
+   "kind": "container",
+   "concept_index": 3,
+   "thresh": 0.3,
+   "labels": [
+    254
+   ]
+  },
+  {
+   "name": "fork",
+   "kind": "clutter",
+   "concept_index": 4,
+   "thresh": 0.3,
+   "labels": [
+    253
+   ]
+  },
+  {
+   "name": "knife",
+   "kind": "clutter",
+   "concept_index": 5,
+   "thresh": 0.3,
+   "labels": [
+    253
+   ]
+  },
+  {
+   "name": "spoon",
+   "kind": "clutter",
+   "concept_index": 6,
+   "thresh": 0.3,
+   "labels": [
+    253
+   ]
+  },
+  {
+   "name": "napkin",
+   "kind": "clutter",
+   "concept_index": 7,
+   "thresh": 0.3,
+   "labels": [
+    253
+   ]
+  },
+  {
+   "name": "phone",
+   "kind": "clutter",
+   "concept_index": 8,
+   "thresh": 0.3,
+   "labels": [
+    253
+   ]
+  }
+ ]
+}
