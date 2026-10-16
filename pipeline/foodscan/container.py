@@ -89,24 +89,51 @@ class ContainerTemplate:
     # ---- registration --------------------------------------------------------
 
     def register(self, scene_pts: np.ndarray, scene_plane: Plane, init_xy: np.ndarray | None = None,
-                 max_dist: float = 0.01, voxel: float = 0.002, food_min_height: float = 0.0015) -> np.ndarray:
+                 max_dist: float = 0.01, voxel: float = 0.002, food_min_height: float = 0.0015,
+                 multi_start: bool = True, offset: float = 0.02, min_fitness: float = 0.15,
+                 max_rmse: float = 0.003, switch_margin: float = 0.05) -> np.ndarray:
         """ICP the template into the scene. Returns 4x4 template-frame -> world.
 
-        Coarse init: scene table plane gives the normal, the centroid of off-plane
-        scene points (or `init_xy`) gives the XY offset. Then point-to-plane ICP
-        against scene points near the container (deviating from the table plane).
+        Coarse init: scene table plane gives the normal; XY starts are the centroid of off-plane
+        scene points (or `init_xy`), four +-`offset` shifts of it and the centroid of the largest
+        DBSCAN cluster of off-plane points. Each start runs the two-stage point-to-plane ICP and
+        the best (fitness - 20 x inlier RMSE) wins; a later start must beat the centroid start by
+        `switch_margin` (fitness is a weak selector on sparse scans). `multi_start=False` runs only the centroid start.
         Rotation about the plane normal is left to ICP; for round bowls it is
         irrelevant, for rimmed plates the rim geometry constrains it.
+
+        After the call `last_fitness`, `last_rmse` (m) and `last_ok` are set; `last_ok` is False
+        when fitness < `min_fitness` or RMSE > `max_rmse`, i.e. the pose should not be trusted.
         """
         T_ws = np.linalg.inv(_plane_frame(scene_plane))         # scene-plane frame -> world
         s = _apply(_plane_frame(scene_plane), scene_pts)         # scene in plane frame
         dev = np.abs(s[:, 2]) > 0.0015
-        centre = np.asarray(init_xy) if init_xy is not None else s[dev, :2].mean(0)
-        # candidate scene points: within the template's radius of the centre
+        centre = np.asarray(init_xy, float) if init_xy is not None else s[dev, :2].mean(0)
+        starts = [centre]
+        if multi_start:
+            starts += [centre + np.array(o) * offset for o in ((1, 0), (-1, 0), (0, 1), (0, -1))]
+            c2 = _largest_cluster_centre(s[dev])
+            if c2 is not None:
+                starts.append(c2)
         rad = np.linalg.norm(self.points[:, :2], axis=1).max() + 0.02
+
+        best = None
+        for st in starts:
+            res, covered = self._icp_from(s, st, rad, max_dist, voxel, food_min_height)
+            score = res.fitness - 20.0 * res.inlier_rmse
+            if best is None or score > best[0] + switch_margin:   # centroid start wins ties
+                best = (score, res, covered)
+        _, res, covered = best
+        self.covered_fraction = covered
+        self.last_fitness, self.last_rmse = res.fitness, res.inlier_rmse
+        self.last_ok = bool(res.fitness >= min_fitness and 0 < res.inlier_rmse <= max_rmse)
+        self.n_starts = len(starts)
+        return T_ws @ res.transformation                         # template -> world
+
+    def _icp_from(self, s: np.ndarray, centre: np.ndarray, rad: float, max_dist: float,
+                  voxel: float, food_min_height: float):
         near = np.linalg.norm(s[:, :2] - centre, axis=1) < rad
         target = s[near]
-
         T0 = np.eye(4)
         T0[:2, 3] = centre                                       # template centre -> scene centre
         tgt = o3d.geometry.PointCloud(o3d.utility.Vector3dVector(target)).voxel_down_sample(voxel)
@@ -133,15 +160,27 @@ class ContainerTemplate:
             if k:
                 covered[i] = (tgt_np[idx[0], 2] - p[2]) > food_min_height
         free = self.points[~covered]
-        self.covered_fraction = float(covered.mean())
         if len(free) > 200:
             res = icp(free, res.transformation, min(max_dist, 0.004))
-        self.last_fitness, self.last_rmse = res.fitness, res.inlier_rmse
-        return T_ws @ res.transformation                         # template -> world
+        return res, float(covered.mean())
 
     def support(self, T_template_to_world: np.ndarray, scene_plane: Plane, cell: float = 0.002) -> "Support":
         pts_w = _apply(T_template_to_world, self.points)
         return Support.from_points(pts_w, scene_plane, cell=cell)
+
+
+def _largest_cluster_centre(p: np.ndarray, eps: float = 0.008, min_points: int = 10) -> np.ndarray | None:
+    """XY centroid of the largest DBSCAN cluster of (plane-frame) points, or None."""
+    if len(p) < min_points:
+        return None
+    if len(p) > 20000:
+        p = p[np.random.default_rng(0).choice(len(p), 20000, replace=False)]
+    lab = np.asarray(o3d.geometry.PointCloud(o3d.utility.Vector3dVector(p)).cluster_dbscan(
+        eps=eps, min_points=min_points))
+    if lab.size == 0 or lab.max() < 0:
+        return None
+    k = np.bincount(lab[lab >= 0]).argmax()
+    return p[lab == k, :2].mean(0)
 
 
 def _fill_nan_nearest(grid: np.ndarray, max_dist_cells: int = 3) -> np.ndarray:
@@ -218,17 +257,60 @@ class Support:
         signed_proj_area = 0.5 * (n @ self.plane.normal)
         return float(np.sum(signed_proj_area * tri_h[keep].mean(1)) * M3_TO_CM3)
 
-    def height_map_volume(self, pts: np.ndarray, cell: float | None = None) -> float:
-        """Grid integration of mean relative height (for point-only inputs)."""
+    def height_map_volume(self, pts: np.ndarray, cell: float | None = None, legacy: bool = False,
+                          supersample: int = 4, radius_factor: float = 0.35,
+                          close_factor: float = 2.0) -> float:
+        """Integrate relative height over the item's footprint (for point-only inputs).
+
+        Default: the footprint is the union of discs of radius `radius_factor` x the median 2-D
+        point spacing around the points, rasterised at `cell / supersample` (so boundary cells
+        count by the fraction actually covered); interior holes are filled (binary closing +
+        hole fill) and height comes from the mean of the 4 nearest points. `legacy=True` is the
+        old behaviour: every touched `cell` counts in full, empty interior cells count zero
+        (+13 % on a 1 cm cylinder).
+        """
         cell = cell or self.cell
         if len(pts) == 0:
             return 0.0
         uv = self.plane.project_2d(pts)
         h = self.relative_height(pts)
-        ij = np.floor((uv - uv.min(0)) / cell).astype(int)
-        shape = ij.max(0) + 1
-        flat = ij[:, 0] * shape[1] + ij[:, 1]
-        sums = np.bincount(flat, weights=h, minlength=shape[0] * shape[1])
-        counts = np.bincount(flat, minlength=shape[0] * shape[1])
-        mean = sums[counts > 0] / counts[counts > 0]
-        return float(np.sum(mean) * cell * cell * M3_TO_CM3)
+        if legacy or len(pts) < 8:
+            ij = np.floor((uv - uv.min(0)) / cell).astype(int)
+            shape = ij.max(0) + 1
+            flat = ij[:, 0] * shape[1] + ij[:, 1]
+            sums = np.bincount(flat, weights=h, minlength=shape[0] * shape[1])
+            counts = np.bincount(flat, minlength=shape[0] * shape[1])
+            mean = sums[counts > 0] / counts[counts > 0]
+            return float(np.sum(mean) * cell * cell * M3_TO_CM3)
+
+        from scipy import ndimage
+        from scipy.spatial import cKDTree
+        tree = cKDTree(uv)
+        # point spacing from 3-D neighbours: in plan view, wall points stack and look far too dense
+        nn = cKDTree(pts).query(pts, k=2)[0][:, 1]
+        nn = nn[nn > 0]
+        spacing = float(np.median(nn)) if len(nn) else cell
+        sub = cell / supersample
+        r_close = close_factor * max(spacing, cell)   # never finer than the grid cell; holes narrower than 2 r_close are filled
+        r_edge = radius_factor * spacing        # boundary offset: outermost samples sit inside the edge
+        pad = r_close + r_edge + 2 * sub
+        lo = uv.min(0) - pad
+        shape = np.ceil((uv.max(0) + pad - lo) / sub).astype(int) + 1
+        has_pt = np.zeros(shape, bool)
+        c = np.floor((uv - lo) / sub).astype(int)
+        has_pt[c[:, 0], c[:, 1]] = True
+        # closing = dilate by r_close, erode by r_close (exact Euclidean distances), then fill the
+        # remaining interior holes and grow the result by the boundary offset
+        grown = ndimage.distance_transform_edt(~has_pt) * sub <= r_close
+        occ = ndimage.distance_transform_edt(grown) * sub > r_close
+        occ = ndimage.binary_fill_holes(occ | has_pt)
+        occ = ndimage.distance_transform_edt(~occ) * sub <= r_edge
+        gi, gj = np.nonzero(occ)
+        centres = lo + (np.stack([gi, gj], 1) + 0.5) * sub
+        # height = mean of the upper two thirds of the 6 nearest points' heights: vertical walls stack
+        # many points at one (u, v); a plain mean would drag the rim cells down to mid-wall height.
+        k = min(6, len(uv))
+        _, idx = tree.query(centres, k=k)
+        hs = np.sort(h[idx].reshape(len(centres), -1), axis=1)
+        hh = hs[:, k // 3:].mean(1)
+        return float(np.sum(np.maximum(hh, 0.0)) * sub * sub * M3_TO_CM3)

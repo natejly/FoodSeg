@@ -63,7 +63,13 @@ class Estimate:
 
 class Nutrition:
     def __init__(self, api_key: str = "DEMO_KEY", data_dir: Path | str = DEFAULT_DATA_DIR,
-                 data_type: str = "Survey (FNDDS)"):
+                 data_type: str = "Survey (FNDDS)", density_lookup=None,
+                 density_min_conf: float = 0.5):
+        # density_lookup: optional callable name -> (g/mL, source, confidence), e.g.
+        # foodscan.density_table.lookup (bulk densities for envelope volumes). Tried first;
+        # accepted when confidence >= density_min_conf, else the densities.csv logic below.
+        self.density_lookup = density_lookup
+        self.density_min_conf = density_min_conf
         self.api_key = api_key
         self.data_dir = Path(data_dir)
         self.data_type = data_type
@@ -106,8 +112,22 @@ class Nutrition:
             fdc_id=item.fdc_id, fdc_description=item.description,
         )
 
+    def estimate_from_mass(self, item: FoodItem, mass_g: float, volume_ml: float = 0.0) -> Estimate:
+        """Nutrients for a mass already derived by the mass step (envelope x bulk density etc.);
+        `item` comes from lookup() with the same name the mass step used."""
+        f = mass_g / 100.0
+        return Estimate(
+            name=item.query, volume_ml=volume_ml, density_g_per_ml=(mass_g / volume_ml if volume_ml else 0.0),
+            mass_g=mass_g, kcal=item.kcal_per_100g * f, protein_g=item.protein_per_100g * f,
+            carb_g=item.carb_per_100g * f, fat_g=item.fat_per_100g * f,
+            fdc_id=item.fdc_id, fdc_description=item.description)
+
     def density_for(self, name: str, fdc_description: str = "") -> tuple[float | None, str]:
         """Best density row: exact override name, then longest keyword match."""
+        if self.density_lookup is not None:
+            d, src, conf = self.density_lookup(name)
+            if conf >= self.density_min_conf:
+                return d, src
         key = _norm(name)
         row = self.densities.get(key)
         if row:

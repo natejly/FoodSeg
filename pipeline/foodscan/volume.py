@@ -59,32 +59,130 @@ class Plane:
         return np.stack([pts @ u, pts @ v], axis=-1)
 
 
+def _lsq_plane(p: np.ndarray) -> tuple[np.ndarray, float]:
+    c = p.mean(0)
+    n = np.linalg.svd(p - c, full_matrices=False)[2][-1]
+    return n, float(-n @ c)
+
+
+def fit_support_plane_info(pts: np.ndarray, dist_thresh: float = 0.002, n_iter: int = 2000,
+                           up_hint: np.ndarray | None = None, robust: bool = True,
+                           band: float = 0.02, max_tilt_deg: float = 2.0, seed: int = 0) -> tuple[Plane, dict]:
+    """Robust support-plane fit. Returns (plane, info).
+
+    1. coarse plane from Open3D RANSAC (as before);
+    2. lowest band: only points at most `band` metres above the coarse plane (anything below the
+       container rim / food), so food piles and rims cannot pull the plane up;
+    3. RANSAC on the band with a `dist_thresh` inlier threshold, then least-squares refinement on
+       the inliers (two passes);
+    4. with `up_hint` (gravity, ARKit +Y): if the fitted normal is more than `max_tilt_deg` away from
+       it, use the gravity-aligned plane through the robust lowest band instead and flag it
+       (`info["gravity_fallback"]`). `info["tilt_deg"]` is the disagreement of the *fit* with gravity.
+    `robust=False` keeps the old single-pass Open3D RANSAC.
+    """
+    pcd = o3d.geometry.PointCloud(o3d.utility.Vector3dVector(pts))
+    model, inliers = pcd.segment_plane(distance_threshold=dist_thresh, ransac_n=3,
+                                       num_iterations=n_iter)
+    n = np.array(model[:3])
+    norm = np.linalg.norm(n)
+    n, d = n / norm, model[3] / norm
+    info: dict = {"robust": bool(robust), "gravity_fallback": False, "tilt_deg": None, "n_inliers": len(inliers)}
+    if robust and up_hint is not None:
+        # The dominant plane of a room scan can be a wall. With gravity known, only accept coarse
+        # planes within 15 deg of horizontal (RANSAC over a subsample of the cloud).
+        u0 = np.asarray(up_hint, float) / np.linalg.norm(up_hint)
+        if n @ u0 < 0:
+            n, d = -n, -d
+        if n @ u0 < np.cos(np.radians(15)):
+            rng = np.random.default_rng(seed)
+            sub = pts[rng.choice(len(pts), min(len(pts), 30000), replace=False)]
+            best_cnt = -1
+            for _ in range(n_iter):
+                tri = sub[rng.integers(0, len(sub), 3)]
+                nn = np.cross(tri[1] - tri[0], tri[2] - tri[0])
+                ln = np.linalg.norm(nn)
+                if ln < 1e-12:
+                    continue
+                nn = nn / ln
+                if nn @ u0 < 0:
+                    nn = -nn
+                if nn @ u0 < np.cos(np.radians(15)):
+                    continue
+                dd = -nn @ tri[0]
+                cnt = int(np.sum(np.abs(sub @ nn + dd) < dist_thresh))
+                if cnt > best_cnt:
+                    best_cnt, n, d = cnt, nn, dd
+            info["coarse_replaced"] = True
+    if robust:
+        h = pts @ n + d
+        # orient the coarse normal first so "lowest band" means below the objects
+        if up_hint is not None:
+            if n @ up_hint < 0:
+                n, d, h = -n, -d, -h
+        elif np.sum(h < -dist_thresh) > np.sum(h > dist_thresh):
+            n, d, h = -n, -d, -h
+        low = pts[h < band]
+        if len(low) >= 3:
+            rng = np.random.default_rng(seed)
+            best, best_cnt = (n, d), -1
+            for _ in range(n_iter):
+                tri = low[rng.integers(0, len(low), 3)]
+                nn = np.cross(tri[1] - tri[0], tri[2] - tri[0])
+                ln = np.linalg.norm(nn)
+                if ln < 1e-12:
+                    continue
+                nn = nn / ln
+                if nn @ n < 0:
+                    nn = -nn
+                if nn @ n < 0.9:                  # stay within ~25 deg of the coarse plane
+                    continue
+                dd = -nn @ tri[0]
+                cnt = int(np.sum(np.abs(low @ nn + dd) < dist_thresh))
+                if cnt > best_cnt:
+                    best, best_cnt = (nn, dd), cnt
+            n, d = best
+            for _ in range(2):                    # least-squares refinement on the inliers
+                inl = low[np.abs(low @ n + d) < dist_thresh]
+                if len(inl) < 3:
+                    break
+                nn, dd = _lsq_plane(inl)
+                if nn @ n < 0:
+                    nn, dd = -nn, -dd
+                n, d = nn, dd
+            info["n_inliers"] = int(np.sum(np.abs(low @ n + d) < dist_thresh))
+        if up_hint is not None:
+            u = np.asarray(up_hint, float) / np.linalg.norm(up_hint)
+            tilt = float(np.degrees(np.arccos(np.clip(n @ u, -1, 1))))
+            info["tilt_deg"] = tilt
+            if tilt > max_tilt_deg:
+                # gravity-aligned plane through the robust lowest band (inliers of the fit)
+                ref = low[np.abs(low @ n + d) < dist_thresh] if len(low) else pts
+                if len(ref) == 0:
+                    ref = pts
+                n, d = u, float(-np.median(ref @ u))
+                info["gravity_fallback"] = True
+    plane = Plane(n, d)
+
+    if up_hint is not None:
+        if np.dot(plane.normal, up_hint) < 0:
+            plane = Plane(-plane.normal, -plane.d)
+    else:
+        h = plane.height(pts)
+        if np.sum(h < -dist_thresh) > np.sum(h > dist_thresh):
+            plane = Plane(-plane.normal, -plane.d)
+    return plane, info
+
+
 def fit_support_plane(pts: np.ndarray, dist_thresh: float = 0.002, n_iter: int = 2000,
-                      up_hint: np.ndarray | None = None) -> Plane:
-    """RANSAC plane through the dominant flat surface (table or plate).
+                      up_hint: np.ndarray | None = None, robust: bool = True) -> Plane:
+    """RANSAC plane through the dominant flat surface (table or plate); see `fit_support_plane_info`.
 
     `up_hint` (world direction the camera considers up, e.g. gravity from ARKit's
     .gravity alignment = +Y in ARKit coordinates, converted the same way as the
     poses) orients the normal so objects are at positive height. Without it, the
     side with more points off-plane is taken as 'up'.
     """
-    pcd = o3d.geometry.PointCloud(o3d.utility.Vector3dVector(pts))
-    model, inliers = pcd.segment_plane(distance_threshold=dist_thresh, ransac_n=3,
-                                       num_iterations=n_iter)
-    a, b, c, d = model
-    n = np.array([a, b, c])
-    norm = np.linalg.norm(n)
-    n, d = n / norm, d / norm
-    plane = Plane(n, d)
-
-    if up_hint is not None:
-        if np.dot(n, up_hint) < 0:
-            plane = Plane(-n, -d)
-    else:
-        h = plane.height(pts)
-        if np.sum(h < -dist_thresh) > np.sum(h > dist_thresh):
-            plane = Plane(-n, -d)
-    return plane
+    return fit_support_plane_info(pts, dist_thresh, n_iter, up_hint, robust)[0]
 
 
 def points_above_plane(pts: np.ndarray, plane: Plane, min_height: float = 0.003,
@@ -138,6 +236,44 @@ def crop_mesh_to_points(mesh: o3d.geometry.TriangleMesh, pts: np.ndarray,
     """Sub-mesh inside the padded bounding box of `pts` (one clustered object)."""
     bbox = o3d.geometry.AxisAlignedBoundingBox(pts.min(0) - pad, pts.max(0) + pad)
     return mesh.crop(bbox)
+
+
+def label_mesh_vertices(mesh: o3d.geometry.TriangleMesh, pts: np.ndarray, labels: np.ndarray,
+                        radius: float = 0.003) -> np.ndarray:
+    """Item id per mesh vertex: the label of the nearest labelled point (label > 0) within `radius`
+    metres, else 0. `pts`/`labels` are the full cloud, so neighbouring items compete for vertices."""
+    from scipy.spatial import cKDTree
+    v = np.asarray(mesh.vertices)
+    out = np.zeros(len(v), np.int64)
+    m = labels > 0
+    if not m.any() or len(v) == 0:
+        return out
+    d, i = cKDTree(pts[m]).query(v, distance_upper_bound=radius)
+    ok = np.isfinite(d)
+    out[ok] = labels[m][i[ok]]
+    return out
+
+
+def crop_mesh_by_label(mesh: o3d.geometry.TriangleMesh, vertex_labels: np.ndarray, item_id: int,
+                       item_pts: np.ndarray | None = None, min_faces: int = 50,
+                       pad: float = 0.004) -> tuple[o3d.geometry.TriangleMesh, dict]:
+    """Sub-mesh of the faces with at least two of their three vertices labelled `item_id` (see
+    `label_mesh_vertices`); the strict all-three rule drops a one-face seam between touching items (-12 % on a
+    3 cm block with 4 mm faces).
+
+    Falls back to the padded bbox crop of `item_pts` when the label crop has fewer than `min_faces`
+    faces (or no points are given to fall back on only if nothing at all was found). The info dict
+    reports `crop` ("label" | "bbox"), `n_faces` and `label_faces`.
+    """
+    tri = np.asarray(mesh.triangles)
+    mine = (vertex_labels[tri] == item_id) if len(tri) else np.zeros((0, 3), bool)
+    keep = mine.sum(1) >= 2          # majority rule: a seam strip between touching items is split, not lost
+    sub = o3d.geometry.TriangleMesh(mesh.vertices, o3d.utility.Vector3iVector(tri[keep]))
+    n_label = len(sub.triangles)
+    if n_label >= min_faces or item_pts is None:
+        return sub, {"crop": "label", "n_faces": n_label, "label_faces": n_label}
+    sub = crop_mesh_to_points(mesh, item_pts, pad)
+    return sub, {"crop": "bbox", "n_faces": len(sub.triangles), "label_faces": n_label}
 
 
 def height_map_volume(obj_pts: np.ndarray, plane: Plane, cell: float = 0.002,
@@ -270,3 +406,43 @@ def estimate_all(obj_pts: np.ndarray, plane: Plane,
     if mesh is not None:
         out["mesh_prism_cm3"] = mesh_prism_volume(crop_mesh_to_points(mesh, obj_pts), plane)
     return out
+
+
+# ---- per-item result: envelope + solid estimate + geometry for the mass step --------------
+
+def item_geometry(item_pts: np.ndarray, ref, cell: float = 0.002) -> dict:
+    """Footprint area (cm^2) and height above the support (mm, p95 and max) of one item's points.
+
+    `ref` is a Plane or a container.Support (anything with `.relative_height`). The footprint is the
+    2 mm-cell occupancy of the points' plan view, closed by one cell and hole-filled (so LiDAR
+    dropouts inside the item count), which is what the thin-layer mass rule multiplies by thickness."""
+    if len(item_pts) == 0:
+        return {"footprint_cm2": 0.0, "height_mm": 0.0, "height_max_mm": 0.0}
+    from scipy import ndimage
+    plane = getattr(ref, "plane", ref)
+    h = ref.relative_height(item_pts) if hasattr(ref, "relative_height") else ref.height(item_pts)
+    uv = plane.project_2d(item_pts)
+    ij = np.floor((uv - uv.min(0)) / cell).astype(int) + 2
+    occ = np.zeros(ij.max(0) + 3, bool)
+    occ[ij[:, 0], ij[:, 1]] = True
+    occ = ndimage.binary_closing(occ, structure=np.ones((3, 3), bool))
+    occ = ndimage.binary_fill_holes(occ)
+    return {"footprint_cm2": float(occ.sum() * cell * cell * 1e4),
+            "height_mm": float(np.percentile(h, 95) * 1e3), "height_max_mm": float(h.max() * 1e3)}
+
+
+def item_volume_result(volume_envelope_ml: float, item_pts: np.ndarray, ref, name: str,
+                       kind: str | None = None) -> dict:
+    """The volume fields every item carries.
+
+    volume_envelope_ml  mesh-prism / height-map integral above the support (visible top surface closed
+                        to the container, voids included); `volume_ml` is kept as an alias of it
+    volume_solid_est_ml envelope / ENVELOPE_RATIO[kind] (density_table.py, medians from results/rq1/envelope.md)
+    kind                `kind` if valid, else inferred from the name via density_table.infer_kind
+    """
+    from .density_table import ENVELOPE_RATIO, infer_kind, volume_solid_est
+    k, how = infer_kind(name, kind)
+    return {"kind": k, "kind_source": how, "volume_envelope_ml": float(volume_envelope_ml),
+            "volume_ml": float(volume_envelope_ml), "envelope_ratio": ENVELOPE_RATIO[k],
+            "volume_solid_est_ml": float(volume_solid_est(volume_envelope_ml, k)),
+            **item_geometry(item_pts, ref)}
