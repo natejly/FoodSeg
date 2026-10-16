@@ -111,7 +111,7 @@ N5K_DISH_PX = 380                                  # patch mode: dish bbox side 
 JPEG_Q = 90
 HUMAN_SIGMA = 5.0                                  # 2AFC proxy: observer internal noise sd (logits)
 PATCH_PX = {"n5k": 224, "mf3d": 96}                # default patch side (working px) per real set
-SEG_DISH, SEG_FOOD_MAX = 254, 253                  # seg: 254 dish, 1..252 food items
+SEG_DISH, SEG_FOOD_MAX = 254, 252                  # seg: 254 dish, 252 table, food 1..251
 
 
 # ---------------------------------------------------------------- crops

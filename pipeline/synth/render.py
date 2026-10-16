@@ -14,6 +14,7 @@ import blenderproc as bproc  # must be line 1 under `blenderproc run`
 
 import argparse
 import json
+import zlib
 import os
 import sys
 import time
@@ -395,7 +396,7 @@ def food_material(obj, name: str, color, roughness: float, L: dict) -> None:
     obj.get_mesh().vertices.foreach_get("co", zv)
     z_lo, z_h = float(zv[2::3].min()), max(float(np.ptp(zv[2::3])), 2e-3)      # local height range (object space, m)
     tv = L.get("tint_var", 0.06)
-    patch = node("ShaderNodeTexNoise", Scale=25.0, Detail=3.0)      # darker / lighter patches
+    patch = node("ShaderNodeTexNoise", Scale=float(L.get("patch_scale", 25.0)), Detail=3.0)      # darker / lighter patches
     links.new(coord, patch.inputs["Vector"])
     colour = mix(ramp(patch.outputs["Fac"], 0.3, 0.7), (c * (1 - tv)).tolist(), (c * (1 + tv)).tolist())
     height = None
@@ -475,8 +476,9 @@ def food_material(obj, name: str, color, roughness: float, L: dict) -> None:
         ao = nt.new("ShaderNodeAmbientOcclusion")
         ao.inputs["Distance"].default_value = 0.004 if not wet else 0.007
         ao.samples = 8 if not wet else 4
+        ao.only_local = True            # shadow of the food's own relief only: the neighbour / dish rim made a black seam
         shade = nt.new("ShaderNodeMapRange")
-        shade.inputs["To Min"].default_value = 0.35
+        shade.inputs["To Min"].default_value = 0.6 if L.get("kind") == "liquid" else 0.4
         links.new(ao.outputs["AO"], shade.inputs["Value"])
         dark = nt.new("ShaderNodeMixRGB")
         dark.blend_type, dark.inputs["Fac"].default_value = "MULTIPLY", 1.0
@@ -531,14 +533,16 @@ def food_material(obj, name: str, color, roughness: float, L: dict) -> None:
         W = math("MINIMUM", 1.0, math("ADD", math("MULTIPLY", cav, 1.8 * wet["cavity"]), math("MULTIPLY", puddle, 0.9)))
         if L.get("brown"):            # uneven cooking: brown on the exposed peaks, in blotches
             bm, bcov = L["brown"]
+            bm = tuple(1.0 + 0.5 * (x - 1.0) for x in bm)        # uneven cooking is a tone shift, not an orange blotch
             top_grad = ramp(zs.outputs["Z"], z_lo + 0.45 * z_h, z_lo + 1.0 * z_h)               # browning gradient: exposed top
             m = math("MULTIPLY", math("MINIMUM", 1.0, math("ADD", cover(noise(16.0, 4.0, 5.3), bcov),
                                                             math("MULTIPLY", top_grad, 0.3))), peak)
             colour = mix(math("MULTIPLY", m, 0.85), colour, mix_mul(colour, bm))
         if L.get("oil"):              # separated oil: stained, saturated, very glossy patches
             om, ocov = L["oil"]
-            om_mask = cover(noise(26.0, 3.0, 7.7), ocov)
-            colour = mix(math("MULTIPLY", om_mask, 0.7), colour, mix_mul(colour, om))
+            om = tuple(1.0 + 0.4 * (x - 1.0) for x in om)
+            om_mask = cover(noise(26.0, 3.0, 7.7), 0.45 * ocov)      # a few fat spots, not a film over the whole dish
+            colour = mix(math("MULTIPLY", om_mask, 0.5), colour, mix_mul(colour, om))
             W = math("MAXIMUM", W, om_mask)
         for k, (fc, frac, size) in enumerate(L.get("flecks", [])):   # herbs / spice / pepper bits
             vf = nt.new("ShaderNodeTexVoronoi")
@@ -570,6 +574,8 @@ def food_material(obj, name: str, color, roughness: float, L: dict) -> None:
         colour = mix(math("MULTIPLY", isf, math("MULTIPLY", math("SUBTRACT", 1.0, att.outputs["Fac"]), 0.85)),
                      colour, plate.outputs[0])
         W = math("MAXIMUM", W, isf)
+    if L.get("warm"):               # cooked white starch: the paste between grains is warm and shaded, not a blown-out white base
+        colour = mix_mul(colour, L["warm"])
     links.new(colour, bsdf.inputs["Base Color"])
     dry_add = wet["dry"] if wet else 0.0
     base_dry, wet_r = float(roughness) + dry_add, 0.07
@@ -1355,22 +1361,41 @@ def scatter_pieces(obj, it: dict, seed: int) -> int:
         # pieces of the food itself (rice grains, flakes, macaroni) are a little paler, glossier and
         # more translucent than the paste between them, so each grain reads against its neighbours
         own = colour is None
-        rgb = np.clip(np.asarray(it.get("color") or [0.7, 0.6, 0.4]) * 1.12, 0, 1) if own else np.asarray(colour)
+        grainy = shape in ("rice", "quinoa") and own
+        # cooked rice is warm off-white (never blue-white): the cool room light plus a 1.12 gain read as sprinkles
+        warm = np.array([1.14, 1.07, 0.9]) if grainy else np.array([1.12, 1.12, 1.12])
+        rgb = np.clip(np.asarray(it.get("color") or [0.7, 0.6, 0.4]) * warm, 0, 1) if own else np.asarray(colour)
         m = bpy.data.materials.new(f"piece_{it['id']}_{k}")
         m.use_nodes = True
         b = m.node_tree.nodes["Principled BSDF"]
         b.inputs["Base Color"].default_value = [*rgb, 1.0]
-        b.inputs["Roughness"].default_value = 0.35 if own else 0.45
-        b.inputs["Subsurface Weight"].default_value = 0.5 if own else 0.2
-        b.inputs["Subsurface Radius"].default_value = (1.0, 0.8, 0.6)
-        b.inputs["Subsurface Scale"].default_value = 0.0015
-        b.inputs["Coat Weight"].default_value = 0.15 if own else 0.0
+        b.inputs["Roughness"].default_value = (0.5 if grainy else 0.35) if own else 0.45
+        b.inputs["Subsurface Weight"].default_value = (0.3 if grainy else 0.5) if own else 0.2
+        b.inputs["Subsurface Radius"].default_value = (1.0, 0.85, 0.65) if grainy else (1.0, 0.8, 0.6)
+        b.inputs["Subsurface Scale"].default_value = 0.0015 if grainy else 0.0015      # light travels between grains: soft, translucent
+        b.inputs["Coat Weight"].default_value = (0.05 if grainy else 0.15) if own else 0.0
         me.materials.append(m)
         dist = nt.new("GeometryNodeDistributePointsOnFaces")
         dist.distribute_method = "RANDOM"
         links.new(gin.outputs[0], dist.inputs["Mesh"])
         links.new(up.outputs[0], dist.inputs["Selection"])
-        dist.inputs["Density"].default_value = float(density)
+        dist.inputs["Density"].default_value = float(density) * (1.5 if grainy else 1.0)
+        if grainy:                         # grains stick in clumps: density follows a low-frequency field, gaps between
+            pos = nt.new("GeometryNodeInputPosition")
+            cn = nt.new("ShaderNodeTexNoise")
+            cn.inputs["Scale"].default_value = float(rng.uniform(55, 85))
+            cn.inputs["Detail"].default_value = 2.0
+            links.new(pos.outputs[0], cn.inputs["Vector"])
+            cm = nt.new("ShaderNodeMapRange")
+            cm.interpolation_type = "SMOOTHSTEP"
+            cm.inputs["From Min"].default_value, cm.inputs["From Max"].default_value = 0.38, 0.58
+            cm.inputs["To Min"].default_value, cm.inputs["To Max"].default_value = 0.5, 1.0
+            links.new(cn.outputs["Fac"], cm.inputs["Value"])
+            dm = nt.new("ShaderNodeMath")
+            dm.operation = "MULTIPLY"
+            links.new(cm.outputs["Result"], dm.inputs[0])
+            dm.inputs[1].default_value = float(density) * 1.5
+            links.new(dm.outputs[0], dist.inputs["Density"])
         dist.inputs["Seed"].default_value = int(rng.integers(1 << 20))
         info = nt.new("GeometryNodeObjectInfo")
         info.inputs["Object"].default_value = src
@@ -1381,7 +1406,7 @@ def scatter_pieces(obj, it: dict, seed: int) -> int:
         links.new(dist.outputs["Rotation"], inst.inputs["Rotation"])           # local Z = surface normal
         sc = nt.new("FunctionNodeRandomValue")
         sc.data_type = "FLOAT"
-        sc.inputs[2].default_value, sc.inputs[3].default_value = 0.8, 1.2           # Min, Max (float)
+        sc.inputs[2].default_value, sc.inputs[3].default_value = (1.1, 1.45) if grainy else (0.8, 1.2)   # Min, Max (float)
         sc.inputs["Seed"].default_value = int(rng.integers(1 << 20))
         links.new(sc.outputs[1], inst.inputs["Scale"])
         rot = nt.new("GeometryNodeRotateInstances")
@@ -1391,7 +1416,26 @@ def scatter_pieces(obj, it: dict, seed: int) -> int:
         rv.inputs[1].default_value = (0.35, 0.35, 2 * np.pi)
         rv.inputs["Seed"].default_value = int(rng.integers(1 << 20))
         links.new(inst.outputs["Instances"], rot.inputs["Instances"])
-        links.new(rv.outputs[0], rot.inputs["Rotation"])
+        if grainy:                         # neighbours share an orientation (field-coherent yaw), a little jitter
+            rv.inputs[0].default_value = (-0.3, -0.3, -0.5)
+            rv.inputs[1].default_value = (0.3, 0.3, 0.5)
+            yn = nt.new("ShaderNodeTexNoise")
+            yn.inputs["Scale"].default_value = float(rng.uniform(40, 60))
+            yn.inputs["Detail"].default_value = 1.0
+            links.new(pos.outputs[0], yn.inputs["Vector"])
+            yaw = nt.new("ShaderNodeMath")
+            yaw.operation = "MULTIPLY"
+            links.new(yn.outputs["Fac"], yaw.inputs[0])
+            yaw.inputs[1].default_value = 14.0
+            cx = nt.new("ShaderNodeCombineXYZ")
+            links.new(yaw.outputs[0], cx.inputs["Z"])
+            va = nt.new("ShaderNodeVectorMath")
+            va.operation = "ADD"
+            links.new(rv.outputs[0], va.inputs[0])
+            links.new(cx.outputs[0], va.inputs[1])
+            links.new(va.outputs[0], rot.inputs["Rotation"])
+        else:
+            links.new(rv.outputs[0], rot.inputs["Rotation"])
         rot.inputs["Local Space"].default_value = True
         tr = nt.new("GeometryNodeTranslateInstances")
         links.new(rot.outputs["Instances"], tr.inputs["Instances"])
@@ -1735,6 +1779,7 @@ def main() -> None:
     (out / "render_meta.json").unlink(missing_ok=True)     # never leave a stale completion marker
 
     bproc.init()
+    np.random.seed(zlib.crc32(scene_dir.name.encode()))       # per-item colour / roughness jitter: reproducible renders
     # BlenderProc defaults to 0 glossy / transmission bounces: no reflections of the room or of
     # neighbouring food in glossy sauces and glazes, and no light through leaves
     bproc.renderer.set_light_bounces(diffuse_bounces=4, glossy_bounces=4, transmission_bounces=4,
@@ -1824,6 +1869,7 @@ def main() -> None:
                 jitter = np.clip(colorsys.hsv_to_rgb((h_ + np.random.normal(0, hj)) % 1.0,
                                                      float(np.clip(s_ * (1 + np.random.normal(0, sj)), 0, 1)),
                                                      float(np.clip(v_ * (1 + np.random.normal(0, vj)), 0, 1))), 0, 1)
+            print(f"[render] item {it['id']} {it.get('name')} colour {np.round(col, 3).tolist()} -> {np.round(jitter, 3).tolist()}", flush=True)
             if it.get("cloth"):
                 leaf_uvs(o, tuple(it["cloth"].get("grid", (12, 5))))
                 leaf_material(o, f"food_{it['id']}", jitter.tolist(), it.get("roughness", 0.5))

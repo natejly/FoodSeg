@@ -60,7 +60,7 @@ KIND = {
 PHYSICS = {
     "grain": {"model": "sand", "E": 6e4, "nu": 0.3, "rho": 850, "phi_deg": 38},
     "porridge": {"model": "fluid", "K": 4e4, "visc": 10.0, "rho": 1050},
-    "liquid": {"model": "fluid", "K": 4e4, "visc": 0.8, "rho": 1050},
+    "liquid": {"model": "fluid", "K": 4e4, "visc": 5.0, "rho": 1050},
     "puree": {"model": "plastic", "E": 3e4, "nu": 0.35, "rho": 1050, "theta_c": 0.012, "theta_s": 0.004},
     "curd": {"model": "plastic", "E": 4e4, "nu": 0.3, "rho": 1000, "theta_c": 0.02, "theta_s": 0.007},
 }
@@ -68,15 +68,14 @@ PHYSICS_BY_NAME = {   # within a kind
     # thick: a yield stress holds a spoonful's shape (as a fluid it spread into a pancake)
     "yogurt": {"model": "plastic", "E": 2e4, "nu": 0.4, "rho": 1050, "theta_c": 0.008, "theta_s": 0.003},
     "sour cream": {"model": "plastic", "E": 2e4, "nu": 0.4, "rho": 1050, "theta_c": 0.01, "theta_s": 0.004},
-    "chili": {"model": "fluid", "K": 4e4, "visc": 2.5, "rho": 1100},
-    "lentil stew": {"model": "fluid", "K": 4e4, "visc": 2.0, "rho": 1100},
-    "guacamole": PHYSICS["puree"], "pesto": {"model": "fluid", "K": 4e4, "visc": 3.0, "rho": 1050},
+    # thick sauces / stews (curries, chili, dal, beans) are held by a yield stress: 1-3 cm mounds, not puddles
+    **{n: {"model": "plastic", "E": 2.5e4, "nu": 0.4, "rho": 1080, "theta_c": 0.016, "theta_s": 0.005}
+       for n in ("chili", "lentil stew", "dal", "chicken curry", "green curry", "curry sauce", "baked beans",
+                 "black beans", "penne in tomato sauce")},
+    "guacamole": PHYSICS["puree"], "pesto": {"model": "fluid", "K": 4e4, "visc": 8.0, "rho": 1050},
     # thin: soups, broths, milk
     **{n: {"model": "fluid", "K": 4e4, "visc": 0.3, "rho": 1020}
        for n in ("tomato soup", "pumpkin soup", "miso soup", "ramen", "cereal with milk")},
-    "black beans": {"model": "fluid", "K": 4e4, "visc": 2.0, "rho": 1100},
-    "baked beans": {"model": "fluid", "K": 4e4, "visc": 2.0, "rho": 1100},
-    "penne in tomato sauce": {"model": "fluid", "K": 4e4, "visc": 2.5, "rho": 1050},
     "spaghetti": {"model": "plastic", "E": 3e4, "nu": 0.3, "rho": 1000, "theta_c": 0.015, "theta_s": 0.005},
 }
 ITEM_PHYSICS = {"model": "rigid", "rho": 1000}   # scans: rigid bodies coupled to the continuum
@@ -92,7 +91,7 @@ PIECES = {
                    ("cube", 2.5e3, (5, 5, 5), (0.85, 0.32, 0.05), 0.4), ("flake", 2e3, (9, 7, 2), (0.95, 0.78, 0.2), 0.3)],
     "quinoa": [("quinoa", 3e5, (2.2, 2.2, 1.2), None, 0.3)],
     "oatmeal": [("flake", 3.5e4, (7, 5.5, 1.0), None, 0.6)],
-    "chili": [("bean", 5e3, (13, 7.5, 6), (0.28, 0.05, 0.04), 0.55)],
+    "chili": [("bean", 8e3, (13, 7.5, 6), (0.28, 0.05, 0.04), 0.5), ("chunk", 4e3, (12, 9, 7), (0.16, 0.05, 0.03), 0.5)],
     "lentil stew": [("lentil", 4e4, (4.5, 4.5, 1.8), (0.4, 0.24, 0.08), 0.6)],
     "mac and cheese": [("macaroni", 1.4e4, (14, 6, 6), None, 0.45)],
     "salsa": [("cube", 1.5e4, (5, 5, 5), (0.75, 0.08, 0.04), 0.5), ("cube", 6e3, (4, 4, 4), (0.9, 0.88, 0.75), 0.5)],
@@ -101,10 +100,13 @@ PIECES = {
     "ramen": [("noodle", 1.0e4, (80, 2.5, 2.5), (0.85, 0.7, 0.35), 0.4), ("cube", 600, (12, 3, 3), (0.2, 0.42, 0.08), 0.2)],
     "penne in tomato sauce": [("penne", 6e3, (26, 8, 8), (0.88, 0.7, 0.36), 0.4)],
     "couscous": [("quinoa", 4e5, (1.6, 1.6, 1.0), None, 0.3)],
-    "dal": [("lentil", 2.4e4, (4, 4, 1.6), (0.62, 0.4, 0.08), 0.4)],
+    "dal": [("lentil", 2.4e4, (4, 4, 1.6), (0.62, 0.4, 0.08), 0.4), ("chunk", 1.5e3, (9, 7, 5), (0.5, 0.32, 0.06), 0.55)],
     # chicken pieces: rounded lumps stained by the sauce, mostly submerged (pale cubes read as paper)
-    "chicken curry": [("chunk", 3e3, (13, 11, 9), (0.6, 0.36, 0.16), 0.6)],
-    "green curry": [("chunk", 2.5e3, (13, 11, 9), (0.7, 0.62, 0.4), 0.6), ("pea", 2e3, (8, 8, 8), (0.2, 0.4, 0.05), 0.4)],
+    "chicken curry": [("chunk", 6e3, (16, 12, 10), (0.5, 0.28, 0.12), 0.55), ("chunk", 3e3, (13, 11, 9), (0.55, 0.36, 0.14), 0.45),
+                      ("cube", 2e3, (11, 11, 8), (0.62, 0.34, 0.06), 0.5)],
+    "green curry": [("chunk", 5e3, (16, 12, 10), (0.42, 0.37, 0.2), 0.55), ("pea", 2e3, (8, 8, 8), (0.14, 0.28, 0.05), 0.4),
+                    ("chunk", 2e3, (14, 8, 6), (0.1, 0.22, 0.04), 0.5)],
+    "curry sauce": [("chunk", 3e3, (14, 11, 9), (0.55, 0.34, 0.14), 0.55), ("cube", 1.5e3, (10, 10, 8), (0.6, 0.4, 0.1), 0.5)],
     "black beans": [("bean", 1.5e4, (8, 5.5, 4.5), (0.04, 0.03, 0.04), 0.45)],
     "baked beans": [("bean", 1.5e4, (9, 6, 5), (0.72, 0.42, 0.22), 0.45)],
     "congee": [("rice", 3e4, (5.5, 2.4, 2.0), None, 0.8)],
@@ -178,7 +180,7 @@ EXTRAS = {
 # wetness (spatially varying gloss): cavity = gloss gained in crevices, patch = coverage of glossy
 # puddles / sheen, dark = darkening and saturation of the paste where sauce pools, dry = peaks' roughness add
 WET = {
-    "liquid": {"cavity": 1.0, "patch": 0.55, "dark": 0.4, "dry": 0.12},
+    "liquid": {"cavity": 0.5, "patch": 0.2, "dark": 0.25, "dry": 0.12},
     "porridge": {"cavity": 0.8, "patch": 0.4, "dark": 0.3, "dry": 0.1},
     "puree": {"cavity": 0.6, "patch": 0.3, "dark": 0.2, "dry": 0.1},
     "curd": {"cavity": 0.6, "patch": 0.3, "dark": 0.25, "dry": 0.1},
@@ -191,17 +193,19 @@ WET = {
 # scoop: spoon marks; edge_mm: lateral wander of the pile's outline near the dish; smooth_iter: Taubin
 # relaxation of the marching-cubes terraces (was render.add_relief's blur).
 GEOM = {
-    "grain": {"amp_mm": 1.8, "wl_mm": (16.0, 6.0), "edge_mm": 2.0, "scoop": 0.3, "scoop_mm": 3.0, "smooth_iter": 3},
+    "grain": {"amp_mm": 2.8, "wl_mm": (26.0, 9.0), "edge_mm": 3.0, "scoop": 0.3, "scoop_mm": 3.0, "smooth_iter": 3},
     "porridge": {"amp_mm": 1.6, "wl_mm": (14.0, 5.0), "edge_mm": 1.8, "grooves": 2, "groove_mm": 1.5, "scoop": 0.35,
                  "scoop_mm": 2.5, "smooth_iter": 8},
     "puree": {"amp_mm": 1.4, "wl_mm": (20.0, 7.0), "edge_mm": 1.6, "grooves": 3, "groove_mm": 1.8, "swirl_mm": 1.1,
               "scoop": 0.5, "scoop_mm": 3.0, "smooth_iter": 5},
     "curd": {"amp_mm": 2.6, "wl_mm": (9.0, 4.0), "edge_mm": 2.4, "scoop": 0.2, "scoop_mm": 2.5, "smooth_iter": 3, "octaves": 5},
-    "liquid": {"amp_mm": 0.6, "wl_mm": (22.0, 8.0), "edge_mm": 2.2, "smooth_iter": 14, "edge_wl_mm": 22.0},
+    "liquid": {"amp_mm": 1.5, "wl_mm": (20.0, 7.0), "edge_mm": 3.0, "smooth_iter": 8, "edge_wl_mm": 22.0, "scoop": 0.25,
+               "scoop_mm": 2.5},
 }
 GEOM_BY_NAME = {      # chunky sauces keep a little more surface, thick ones hold spoon marks
-    "chili": {"amp_mm": 1.0, "grooves": 1, "groove_mm": 1.0}, "lentil stew": {"amp_mm": 1.0},
-    "dal": {"amp_mm": 0.8}, "guacamole": {"amp_mm": 1.6, "grooves": 2, "groove_mm": 1.5, "scoop": 0.3},
+    "chili": {"amp_mm": 1.8, "grooves": 1, "groove_mm": 1.0}, "lentil stew": {"amp_mm": 1.6},
+    "dal": {"amp_mm": 1.4}, "chicken curry": {"amp_mm": 1.8}, "green curry": {"amp_mm": 1.6}, "curry sauce": {"amp_mm": 1.4},
+    "baked beans": {"amp_mm": 1.8}, "black beans": {"amp_mm": 1.8}, "guacamole": {"amp_mm": 1.6, "grooves": 2, "groove_mm": 1.5, "scoop": 0.3},
     "pesto": {"amp_mm": 0.9}, "refried beans": {"amp_mm": 1.8}, "hummus": {"swirl_mm": 1.6, "groove_mm": 2.2},
     "mashed potato": {"amp_mm": 1.8, "swirl_mm": 1.4}, "polenta": {"amp_mm": 1.2}, "congee": {"amp_mm": 0.9},
     "scrambled eggs": {"amp_mm": 3.0, "wl_mm": (8.0, 3.5)}, "mac and cheese": {"amp_mm": 2.2},
@@ -210,6 +214,10 @@ GEOM_BY_NAME = {      # chunky sauces keep a little more surface, thick ones hol
     "tomato soup": {"amp_mm": 0.4}, "pumpkin soup": {"amp_mm": 0.4}, "miso soup": {"amp_mm": 0.4},
     "ramen": {"amp_mm": 0.6}, "cereal with milk": {"amp_mm": 0.4}, "roasted eggplant": {"amp_mm": 2.6},
 }
+
+
+WET_SOUPS = {"cavity": 1.0, "patch": 0.55, "dark": 0.4, "dry": 0.12}      # thin soups / broths stay glossy
+SOUPS = ("tomato soup", "pumpkin soup", "miso soup", "ramen", "cereal with milk")
 
 
 def geom(name: str) -> dict:
@@ -320,6 +328,8 @@ def look(name: str, rng: np.random.Generator) -> dict:
                  sss=0.6 if glossy else 0.35, bump=0.45, tint_var=0.04)
     elif k == "liquid":
         L.update(coat=u(0.2, 0.4), sss=0.1, bump=0.35, lumps=(u(25, 50), 0.2), swirl=(u(15, 30), 0.15))
+        if name not in SOUPS:           # thick sauces: broad darker / paler areas (depth, separation), not fine speckle
+            L.update(patch_scale=11.0, tint_var=0.1)
         L["swirl"] = None          # sine bands on a pool read as brush strokes (liquids level out)
         if name in CHUNKS:
             col, (lo, hi), cover = CHUNKS[name]
@@ -344,7 +354,7 @@ def look(name: str, rng: np.random.Generator) -> dict:
         L["bump"] = float(min(0.8, L["bump"] + L["micro_bump"]))
         L["coat"] = float(min(0.7, L.get("coat", 0.0) + u(0.1, 0.25)))
         L["oil_sheen"] = True
-    L["wet"] = dict(WET[k])
+    L["wet"] = dict(WET_SOUPS if name in SOUPS else WET[k])
     L["wet"]["patch_scale"] = 30.0 + (sum(map(ord, name)) * 7) % 40       # no rng draw: keeps spec streams unchanged
     x = EXTRAS.get(name, {})
     L["oil"], L["brown"] = x.get("oil"), x.get("brown")
@@ -354,6 +364,8 @@ def look(name: str, rng: np.random.Generator) -> dict:
     L["relief_mm"] = {"liquid": 0.0, "porridge": 1.2, "puree": 0.8, "curd": 1.2, "grain": 1.5}[k]
     L["geom"] = geom(name)               # baked into the MPM mesh (synth.mpm); render.add_relief adds sub-mm detail on top
     L["optics"] = optics(name)
+    if name in ("white rice", "risotto", "congee", "couscous"):
+        L["warm"] = [0.92, 0.86, 0.72]
     L["ao"] = True                       # darken the paste between real grains
     if name in PIECES and L["cells"] and L["cells"]["mode"] in ("chunk", "flake"):
         L["cells"], L["chunk_color"] = None, None     # real beans / flakes are scattered (PIECES): no painted ones
@@ -366,10 +378,11 @@ def shape(name: str, container_kind: str, rf: float, rng: np.random.Generator) -
     k = kind_of(name)
     u = lambda a, b: float(rng.uniform(a, b))
     if k == "liquid":
-        mound = u(0.0, 0.004) if container_kind == "bowl" else min(rf * u(0.08, 0.18), 0.012)
-        return {"mound": mound, "p": u(6, 10), "relief": (u(0.0002, 0.0006), u(0.015, 0.03)), "wobble": 0.0}
+        # a served spoonful of stew / curry is a 1-3 cm mound (soups level out, but they sit in bowls)
+        mound = u(0.004, 0.014) if container_kind == "bowl" else min(rf * u(0.22, 0.42), 0.03)
+        return {"mound": mound, "p": u(3, 5), "relief": (u(0.0008, 0.0018), u(0.015, 0.03)), "wobble": 0.0015}
     if k == "porridge":
-        mound = u(0.002, 0.01) if container_kind == "bowl" else min(rf * u(0.15, 0.35), 0.025)
+        mound = u(0.004, 0.014) if container_kind == "bowl" else min(rf * u(0.25, 0.5), 0.032)
         return {"mound": mound, "p": u(3, 6), "relief": (u(0.001, 0.002), u(0.01, 0.018)), "wobble": u(0, 0.002)}
     if k == "puree":
         mound = u(0.005, 0.03) if container_kind == "bowl" else min(rf * u(0.3, 0.7), 0.05)
