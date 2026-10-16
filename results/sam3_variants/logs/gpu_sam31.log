@@ -1,0 +1,21 @@
+/home/kyle/src/sam3/sam3/model/model_misc.py:71: UserWarning: Flash Attention is disabled as it requires a GPU with Ampere (8.0) CUDA capability.
+  OLD_GPU, USE_FLASH_ATTN, MATH_KERNEL_ON = get_sdpa_settings()
+/home/kyle/miniconda3/envs/foodseg/lib/python3.12/site-packages/timm/models/layers/__init__.py:49: FutureWarning: Importing from timm.models.layers is deprecated, please import via timm.layers
+  warnings.warn(f"Importing from {__name__} is deprecated, please import via timm.layers", FutureWarning)
+loaded /home/kyle/.cache/huggingface/hub/models--facebook--sam3.1/snapshots/daa63191845a41281374e725f4c9e51c7a824460/sam3.1_multiplex.pt and found missing and/or unexpected keys:
+missing_keys=['backbone.vision_backbone.convs.3.conv_1x1.weight', 'backbone.vision_backbone.convs.3.conv_1x1.bias', 'backbone.vision_backbone.convs.3.conv_3x3.weight', 'backbone.vision_backbone.convs.3.conv_3x3.bias']
+sam31 loaded in 11s, interactive=False, gpu 1887 MiB
+v12/s000008: 24 frames, 3 name prompts, 47s, peak 2544 MiB, C masks 0
+v12/s000010: 24 frames, 3 name prompts, 46s, peak 2544 MiB, C masks 0
+v12/s000003: 24 frames, 8 name prompts, 57s, peak 2544 MiB, C masks 0
+v12/s000019: 24 frames, 6 name prompts, 50s, peak 2588 MiB, C masks 0
+v12/s000001: 24 frames, 3 name prompts, 43s, peak 2588 MiB, C masks 0
+v12/s000013: 24 frames, 3 name prompts, 42s, peak 2588 MiB, C masks 0
+v13/s000004: 24 frames, 4 name prompts, 45s, peak 2588 MiB, C masks 0
+v13/s000017: 24 frames, 4 name prompts, 45s, peak 2588 MiB, C masks 0
+v13/s000018: 24 frames, 7 name prompts, 50s, peak 2588 MiB, C masks 0
+v13/s000010: 24 frames, 4 name prompts, 44s, peak 2588 MiB, C masks 0
+v13/s000015: 24 frames, 3 name prompts, 42s, peak 2588 MiB, C masks 0
+v13/s000006: 24 frames, 3 name prompts, 43s, peak 2588 MiB, C masks 0
+total 570s
+rc=0

@@ -1,0 +1,19 @@
+/home/kyle/src/sam3/sam3/model/model_misc.py:71: UserWarning: Flash Attention is disabled as it requires a GPU with Ampere (8.0) CUDA capability.
+  OLD_GPU, USE_FLASH_ATTN, MATH_KERNEL_ON = get_sdpa_settings()
+/home/kyle/miniconda3/envs/foodseg/lib/python3.12/site-packages/timm/models/layers/__init__.py:49: FutureWarning: Importing from timm.models.layers is deprecated, please import via timm.layers
+  warnings.warn(f"Importing from {__name__} is deprecated, please import via timm.layers", FutureWarning)
+sam3 loaded in 9s, interactive=False, gpu 1887 MiB
+v12/s000000: 24 frames, 3 name prompts, 43s, peak 2486 MiB, C masks 0
+v12/s000002: 24 frames, 4 name prompts, 45s, peak 2486 MiB, C masks 0
+v12/s000004: 24 frames, 4 name prompts, 45s, peak 2486 MiB, C masks 0
+v12/s000005: 24 frames, 3 name prompts, 42s, peak 2486 MiB, C masks 0
+v12/s000006: 24 frames, 3 name prompts, 42s, peak 2486 MiB, C masks 0
+v12/s000007: 24 frames, 4 name prompts, 44s, peak 2486 MiB, C masks 0
+v13/s000000: 24 frames, 3 name prompts, 43s, peak 2703 MiB, C masks 0
+v13/s000001: 24 frames, 2 name prompts, 40s, peak 2703 MiB, C masks 0
+v13/s000002: 24 frames, 4 name prompts, 44s, peak 2703 MiB, C masks 0
+v13/s000003: 24 frames, 2 name prompts, 41s, peak 2703 MiB, C masks 0
+v13/s000005: 24 frames, 3 name prompts, 42s, peak 2703 MiB, C masks 0
+v13/s000007: 24 frames, 2 name prompts, 40s, peak 2703 MiB, C masks 0
+total 526s
+rc=0
