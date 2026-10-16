@@ -48,6 +48,7 @@ from __future__ import annotations
 
 import argparse
 import json
+from dataclasses import dataclass, field
 from pathlib import Path
 
 import numpy as np
@@ -204,7 +205,8 @@ def _stream(pred, sid, direction, start, count, thresh):
 # ---------------------------------------------------------------------------
 
 def refine_frame(food: dict, dets: list, split_iou: float = 0.7, split_area: float = 0.05,
-                 name_cover: float = 0.5, add_thresh: float = 0.5, min_px: int = 30) -> dict:
+                 name_cover: float = 0.5, add_thresh: float = 0.5, min_px: int = 30,
+                 multi_name_cover: float | None = None) -> dict:
     """Combine generic-food instances with name detections for one frame.
 
     food: {gid: (score, mask)}; dets: [(gid, name, score, mask)] (gids unique across both).
@@ -213,6 +215,8 @@ def refine_frame(food: dict, dets: list, split_iou: float = 0.7, split_area: flo
         (|n&f| / |n| >= `name_cover`) and |n&f| > `split_area` * |f| carves n&f out of f as its own
         instance (gid of the detection, named; skipped when n covers all but <= `split_area` of f). The rest of f stays "food" (merged into the largest
         carved piece if it is <= `split_area` of f).
+      * multi_name_cover (A1, default off): when >= 2 different names each cover more than this share of f
+        (union of that name's masks), their masks carve f even when IoU(n, f) >= `split_iou`.
       * naming: every other instance takes the name whose masks cover >= `name_cover` of it
         (largest coverage wins); the rest stay unnamed (None -> "food").
       * a name mask with score >= `add_thresh` that covers no instance becomes a named instance.
@@ -221,6 +225,16 @@ def refine_frame(food: dict, dets: list, split_iou: float = 0.7, split_area: flo
     claimed = {g: np.zeros_like(m, bool) for g, (_, m) in food.items()}
     pieces: dict[int, list] = {}
     owner: dict[int, dict[int, int]] = {g: {} for g in food}
+    multi: dict[int, set] = {}
+    if multi_name_cover is not None:
+        for fg, (fs, fm) in food.items():
+            fa = int(fm.sum())
+            cov: dict[str, np.ndarray] = {}
+            for dg, name, ds, dm in dets:
+                cov[name] = (cov[name] | dm) if name in cov else dm.copy()
+            big = {n for n, u in cov.items() if fa and int((u & fm).sum()) > multi_name_cover * fa}
+            if len(big) >= 2:
+                multi[fg] = big
     for dg, name, ds, dm in dets:
         dn = int(dm.sum())
         if dn < min_px:
@@ -232,7 +246,8 @@ def refine_frame(food: dict, dets: list, split_iou: float = 0.7, split_area: flo
                 continue
             piece = dm & fm & ~claimed[fg]
             k = int(piece.sum())
-            if (k <= split_area * fa or both / (fa + dn - both) >= split_iou or both / dn < name_cover
+            if (k <= split_area * fa or (both / (fa + dn - both) >= split_iou and name not in multi.get(fg, ()))
+                    or both / dn < name_cover
                     or fa - both <= split_area * fa):      # n covers (nearly) all of f: name it, no split
                 continue
             claimed[fg] |= piece
@@ -420,7 +435,8 @@ def segment_scan(scan_dir: Path, names: list[str], mode: str = "video", food_thr
                  predictor=None, rebuild=None, max_names: int = 12, max_concepts_per_pass: int = 6,
                  max_instances: int = 40, image_side: int = 1008, simplify_names: bool = True,
                  split_iou: float = 0.7, split_area: float = 0.05, linker=None, probe=None,
-                 from_raw: Path | None = None) -> dict:
+                 from_raw: Path | None = None, postproc: "PostOpts | None" = None, post_judge=None,
+                 multi_name_cover: float | None = None) -> dict:
     """Segment a capture: generic "food" instances + simplified-name pass (see module docstring).
 
     mode "video": SAM 3 video predictor (`predictor` has handle_request / handle_stream_request).
@@ -440,6 +456,8 @@ def segment_scan(scan_dir: Path, names: list[str], mode: str = "video", food_thr
         if linker is None:
             raise ValueError("from_raw needs a linker (make_linker(scan_dir))")
         raw, name_px, frame_scores = load_raw(Path(from_raw).parent if Path(from_raw).name == "raw" else from_raw)
+        if postproc is not None and postproc.active:
+            raw, name_px, frame_scores = postprocess_raw(scan_dir, raw, name_px, frame_scores, postproc, post_judge)
         stems = {fi: f"{fi:06d}" for fi in raw}
         maps, meta, frame_scores, link_stats = linker(raw, name_px, frame_scores)
         prompts = prompt_names(names, max_names, simplify_names)
@@ -497,7 +515,7 @@ def segment_scan(scan_dir: Path, names: list[str], mode: str = "video", food_thr
             food = {g: (p, _upk(m)) for g, (p, m) in tracks[FOOD].get(fi, {}).items()}
             dets = [(g, nm, p, _upk(m)) for nm in prompts for g, (p, m) in tracks[nm].get(fi, {}).items()]
             if food or dets:
-                _emit(acc, fi, refine_frame(food, dets, split_iou, split_area), name_px, gscores)
+                _emit(acc, fi, refine_frame(food, dets, split_iou, split_area, multi_name_cover=multi_name_cover), name_px, gscores)
         sess.pred.handle_request(dict(type="close_session", session_id=sess.sid))
     else:
         raw = {"next": FIRST_RAW_ID}
@@ -532,7 +550,7 @@ def segment_scan(scan_dir: Path, names: list[str], mode: str = "video", food_thr
             food = {take(): (s, m) for s, m in food_l}
             dets = [(take(), nm, s, m) for nm, lst in name_d.items() for s, m in lst]
             if food or dets:
-                _emit(acc, fi, refine_frame(food, dets, split_iou, split_area), name_px, gscores)
+                _emit(acc, fi, refine_frame(food, dets, split_iou, split_area, multi_name_cover=multi_name_cover), name_px, gscores)
             if fi % 6 == 5:
                 _free_gpu()
 
@@ -622,6 +640,287 @@ class Sam3ImageBackend:
     def shutdown(self):
         self.proc = None
         _free_gpu()
+
+
+# ---------------------------------------------------------------------------
+# 2D mask post-processing of stored raw per-frame maps (replay path; every rule is off by default)
+# ---------------------------------------------------------------------------
+
+@dataclass
+class PostOpts:
+    """Flags for `postprocess_raw` (all rules off). Applied order: drop -> split (depth, colour) -> merge."""
+    # B2: drop masks before linking
+    min_score: float = 0.0          # drop a mask whose frame score is below this
+    min_area_frac: float = 0.0      # ... or whose area is below this share of the frame
+    min_compact: float = 0.0        # ... or whose area / convex-hull area is below this
+    # A2: split along depth discontinuities
+    depth_split: bool = False
+    dz_cut: float = 0.008           # m between 4-neighbours
+    ang_cut: float = 40.0           # degrees between neighbouring normals
+    part_frac: float = 0.20         # a component must hold this share of the mask to count as a part
+    # A3: split by colour
+    color_split: bool = False
+    lab_dist: float = 12.0          # min Lab distance between the two cluster centroids
+    cc_frac: float = 0.8            # each cluster's largest connected component / cluster size
+    color_min_frac: float = 0.15    # each cluster holds at least this share of the mask
+    # B1: merge touching same-name masks
+    merge_same: bool = False
+    merge_dilate: int = 2           # px at depth resolution (256x192)
+    merge_hull: float = 0.8         # union area / convex hull area
+    merge_lab: float = 8.0          # Lab mean distance
+    lowres: tuple = (256, 192)
+    cache_dir: str | None = None    # per-scan cache of the low-res rgb(Lab)/depth/normals
+    log: list = field(default_factory=list)
+
+    @property
+    def active(self) -> bool:
+        return bool(self.min_score or self.min_area_frac or self.min_compact or self.depth_split
+                    or self.color_split or self.merge_same)
+
+
+def _lowres_frames(scan_dir: Path, size=(256, 192), cache_dir=None) -> dict:
+    """{frame index: dict(lab (h,w,3) f32, z (h,w) m, nrm (h,w,3))} at the depth resolution."""
+    import cv2
+    from .loader import Scan
+    cf = Path(cache_dir) / f"{Path(scan_dir).name}.npz" if cache_dir else None
+    if cf is not None and cf.exists():
+        z = np.load(cf)
+        return {int(i): dict(lab=z["lab"][k], z=z["z"][k], nrm=z["nrm"][k]) for k, i in enumerate(z["idx"])}
+    out = {}
+    for fr in Scan(Path(scan_dir)):
+        rgb = cv2.resize(fr.rgb(), size, interpolation=cv2.INTER_AREA)
+        lab = cv2.cvtColor(rgb.astype(np.float32) / 255.0, cv2.COLOR_RGB2LAB)
+        z = fr.depth().astype(np.float32)
+        K = fr.K_depth
+        h, w = z.shape
+        u, v = np.meshgrid(np.arange(w), np.arange(h))
+        P = np.stack([(u - K[0, 2]) * z / K[0, 0], (v - K[1, 2]) * z / K[1, 1], z], -1)
+        dx = np.zeros_like(P)
+        dy = np.zeros_like(P)
+        dx[:, 1:-1] = P[:, 2:] - P[:, :-2]
+        dy[1:-1] = P[2:] - P[:-2]
+        n = np.cross(dx, dy)
+        n /= np.maximum(np.linalg.norm(n, axis=-1, keepdims=True), 1e-9)
+        n[z <= 0] = 0
+        out[fr.index] = dict(lab=lab, z=z, nrm=n.astype(np.float32))
+    if cf is not None:
+        cf.parent.mkdir(parents=True, exist_ok=True)
+        ks = sorted(out)
+        np.savez(cf, idx=np.array(ks), lab=np.stack([out[k]["lab"] for k in ks]), z=np.stack([out[k]["z"] for k in ks]),
+                 nrm=np.stack([out[k]["nrm"] for k in ks]))
+    return out
+
+
+def _hull_ratio(m: np.ndarray) -> float:
+    """mask area / convex hull area (1 = convex, small = scattered / ragged)."""
+    import cv2
+    ys, xs = np.nonzero(m)
+    if len(ys) < 3:
+        return 1.0
+    hull = cv2.convexHull(np.column_stack([xs, ys]).astype(np.int32))
+    return float(m.sum()) / max(cv2.contourArea(hull) + 0.5 * len(hull), 1.0)
+
+
+def split_by_depth(m: np.ndarray, z: np.ndarray, nrm: np.ndarray, dz_cut: float = 0.008, ang_cut: float = 40.0,
+                   part_frac: float = 0.2) -> np.ndarray | None:
+    """Cut the 4-neighbour graph of mask `m` (low-res) at depth jumps / normal creases; if >= 2 connected
+    components each hold > part_frac of the mask return an int part map (0 outside, 1.. parts, small bits and
+    depth-less pixels go to the nearest part), else None."""
+    from scipy import ndimage as ndi
+    from scipy.sparse import coo_matrix
+    from scipy.sparse.csgraph import connected_components
+    ok = m & (z > 0)
+    n_ok = int(ok.sum())
+    if n_ok < 20:
+        return None
+    h, w = m.shape
+    idx = np.arange(h * w).reshape(h, w)
+    cosc = np.cos(np.radians(ang_cut))
+    rows, cols = [], []
+    for sl_a, sl_b in (((slice(None), slice(0, -1)), (slice(None), slice(1, None))),
+                       ((slice(0, -1), slice(None)), (slice(1, None), slice(None)))):
+        a_ok, b_ok = ok[sl_a] & ok[sl_b], None
+        keep = a_ok & (np.abs(z[sl_a] - z[sl_b]) <= dz_cut) & ((nrm[sl_a] * nrm[sl_b]).sum(-1) >= cosc)
+        rows.append(idx[sl_a][keep])
+        cols.append(idx[sl_b][keep])
+    r, c = np.concatenate(rows), np.concatenate(cols)
+    g = coo_matrix((np.ones(len(r)), (r, c)), shape=(h * w, h * w))
+    _, lab = connected_components(g, directed=False)
+    lab = lab.reshape(h, w)
+    ids, cnt = np.unique(lab[ok], return_counts=True)
+    big = ids[cnt > part_frac * n_ok]
+    if len(big) < 2:
+        return None
+    part = np.zeros((h, w), np.int32)
+    for k, b in enumerate(big):
+        part[ok & (lab == b)] = k + 1
+    return _fill_parts(part, m)
+
+
+def _fill_parts(part: np.ndarray, m: np.ndarray) -> np.ndarray:
+    """Give every pixel of `m` the part label of its nearest labelled pixel."""
+    from scipy import ndimage as ndi
+    if (part[m] == 0).any():
+        _, (iy, ix) = ndi.distance_transform_edt(part == 0, return_indices=True)
+        part = part[iy, ix]
+    return np.where(m, part, 0)
+
+
+def split_by_colour(m: np.ndarray, lab: np.ndarray, min_dist: float = 12.0, cc_frac: float = 0.8,
+                    min_frac: float = 0.15) -> np.ndarray | None:
+    """2-cluster k-means in Lab inside `m`; accepted when the centroids are > min_dist apart, each cluster
+    holds >= min_frac of the mask and its largest connected component is > cc_frac of the cluster."""
+    import cv2
+    from scipy import ndimage as ndi
+    n = int(m.sum())
+    if n < 60:
+        return None
+    X = lab[m].astype(np.float32)
+    cv2.setRNGSeed(0)
+    _, lbl, cen = cv2.kmeans(X, 2, None, (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.5), 3,
+                             cv2.KMEANS_PP_CENTERS)
+    lbl = lbl.ravel()
+    if np.linalg.norm(cen[0] - cen[1]) <= min_dist:
+        return None
+    part = np.zeros(m.shape, np.int32)
+    part[m] = lbl + 1
+    for k in (1, 2):
+        pk = part == k
+        sz = int(pk.sum())
+        if sz < min_frac * n:
+            return None
+        cc, nc = ndi.label(pk)
+        if np.bincount(cc.ravel())[1:].max() <= cc_frac * sz:
+            return None
+    return part
+
+
+def _up_parts(part_lo: np.ndarray, m_full: np.ndarray) -> list[np.ndarray]:
+    """Full-res boolean masks per part (nearest upsample of the low-res labels, holes filled by nearest part)."""
+    H, W = m_full.shape
+    h, w = part_lo.shape
+    yy = np.minimum((np.arange(H) * h) // H, h - 1)
+    xx = np.minimum((np.arange(W) * w) // W, w - 1)
+    up = part_lo[yy][:, xx]
+    up = _fill_parts(up, m_full)
+    return [m_full & (up == k) for k in range(1, int(up.max()) + 1) if (m_full & (up == k)).any()]
+
+
+def _lowres_mask(m_full: np.ndarray, size) -> np.ndarray:
+    H, W = m_full.shape
+    w, h = size
+    return m_full[(np.arange(h) * H + H // 2) // h][:, (np.arange(w) * W + W // 2) // w]
+
+
+def postprocess_raw(scan_dir: Path, raw: dict, name_px: dict, frame_scores: dict, opts: PostOpts, judge=None):
+    """Rewrite stored per-frame unlinked maps (ids >= FIRST_RAW_ID) with `opts`' rules before linking.
+
+    Returns (raw, name_px, frame_scores) copies; every drop / split / merge appends a record to opts.log and,
+    if `judge(kind, frame, masks)` is given (diagnostics only, e.g. GT-based), its verdict is stored as 'ok'.
+    New ids continue above the largest raw id; a split keeps the parent's score and name counts, a merge sums
+    name counts and keeps the best score.
+    """
+    raw = {fi: m.copy() for fi, m in raw.items()}
+    name_px = {g: dict(d) for g, d in name_px.items()}
+    frame_scores = {fi: dict(d) for fi, d in frame_scores.items()}
+    nxt = max([int(m.max()) for m in raw.values()] + [FIRST_RAW_ID]) + 1
+    need_lr = opts.depth_split or opts.color_split or opts.merge_same
+    lr = _lowres_frames(scan_dir, opts.lowres, opts.cache_dir) if need_lr else {}
+
+    def rec(kind, rule, fi, ids, masks, **kw):
+        r = dict(kind=kind, rule=rule, frame=fi, ids=[int(i) for i in ids], **kw)
+        if judge is not None:
+            r["ok"] = judge(kind, fi, masks)
+        opts.log.append(r)
+
+    def top_name(g):
+        d = name_px.get(g, {})
+        return max(d, key=d.get) if d else FOOD
+
+    for fi in sorted(raw):
+        m_ = raw[fi]
+        fs = frame_scores.setdefault(fi, {})
+        food = [int(g) for g in np.unique(m_) if g >= FIRST_RAW_ID]
+        tot = m_.size
+        # ---- B2 drop
+        if opts.min_score or opts.min_area_frac or opts.min_compact:
+            for g in food:
+                mk = m_ == g
+                why = None
+                if opts.min_score and fs.get(g, 1.0) < opts.min_score:
+                    why = "score"
+                elif opts.min_area_frac and mk.sum() < opts.min_area_frac * tot:
+                    why = "area"
+                elif opts.min_compact and _hull_ratio(_lowres_mask(mk, opts.lowres)) < opts.min_compact:
+                    why = "compact"
+                if why:
+                    rec("drop", why, fi, [g], [mk])
+                    m_[mk] = 0
+            food = [g for g in food if (m_ == g).any()]
+        L = lr.get(fi)
+        # ---- A2 / A3 split
+        if L is not None and (opts.depth_split or opts.color_split):
+            for g in food:
+                mk = m_ == g
+                ml = _lowres_mask(mk, opts.lowres)
+                part, rule = None, None
+                if opts.depth_split:
+                    part = split_by_depth(ml, L["z"], L["nrm"], opts.dz_cut, opts.ang_cut, opts.part_frac)
+                    rule = "depth"
+                if part is None and opts.color_split:
+                    part = split_by_colour(ml, L["lab"], opts.lab_dist, opts.cc_frac, opts.color_min_frac)
+                    rule = "colour"
+                if part is None:
+                    continue
+                pieces = _up_parts(part, mk)
+                if len(pieces) < 2:
+                    continue
+                ids = [g]
+                tot_px = sum(int(p.sum()) for p in pieces)
+                for k, p in enumerate(pieces):
+                    gid = g if k == 0 else nxt
+                    if k:
+                        nxt += 1
+                        m_[p] = gid
+                        fs[gid] = fs.get(g, 0.0)
+                        name_px[gid] = {n: int(v * p.sum() / tot_px) for n, v in name_px.get(g, {}).items()}
+                        ids.append(gid)
+                rec("split", rule, fi, ids, pieces)
+        # ---- B1 merge
+        if L is not None and opts.merge_same:
+            import cv2
+            food = [int(g) for g in np.unique(m_) if g >= FIRST_RAW_ID]
+            lo = {g: _lowres_mask(m_ == g, opts.lowres) for g in food}
+            lo = {g: x for g, x in lo.items() if x.sum() >= 8}
+            ker = np.ones((2 * opts.merge_dilate + 1,) * 2, np.uint8)
+            while True:
+                best = None
+                gs = sorted(lo)
+                dil = {g: cv2.dilate(lo[g].astype(np.uint8), ker).astype(bool) for g in gs}
+                for a in range(len(gs)):
+                    for b in range(a + 1, len(gs)):
+                        ga, gb = gs[a], gs[b]
+                        if top_name(ga) != top_name(gb) or not (dil[ga] & lo[gb]).any():
+                            continue
+                        u = lo[ga] | lo[gb]
+                        hr = _hull_ratio(u)
+                        if hr <= opts.merge_hull:
+                            continue
+                        d = float(np.linalg.norm(L["lab"][lo[ga]].mean(0) - L["lab"][lo[gb]].mean(0)))
+                        if d < opts.merge_lab and (best is None or hr > best[0]):
+                            best = (hr, ga, gb)
+                if best is None:
+                    break
+                _, ga, gb = best
+                ma, mb = m_ == ga, m_ == gb
+                rec("merge", "same-name", fi, [ga, gb], [ma, mb])
+                m_[mb] = ga
+                lo[ga] = lo[ga] | lo.pop(gb)
+                fs[ga] = max(fs.get(ga, 0.0), fs.pop(gb, 0.0))
+                for n, v in name_px.get(gb, {}).items():
+                    name_px.setdefault(ga, {})[n] = name_px[ga].get(n, 0) + v
+    assert nxt < 65000
+    return raw, name_px, frame_scores
 
 
 def link_instances(scan, raw_maps: dict, name_px: dict, frame_scores: dict, points: np.ndarray,
@@ -765,6 +1064,16 @@ def main() -> None:
     ap.add_argument("--cluster-thresh", type=float, default=0.8, help="covote: average-linkage cut (distance)")
     ap.add_argument("--from-masks", default=None,
                     help="replay: a masks dir holding raw/ (unlinked image-mode maps); no predictor/GPU is used")
+    g = ap.add_argument_group("2D mask post-processing (replay via --from-masks; all off by default)")
+    g.add_argument("--multi-name-cover", type=float, default=None, help="A1: split a food mask when >=2 names each cover this share")
+    g.add_argument("--depth-split", action="store_true", help="A2: split masks at depth jumps / normal creases")
+    g.add_argument("--dz-cut", type=float, default=0.008)
+    g.add_argument("--ang-cut", type=float, default=40.0)
+    g.add_argument("--color-split", action="store_true", help="A3: split masks by 2-cluster Lab k-means")
+    g.add_argument("--merge-same", action="store_true", help="B1: merge touching same-name convex same-colour masks")
+    g.add_argument("--min-score", type=float, default=0.0, help="B2: drop masks scoring below this")
+    g.add_argument("--min-area-frac", type=float, default=0.0, help="B2: drop masks below this share of the frame")
+    g.add_argument("--min-compact", type=float, default=0.0, help="B2: drop masks with area/hull-area below this")
     ap.add_argument("--out-dir", default=None, help="where to write masks (default SCAN_DIR/masks)")
     ap.add_argument("--points-npz", default=None,
                     help="cloud (xyz [+ normal]) to link/lift on instead of fusing the scan (e.g. gt/seg_points.npz)")
@@ -788,7 +1097,11 @@ def main() -> None:
                         max_names=args.max_names,
                         container_prompts=() if args.no_aux else CONTAINER_PROMPTS,
                         clutter_prompts=() if args.no_aux else CLUTTER_PROMPTS,
-                        linker=linker)
+                        linker=linker, multi_name_cover=args.multi_name_cover,
+                        postproc=PostOpts(min_score=args.min_score, min_area_frac=args.min_area_frac,
+                                          min_compact=args.min_compact, depth_split=args.depth_split,
+                                          dz_cut=args.dz_cut, ang_cut=args.ang_cut, color_split=args.color_split,
+                                          merge_same=args.merge_same))
     print(json.dumps(meta, indent=1))
     if args.lift_out:
         from . import labels as L

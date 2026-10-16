@@ -54,7 +54,8 @@ def run(scan_dir: Path, container: Path | None = None, masks_dir: Path | None = 
         seg3d_ckpt: Path | None = None, repair_ids: bool = True, smooth_radius: float = 0.0,
         crop_radius: float = 0.003, min_label_faces: int = 50, min_item_points: int = 50,
         mass_rule: str = "envelope", weighting: str | None = None,
-        segment: bool = False, seg_mode: str = "image", linker: str = "covote") -> dict:
+        segment: bool = False, seg_mode: str = "image", linker: str = "covote",
+        boundary_refine: bool = False) -> dict:
     if mass_rule not in ("envelope", "legacy"):
         raise ValueError(f"mass_rule must be 'envelope' or 'legacy', got {mass_rule!r}")
     scan = Scan(scan_dir, poses=poses, depth=depth)
@@ -120,6 +121,12 @@ def run(scan_dir: Path, container: Path | None = None, masks_dir: Path | None = 
                              smooth_radius=smooth_radius, weighting=weighting, save_to=scan_dir / "lift.npz")
         labels = lift.lift_label.copy()
         margin = lift.lift_share
+        if boundary_refine:    # point-level graph-cut boundary refinement of the lift (default off; see boundary_refine.py)
+            from .boundary_refine import refine_cloud
+            rgb = np.asarray(pcd.colors) if pcd.has_colors() else np.full((len(pts), 3), 0.5)
+            labels, br = refine_cloud(pts, rgb, normals, plane.normal, labels, votes=lift.votes, ids=lift.ids,
+                                      share=lift.lift_share)
+            reg_info["boundary_refine"] = br
         reg_info["lift"] = {"weighting": weighting, "merged_ids": lift.merge_map, "frames": lift.stats["n_frames"],
                             "agree_fraction": float(lift.lift_agree[lift.lift_nvotes > 0].mean())
                             if (lift.lift_nvotes > 0).any() else None}
@@ -235,6 +242,9 @@ def main() -> None:
                          "or repair (labels.repair_ids, cos weights)")
     ap.add_argument("--weighting", default=None,
                     help="lift vote weighting (default: cos+qual when the masks were co-vote linked, else cos)")
+    ap.add_argument("--boundary-refine", action="store_true",
+                    help="after the lift, refine labels near instance boundaries with a colour/normal/height-aware graph cut "
+                         "(foodscan.boundary_refine; default off: the 40-scan validation did not meet the default-on rule, see results/boundary_refine/summary.md)")
     ap.add_argument("--no-id-repair", action="store_true", help="skip cross-view mask-id merging")
     ap.add_argument("--smooth-radius", type=float, default=0.0, help="neighbour vote smoothing radius in m (0 = off; 0.004 typical)")
     ap.add_argument("--no-nutrition", action="store_true")
@@ -257,7 +267,7 @@ def main() -> None:
               up_hint=ARKIT_UP if args.up == "y" else np.array([0.0, 0.0, 1.0]),
               seg3d_ckpt=Path(args.seg3d_ckpt) if args.seg3d_ckpt else None,
               repair_ids=not args.no_id_repair, smooth_radius=args.smooth_radius,
-              mass_rule=args.mass_rule, weighting=args.weighting,
+              mass_rule=args.mass_rule, weighting=args.weighting, boundary_refine=args.boundary_refine,
               segment=args.segment, seg_mode=args.seg_mode, linker=args.linker)
     text = json.dumps(res, indent=1)
     print(text)

@@ -1,0 +1,8 @@
+{"C1_depth20_60+score0.3": {"depth_split": true, "dz_cut": 0.02, "ang_cut": 60.0, "min_score": 0.3},
+ "C2_depth20_60+score0.3+area0.3pct": {"depth_split": true, "dz_cut": 0.02, "ang_cut": 60.0, "min_score": 0.3, "min_area_frac": 0.003},
+ "C1_ct0.7": {"depth_split": true, "dz_cut": 0.02, "ang_cut": 60.0, "min_score": 0.3, "cluster_thresh": 0.7},
+ "C1_ct0.9": {"depth_split": true, "dz_cut": 0.02, "ang_cut": 60.0, "min_score": 0.3, "cluster_thresh": 0.9},
+ "baseline_ct0.7": {"cluster_thresh": 0.7},
+ "baseline_ct0.9": {"cluster_thresh": 0.9},
+ "A2best_ct0.7": {"depth_split": true, "dz_cut": 0.02, "ang_cut": 60.0, "cluster_thresh": 0.7},
+ "A2best_ct0.9": {"depth_split": true, "dz_cut": 0.02, "ang_cut": 60.0, "cluster_thresh": 0.9}}

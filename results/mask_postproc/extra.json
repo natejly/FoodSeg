@@ -1,0 +1,8 @@
+{"A2_depth_dz20_ang60": {"depth_split": true, "dz_cut": 0.02, "ang_cut": 60.0},
+ "A2_depth_dz12_ang50_p30": {"depth_split": true, "dz_cut": 0.012, "ang_cut": 50.0, "part_frac": 0.3},
+ "A2_depth_dz30_ang70": {"depth_split": true, "dz_cut": 0.03, "ang_cut": 70.0},
+ "A3_colour_d20_f25": {"color_split": true, "lab_dist": 20.0, "color_min_frac": 0.25},
+ "B1_merge_strict": {"merge_same": true, "merge_hull": 0.9, "merge_lab": 5.0},
+ "B2_area0.1pct": {"min_area_frac": 0.001},
+ "B2_area0.05pct": {"min_area_frac": 0.0005},
+ "B2_compact0.3": {"min_compact": 0.3}}

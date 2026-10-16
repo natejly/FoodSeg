@@ -26,19 +26,22 @@ SIDS = ["s000000", "s000001", "s000002", "s000007", "s000009", "s000011", "s0000
 
 
 def replay_scan(sid: str, out: Path, linker: str = "covote", weighting: str | None = None,
-                cluster_thresh: float = 0.8, raw_name: str = "masks_sam3_v2i") -> dict:
+                cluster_thresh: float = 0.8, raw_name: str = "masks_sam3_v2i", post: dict | None = None,
+                post_judge=None, return_lift: bool = False):
     from foodscan import labels as L
     from foodscan.loader import Scan
-    from foodscan.segment import load_masks, make_linker, segment_scan
+    from foodscan.segment import PostOpts, load_masks, make_linker, segment_scan
     sd, od = SCANS / sid, Path(out) / sid
     z = np.load(sd / "gt/seg_points.npz")
     xyz, nrm = z["xyz"].astype(np.float64), z["normal"].astype(np.float64)
     meta = segment_scan(sd, [], from_raw=RAWROOT / sid / raw_name, out_dir=od / "masks",
-                        linker=make_linker(sd, xyz, nrm, method=linker, cluster_thresh=cluster_thresh))
+                        linker=make_linker(sd, xyz, nrm, method=linker, cluster_thresh=cluster_thresh),
+                        postproc=PostOpts(**post) if isinstance(post, dict) else post, post_judge=post_judge)
     masks, meta = load_masks(od, od / "masks")
     w = weighting or (L.DEFAULT_LINKED_WEIGHTING if linker == "covote" else "cos")
     lift = L.lift_for_meal(Scan(sd), masks, xyz, nrm, meta, weighting=w, save_to=od / "lift.npz")
-    return evaluate_lift(sid, lift.lift_label)
+    res = evaluate_lift(sid, lift.lift_label)
+    return (res, lift.lift_label) if return_lift else res
 
 
 def evaluate_lift(sid: str, lift_full) -> dict:
@@ -63,13 +66,15 @@ def main() -> None:
     ap.add_argument("--linker", default="covote", choices=["covote", "repair"])
     ap.add_argument("--weighting", default=None)
     ap.add_argument("--cluster-thresh", type=float, default=0.8)
+    ap.add_argument("--post", default=None, help="JSON dict of segment.PostOpts fields (2D mask post-processing)")
     ap.add_argument("--procs", type=int, default=11)
     ap.add_argument("--out", default=str(REPO / "results/lift_replay"))
     ap.add_argument("--only", nargs="*")
     a = ap.parse_args()
     from eval.lift_sweep import pooled
     sids = a.only or SIDS
-    kw = dict(linker=a.linker, weighting=a.weighting, cluster_thresh=a.cluster_thresh)
+    kw = dict(linker=a.linker, weighting=a.weighting, cluster_thresh=a.cluster_thresh,
+              post=json.loads(a.post) if a.post else None)
     with Pool(min(a.procs, len(sids))) as p:
         res = dict(p.map(_run, [(s, a.out, kw) for s in sids]))
     pool = pooled([res[s] for s in sids])
