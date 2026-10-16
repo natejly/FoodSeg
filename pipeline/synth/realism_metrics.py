@@ -127,12 +127,13 @@ def synth_records(batch: Path, real: str, ref_px: float):
         nv = len(list(sd.glob("rgb/*.jpg")))
         items = None
         for idx in frames_for(nv, view):
-            rgb, segp = sd / "rgb" / f"{idx:06d}.jpg", batch / "raw" / sid / f"frame_{idx:06d}.npz"
-            if not (rgb.exists() and segp.exists()):
+            rgb = sd / "rgb" / f"{idx:06d}.jpg"
+            seg = R.load_seg(batch, sid, idx)
+            if not rgb.exists() or seg is None:
                 continue
             if items is None:
                 items = load_spec(batch, sid)
-            im = Image.open(rgb).convert("RGB"); seg = np.load(segp)["seg"]
+            im = Image.open(rgb).convert("RGB")
             food = (seg > 0) & (seg <= FOOD_MAX)
             bb = (R.bbox(seg == DISH_ID) or R.bbox(food)) if view == "top" else R.bbox(food)
             if bb is None:

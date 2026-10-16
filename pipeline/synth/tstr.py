@@ -114,19 +114,29 @@ def load_n5k(n, seed=0):
 
 
 # ------------------------------------------------------------------ synthetic data
+def load_seg(batch, sid: str, idx: int):
+    """Full-resolution seg ids of frame idx: the raw npz if kept, else the scan's gt/seg_ids PNG (same labels); None if neither."""
+    batch = Path(batch)
+    raw = batch / "raw" / sid / f"frame_{idx:06d}.npz"
+    if raw.exists():
+        return np.load(raw)["seg"]
+    png = batch / "scans" / sid / "gt" / "seg_ids" / f"{idx:06d}.png"
+    return np.asarray(Image.open(png)) if png.exists() else None
+
+
 def synth_frames(root: Path, fps: int, short=STORE_SHORT):
     """Evenly-spaced `fps` frames per scan with rgb + raw seg -> list of dict(img, m, group, sid)."""
     out, hist = [], np.zeros(256, np.int64)
     for sd in sorted(glob.glob(str(root / "scans/*"))):
         sid = Path(sd).name
         have = sorted(int(Path(p).stem) for p in glob.glob(f"{sd}/rgb/*.jpg")
-                      if (root / "raw" / sid / f"frame_{int(Path(p).stem):06d}.npz").exists())
+                      if load_seg(root, sid, int(Path(p).stem)) is not None)
         if not have:
             continue
         pick = [have[i] for i in np.unique(np.linspace(0, len(have) - 1, min(fps, len(have))).round().astype(int))]
         for k in pick:
             im = Image.open(f"{sd}/rgb/{k:06d}.jpg")
-            seg = np.load(root / "raw" / sid / f"frame_{k:06d}.npz")["seg"]
+            seg = load_seg(root, sid, k)
             w, h = im.size
             s = short / min(w, h)
             sz = (round(w * s), round(h * s))

@@ -290,6 +290,16 @@ def spec_style(batch: Path, sid: str):
         return None
 
 
+def load_seg(batch, sid: str, idx: int):
+    """Full-resolution seg ids of frame idx: the raw npz if kept, else the scan's gt/seg_ids PNG (same labels); None if neither."""
+    batch = Path(batch)
+    raw = batch / "raw" / sid / f"frame_{idx:06d}.npz"
+    if raw.exists():
+        return np.load(raw)["seg"]
+    png = batch / "scans" / sid / "gt" / "seg_ids" / f"{idx:06d}.png"
+    return np.asarray(Image.open(png)) if png.exists() else None
+
+
 def synth_items(batch: Path, view: str, style: str | None = None):
     """[(rgb, seg, group)] for frames of one viewpoint that have both rgb and raw seg
     (and, with `style`, whose spec.json style matches)."""
