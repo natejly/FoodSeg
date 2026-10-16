@@ -39,8 +39,8 @@ from .itemstats import TABLE_ID, item_gt_stats, with_table
 
 TOL_MIN, TOL_MAX, TOL_K = 0.004, 0.008, 2.5     # tol = clip(TOL_K * post-ICP median, TOL_MIN, TOL_MAX)
 ICP_MAX_CORR = 0.010
-ICP_MAX_SHIFT = 0.015      # larger scene displacement (95th pct) / rotation = ICP wandered on a symmetric dish: identity
-ICP_MAX_ROT_DEG = 3.0
+ICP_MAX_SHIFT = 0.030      # larger scene displacement (95th pct) / rotation = ICP wandered on a symmetric dish: identity
+ICP_MAX_ROT_DEG = 5.0
 ICP_SKIP_BELOW = 0.0015    # pre-ICP median already at the fusion noise floor (clean poses): ICP can only slide, skip
 ICP_MIN_GAIN = 0.9         # accept only if post median < this * pre
 

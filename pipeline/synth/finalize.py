@@ -85,7 +85,7 @@ def _finalize(scene_dir: Path, raw_dir: Path, out: Path, seed: int, keep_hr: boo
     true_c2w = [np.array(c) for c in cam["c2w"]]
     pn = PoseNoiseParams.sample(rng) if pose_noise else None
     # exported (ARKit-like drifting) poses; GT stays in the true frame
-    c2w_exp = perturb_poses(true_c2w, np.random.default_rng([seed, 7]), pn) if pn else true_c2w
+    c2w_exp = perturb_poses(true_c2w, np.random.default_rng([seed, int(spec["scene_id"].lstrip("s") or 0), 7]), pn) if pn else true_c2w
     transl = translucent_ids(spec["items"])
     subs = ["rgb", "depth", "smooth_depth", "conf", "gt/masks", "gt/seg_ids", "gt/container", "gt/depth_clean"]
     if keep_hr:
