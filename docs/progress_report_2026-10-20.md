@@ -25,7 +25,7 @@ Source: thesis proposal (2026-10-02). Target: energy error near 13% or below.
 
 ### (a) Nutrition5k 2D baseline
 
-Official `depth_test_ids`, 507 dishes, MAE as percent of the mean, no oracle ingredient names (`results/n5k/README.md`, `EXPERIMENTS.md`). "Ours" is the average of all 16 full-data models, rule fixed in advance; I do not quote the best ensembles, which rounds 7-11 selected on test numbers.
+Official `depth_test_ids`, 507 dishes, MAE as percent of the mean, no oracle ingredient names (`results/n5k/README.md`, `EXPERIMENTS.md`). "Ours" is the average of all 16 full-data models, rule fixed in advance; best ensembles (selected on test numbers, rounds 7-11) are not quoted.
 
 | | mass % | kcal % | fat % | carb % | protein % |
 |---|---|---|---|---|---|
@@ -33,7 +33,7 @@ Official `depth_test_ids`, 507 dishes, MAE as percent of the mean, no oracle ing
 | NuNet, published best (arXiv:2406.01938) | 8.72 | 12.80 | 19.67 | 18.66 | 18.42 |
 | Ours, pre-registered 16-model average | 9.0 | 13.1 | 21.2 | 19.7 | 20.4 |
 
-We are 0.3 points behind NuNet on mass and kcal (mean over five targets 16.7 vs 15.65). NuNet's test set is not stated to equal `depth_test_ids` [verify]. With true ingredient names, mass-from-area error drops from 36.7% to 25.8%, so naming accuracy (unmeasured) is the largest lever.
+We are 0.3 points behind NuNet on mass and kcal (mean over five targets 16.7 vs 15.65). NuNet's test set may differ from `depth_test_ids` [verify]. With true ingredient names, mass-from-area error drops from 36.7% to 25.8%, so naming accuracy (unmeasured) is the largest lever. Round 14 (per-target loss weights, learned log-variance weighting) did not beat equal weights on val (fat+protein mean 19.37 equal vs 20.33 weighted and 19.46 learned), so there is no change to the headline (`EXPERIMENTS.md`).
 
 ### (b) MetaFood3D volume and the density floor
 
@@ -73,17 +73,19 @@ Setup (`pipeline/seg3d/README.md`, `results/seg3d/ablations.md`): Point Transfor
 | R2 | PTv3 anchored | 0.753 | 0.575 | +0.003 [-0.103, +0.113] | 0.83 / 0.18 |
 | R2 | Keep-or-change | 0.727 | 0.640 | +0.028 [-0.012, +0.085] | 0.32 / 0.012 |
 
-Reading. The refiner improves semantic mIoU (0.75 vs 0.68), correcting 83-87% of lift-wrong points but breaking 17-18% of correct ones: instance mIoU is level with the lift in R2 and below it in R1. Keep-or-change is a safe near-no-op. CIs are wide; confounds: 1-2 seeds, leaked categories.
+Reading. The refiner improves semantic mIoU (0.75 vs 0.68), correcting 83-87% of lift-wrong points but breaking 17-18% of correct ones: instance mIoU is level with the lift in R2 and below it in R1. Keep-or-change is a near-no-op. CIs are wide (1-2 seeds, leaked categories).
 
-Real SAM 3 votes (`results/sam3_votes/summary.md`, `results/sam3_gap/summary.md`): the refiner trained on simulated votes, so I ran real SAM 3 on 11 renders. The first run (video, oracle names) left 55% unvoted (instance mIoU 0.38 vs 0.80 simulated). A 40-frame probe traced it to prompting defaults and the video path, not realism: generic "food" recalls 93.5% of food pixels at 0.5 (98% at 0.3), and oracle names fail on real Nutrition5k photos as often as on renders. With "food" at 0.3, simplified names as a second pass, and per-frame image inference with 3D linking, unvoted points fall to 0.4% and instance mIoU rises to 0.66. Fragmentation dominates (19 splits, 9 merges); image mode costs about 50 s/scan. The residual render gap is narrow (procedural leaves, rice, mashed potato, hummus, cube primitives); SAM 3 recall per category is now a generator realism metric.
+Real SAM 3 votes (`results/sam3_votes/summary.md`, `results/sam3_gap/summary.md`): the refiner trained on simulated votes, so I ran real SAM 3 on 11 renders. The first run (video, oracle names) left 55% unvoted (instance mIoU 0.38 vs 0.80 simulated), traced to prompting defaults and the video path, not realism: generic "food" recalls 93.5% of food pixels at 0.5 (98% at 0.3),. With "food" at 0.3, simplified names as a second pass, and per-frame image inference with 3D linking, unvoted points fall to 0.4% and instance mIoU rises to 0.66. Fragmentation dominates (19 splits, 9 merges). The residual render gap is narrow (procedural leaves, rice, mashed potato, hummus, cube primitives).
 
-Round 4, refiner retrained on real votes (`ablations.md`; partial: 1 of 3 folds, 4 scans, 14 correct items; GPU lost to a render batch). Plain and anchored PTv3 score -0.19 and -0.17 against it (CIs exclude 0), breaking 5 of 14 correct items to merge 2-3 of 9 fragmented ones. The keep-or-change head is a no-op (+0.002, merges nothing). The fragmentation-augmentation, wide-window and pseudo-only arms are [pending GPU].
+Round 4, refiner retrained on real votes (`ablations.md`; partial: 1 of 3 folds, 4 scans, 14 correct items; GPU lost to a render batch). Plain and anchored PTv3 score -0.19 and -0.17 against it (CIs exclude 0), breaking 5 of 14 correct items to merge 2-3 of 9 fragmented ones. The keep-or-change head is a no-op (+0.002, merges nothing).
 
 Lift quality, 40 real-vote scans (hard_v12 + hard_v13, image-mode SAM 3, about 50 s/scan; 273 items; `results/sam3_votes/summary.md`, `results/lift_sweep/summary.md`, `results/lift_errors/scans40/`). Co-vote cross-view linking is the confirmed default: +0.047 [+0.022, +0.072] inst mIoU over the old linker, significant in both batches (v12 +0.058, v13 +0.036); PQ 0.36 to 0.47, fragmented items 115 to 73 of 273. The lift now scores 0.63 pooled (v12 0.657, v13 0.600), against 0.74 on the easier 11-scan subset.
 
-Post-processing is validated on all 40 scans and switched off. Boundary CRF: pooled +0.001 [-0.002, +0.005], v13 negative; the earlier +0.011 on 11 scans was a small-sample effect (`results/boundary_refine/summary.md`). Fragment merge: every deployable arm is negative (shipped heuristic -0.091 [-0.136, -0.053]; leave-one-batch-out heuristic -0.010, learned trees -0.017), only the oracle is positive (+0.014) (`results/seg3d/merge/summary.md`).
+Post-processing is validated on all 40 scans and switched off. Boundary CRF: pooled +0.001 [-0.002, +0.005], v13 negative; the earlier +0.011 on 11 scans was small-sample (`results/boundary_refine/summary.md`). Fragment merge: every deployable arm is negative (shipped heuristic -0.091 [-0.136, -0.053]; leave-one-batch-out heuristic -0.010, learned trees -0.017), only the oracle is positive (+0.014) (`results/seg3d/merge/summary.md`).
 
-Conclusion. No refiner or post-process has beaten the lifted SAM 3 labels on instance mIoU; the PTv3 gains are semantic only. The remaining loss is SAM 3's 2D masks on small touching items: fragmented items carry 31% of the loss and merged items 33% (64% together, both 2D-origin), boundary errors 10%, and items under 50 mL most of it. Further segmentation gains need better 2D masks or real data, and the synthetic volume harness shows volume error barely depends on segmentation (3(f)).
+As a 4-class semantic cleaner on the 40 real-vote scans (`results/seg3d/semantic/summary.md`), PTv3 gives mIoU 0.831 against the lift's own 0.824 (CIs overlap) and needs the lift channel; it recovers about 24% of lift-missed food but loses some, so food recall is unchanged and food IoU falls 0.853 to 0.830. Clutter improves on v12 and worsens on v13, so PTv3 has no default role in the real pipeline (0.2 s/scan; at most an optional clutter/container check).
+
+Conclusion. No refiner or post-process has beaten the lifted SAM 3 labels on instance mIoU; the PTv3 gains are semantic only. The remaining loss is SAM 3's 2D masks on small touching items: fragmented items carry 31% of the loss and merged items 33% (64% together, both 2D-origin), boundary errors 10%, and items under 50 mL most of it. Further gains need better 2D masks or real data; volume error barely depends on segmentation (3(f)).
 
 ### (e) Capture status
 
@@ -130,7 +132,7 @@ So density carries about +16% median bias and roughly 30-40% typical per-item er
 
 ## 5. Plan to Dec 17
 
-Plan dates are proposals by the author, pending advisor review.
+Plan dates are proposals, pending advisor review.
 
 | Dates | Task | Go/no-go |
 |---|---|---|
@@ -138,7 +140,7 @@ Plan dates are proposals by the author, pending advisor review.
 | Oct 21-31 | Per-kind density recalibration from weighed meals (USDA table +16% biased, 3(g)); envelope target in the real pipeline | Calibration objects under 10% median error; recalibrated density beats raw USDA on held-out meals |
 | Oct 21-Nov 7 | Density-matched 24-view synthetic batches (v13 underway, 48-view subset); train the envelope head on several (whole-batch hold-out of v12 still fails) | Head must beat the baseline on a held-out batch, not only across categories |
 | Oct 24-31 | Real-scan baseline (RQ1): SAM 3 lift, envelope volume, same meals from one overhead frame; kcal MAPE with bootstrap CI | Required |
-| Nov 1-14 | Segmentation (decided 16 Oct, validated on 40 scans: refiner paused, co-vote lift default, CRF and merge off, PTv3 only as semantic cleaner): next is real scans; optional SAM 3.1 / prompt-type comparison for better 2D masks; finish round-4 arms when the GPU is free [pending GPU]; stacked/loose items; registration gate; SAM 3D only if the cluster exists | Resume a learned instance refiner only if it beats the lift on real held-out volume error |
+| Nov 1-14 | Segmentation (decided 16 Oct, validated on 40 scans: refiner paused, co-vote lift default, CRF and merge off, PTv3 at most an optional clutter/container check): next is real scans; optional SAM 3.1 / prompt-type comparison for better 2D masks; finish round-4 arms when the GPU is free [pending GPU]; stacked/loose items; registration gate; SAM 3D only if the cluster exists | Resume a learned instance refiner only if it beats the lift on real held-out volume error |
 | Nov 8-21 | Per-item mass head | Only if density dominates on real data |
 | Nov 15-28 | Evaluation and ablations; Nutrition5k side claim (beat NuNet only if the 16-model average beats all five targets or their mean) | |
 | Nov 29-Dec 17 | Draft to advisor (Dec 7); demo; poster (Dec 8); submit Dec 17 | |
