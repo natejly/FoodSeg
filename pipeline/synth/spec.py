@@ -57,16 +57,21 @@ def look_at(eye: np.ndarray, target: np.ndarray, roll: float = 0.0) -> np.ndarra
 
 def orbit_poses(rng: np.random.Generator, n: int, centre: np.ndarray,
                 dish_r: float | None = None) -> tuple[list[np.ndarray], list[float]]:
-    """~75 % of frames on an elevation-45 ring, the rest a near top-down pass, with hand-held jitter.
-    With `dish_r` (outline radius, m) the orbit distance follows the dish size, so the dish spans 55-80 % of the
-    frame height (a phone food scan), not a bowl lost in empty table; top-down frames sit a little closer."""
-    n_ring = max(int(round(0.75 * n)), 1)
-    n_top = n - n_ring
+    """~85 % of frames on an elevation 35-65 deg ring, the rest a near-overhead pass, with hand-held jitter.
+    With `dish_r` (outline radius, m) the orbit distance is set so the plate's major axis spans U(0.62, 0.90) of
+    the image width (measured on Nutrition5k: 0.6-0.83), and the plate centre wanders +-0.12 W / +-0.10 H in the
+    image (a phone held by hand, not a turntable): the plate touches the image border in a quarter of the frames."""
+    n_top = int(round(0.15 * n)) if dish_r is not None else n - max(int(round(0.75 * n)), 1)
+    n_ring = n - n_top
     a0 = rng.uniform(0, 2 * np.pi)
     sweep = rng.uniform(1.6, 2.0) * np.pi * rng.choice([-1, 1])
     dist0, el0 = rng.uniform(0.25, 0.35), np.deg2rad(rng.uniform(38, 55))
+    shift0 = np.zeros(2)
     if dish_r is not None:
-        dist0 = float(np.clip(2 * dish_r / rng.uniform(0.55, 0.8), 0.2, 0.45))
+        el0 = np.deg2rad(rng.uniform(36, 62))
+        frac = rng.uniform(0.62, 0.90)                       # plate major axis / image width
+        dist0 = float(np.clip(2 * dish_r * FX / (RGB_W * frac), 0.17, 0.45))
+        shift0 = rng.uniform(-0.07, 0.07, 2) * [1.0, 0.8]    # scan-wide framing bias, fraction of W
     poses, times = [], []
     duration = rng.uniform(20, 40)
     for i in range(n):
@@ -77,11 +82,16 @@ def orbit_poses(rng: np.random.Generator, n: int, centre: np.ndarray,
         else:
             u = (i - n_ring) / max(n_top - 1, 1)
             az = a0 + sweep + np.pi * u
-            el = np.deg2rad(rng.uniform(72, 86))
+            el = np.deg2rad(rng.uniform(72, 86) if dish_r is None else rng.uniform(76, 88))
         d = dist0 * (1 + rng.normal(0, 0.05)) * (0.95 if (dish_r is not None and i >= n_ring) else 1.0)
         eye = centre + d * np.array([np.cos(el) * np.cos(az), np.cos(el) * np.sin(az), np.sin(el)])
         tgt = centre + rng.normal(0, 0.012, 3) * [1, 1, 0.3]
-        poses.append(look_at(eye, tgt, roll=np.deg2rad(rng.normal(0, 4))))
+        T = look_at(eye, tgt, roll=np.deg2rad(rng.normal(0, 4)))
+        if dish_r is not None:        # slide the target in the image plane: the plate moves the other way
+            sh = shift0 + rng.uniform(-0.05, 0.05, 2) * [1.0, 0.8]
+            wd = RGB_W / FX * d      # metres across the image at the plate
+            T[:3, 3] += (T[:3, 0] * sh[0] + T[:3, 1] * sh[1]) * wd
+        poses.append(T)
         times.append(duration * i / max(n - 1, 1))
     return poses, times
 

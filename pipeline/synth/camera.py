@@ -90,7 +90,7 @@ class PhoneCamera:
         base = dict(noise_sigma=float(rng.uniform(0.5, 3.0)), blur_px_max=float(rng.uniform(0.5, 4.0)),
                     defocus_p=float(rng.uniform(0.0, 0.3)), jpeg_quality=int(rng.integers(84, 96)),
                     ev_bias=float(rng.normal(0, 0.35)), vignette=float(rng.uniform(0.08, 0.3)),
-                    ca_px=float(rng.uniform(0.2, 1.2)), sharpen=float(rng.uniform(0.2, 0.8)))
+                    ca_px=float(rng.uniform(0.2, 1.2)), sharpen=float(rng.uniform(0.08, 0.35)))
         # illuminant error lives mostly on the blue-amber axis (what AWB gets wrong), a little green-magenta
         ba, gm = rng.normal(0, 0.055), rng.normal(0, 0.025)
         base["wb_gain"] = (float(np.exp(ba + gm)), 1.0, float(np.exp(-ba + gm)))
@@ -99,10 +99,10 @@ class PhoneCamera:
                    ae_drift_ev=float(rng.uniform(0.04, 0.2)),
                    ae_phase=tuple(float(v) for v in rng.uniform(0, 6.28, 4)),
                    iso=float(np.exp(rng.uniform(np.log(64), np.log(1000)))),
-                   lens_sigma=float(rng.uniform(0.45, 0.9)),
+                   lens_sigma=float(rng.uniform(0.55, 1.0)),
                    awb_strength=float(rng.uniform(0.25, 0.7)), wb_drift=float(rng.uniform(0.005, 0.03)),
                    ccm_err=tuple(float(v) for v in rng.normal(0, 0.025, 6)),
-                   lt_comp=float(rng.uniform(0.62, 0.9)), lt_detail=float(rng.uniform(1.0, 1.35)),
+                   lt_comp=float(rng.uniform(0.62, 0.9)), lt_detail=float(rng.uniform(0.95, 1.2)),
                    contrast=float(rng.uniform(0.95, 1.2)), saturation=float(rng.uniform(0.95, 1.1)),
                    vibrance=float(rng.uniform(0.0, 0.15)), nr_luma=float(rng.uniform(0.25, 0.8)),
                    nr_chroma=float(rng.uniform(2.5, 4.0)), sharpen_sigma=float(rng.uniform(0.8, 1.3)),
@@ -172,7 +172,7 @@ class PhoneCamera:
         lum /= lum.std() + 1e-9
         chrm = ndimage.gaussian_filter(chrm, (1.4 * sd, 1.4 * sd, 0), mode="wrap")
         chrm /= chrm.std() + 1e-9
-        n = 0.8 * lum + 0.12 * chrm
+        n = 0.42 * lum + 0.08 * chrm                       # ~2x lower luma noise than before (measured 2-3x real)
         x = x + n * np.sqrt(g * x + r * r)
         # ---- white balance: scan illuminant error, grey-world AWB on this frame, drift
         mc = np.maximum(x.reshape(-1, 3)[::17].mean(0), 1e-4)

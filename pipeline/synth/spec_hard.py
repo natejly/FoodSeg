@@ -286,7 +286,7 @@ def glaze(rng: np.random.Generator, family: str = "white", style: str = "home") 
     g: dict = {"body": body, "speckle": 0.0, "pattern": None, "smears": [], "crumbs": None}
     if body == "porcelain":
         g.update(coat=float(rng.uniform(0.3, 0.7) if cafe else rng.uniform(0.4, 0.85)), coat_rough=float(rng.uniform(0.1, 0.22)), base_rough=float(rng.uniform(0.2, 0.4)),
-                 sss=float(rng.uniform(0.0, 0.04)), uneven=float(rng.uniform(0.01, 0.04)))
+                 sss=float(rng.uniform(0.0, 0.04)), uneven=float(rng.uniform(0.008, 0.025)))
     elif body == "stoneware":
         g.update(coat=float(rng.uniform(0.3, 0.8)), coat_rough=float(rng.uniform(0.12, 0.28)), base_rough=float(rng.uniform(0.3, 0.55)),
                  sss=0.0, uneven=float(rng.uniform(0.04, 0.1)),
@@ -294,7 +294,7 @@ def glaze(rng: np.random.Generator, family: str = "white", style: str = "home") 
     else:                                                    # melamine / hard plastic
         g.update(coat=float(rng.uniform(0.0, 0.3)), coat_rough=float(rng.uniform(0.1, 0.25)), base_rough=float(rng.uniform(0.3, 0.45)),
                  sss=0.0, uneven=float(rng.uniform(0.005, 0.02)))
-    g["wear"] = float(rng.uniform(0.5, 1.0) if cafe else rng.uniform(0.15, 0.9))
+    g["wear"] = float(rng.uniform(0.2, 0.5) if cafe else rng.uniform(0.1, 0.45))      # measured: 2.4x the gradient energy of real porcelain
     p_pat = 0.08 if cafe else (0.25 if family == "white" else 0.12)
     if family == "dark" and rng.random() < 0.6:             # glaze break: lighter, rolled rim edge
         g["pattern"] = {"type": "band", "color": [float(v) for v in np.clip(rng.uniform(1.8, 3.5) * np.array(rng.uniform(0.6, 1, 3)) * 0.12, 0, 0.5)],
@@ -311,17 +311,17 @@ def glaze(rng: np.random.Generator, family: str = "white", style: str = "home") 
         else:
             g["pattern"] = {"type": "dots", "color": col, "w": float(rng.uniform(0.003, 0.006)),
                             "off": float(rng.uniform(0.008, 0.016)), "k": int(rng.integers(30, 90))}
-    if rng.random() < (0.35 if cafe else 0.42):      # sauce smears and wipes (a used plate)
+    if rng.random() < (0.18 if cafe else 0.24):      # sauce smears and wipes (a used plate)
         for _ in range(int(rng.integers(1, 4))):
             g["smears"].append({"color": [float(v) for v in SAUCES[rng.integers(len(SAUCES))]],
-                                "alpha": float(rng.uniform(0.2, 0.55)), "scale": float(rng.uniform(25, 70)),
+                                "alpha": float(rng.uniform(0.1, 0.3)), "scale": float(rng.uniform(25, 70)),
                                 "thr": float(rng.uniform(0.56, 0.66)), "gate": float(rng.uniform(0.15, 0.85)),
                                 "seed": float(rng.uniform(0, 100))})
-    if rng.random() < 0.4:
-        g["crumbs"] = {"color": [float(v) for v in CRUMBS[rng.integers(len(CRUMBS))]], "density": float(rng.uniform(0.5, 1.0)),
+    if rng.random() < 0.2:
+        g["crumbs"] = {"color": [float(v) for v in CRUMBS[rng.integers(len(CRUMBS))]], "density": float(rng.uniform(0.3, 0.7)),
                        "seed": float(rng.uniform(0, 100)), "rim": bool(rng.random() < 0.5)}
-    if rng.random() < 0.8:                           # greasy finger smudges and thumb prints, mostly near the rim
-        g["smudge"] = float(rng.uniform(0.3, 1.0))
+    if rng.random() < 0.45:                          # greasy finger smudges and thumb prints, mostly near the rim
+        g["smudge"] = float(rng.uniform(0.15, 0.5))
         g["prints"] = [{"c": [float(np.cos(a) * rng.uniform(0.6, 0.98)), float(np.sin(a) * rng.uniform(0.6, 0.98))],
                         "r": float(rng.uniform(0.008, 0.013)), "seed": float(rng.uniform(0, 100))}
                        for a in rng.uniform(0, 2 * np.pi, int(rng.integers(1, 4)))]
@@ -688,7 +688,13 @@ def _pack(rng: np.random.Generator, radii: list[float], R_lim: float, gap: float
     return [np.zeros(2)] * len(radii), radii
 
 
-MIN_FILL = 0.35          # projected footprint of the food as a share of the dish well
+def serve_r(c: Container) -> float:
+    """Radius food is served out to: the flat well plus the lower half of the plate wall (a real dish stand-in has
+    well_r = 0.15 w so this is its old 0.3 w)."""
+    return float(c.fit_r)
+
+
+MIN_FILL = 0.45          # projected footprint of the food as a share of the serving disc (serve_r)
 POUR = ("french fry", "tortilla chips")     # long-ish pieces that are still poured in a heap
 PILES_TOTAL = 18         # pile pieces in a whole scene (on top of the max_items budget)
 PILE_MAX = 14            # pieces in one same-category pile (labels stay far below 252..255)
@@ -729,7 +735,7 @@ def _sample_scene_hard(rng: np.random.Generator, assets: list[dict], out: Path, 
     want = meal["dish"]
     if want == "any":
         want = "bowl" if any(f in BOWL_ONLY for f in meal["heap"] or []) else ("plate" if rng.random() < 0.75 else "bowl")
-    c = sample_container(rng, want, p_square=0.55 if style == "cafeteria" else 0.25)
+    c = sample_container(rng, want, p_square=0.85 if style == "cafeteria" else 0.55)
     V, F = c.mesh()
     np.savez_compressed(out / "container.npz", V=V.astype(np.float32), F=F.astype(np.int32))
     dcol, dfam = dish_colour(rng, style)
@@ -753,7 +759,7 @@ def _sample_scene_hard(rng: np.random.Generator, assets: list[dict], out: Path, 
         ext = real_dish["extent_m"]
         w = float(min(ext[:2]))
         kind = "bowl" if ext[2] > 0.25 * w else "plate"
-        c = Container(kind, R=0.45 * w, H=float(ext[2]), floor=0.006, q=2.5, well_r=0.3 * w, rim_w=0.05 * w)
+        c = Container(kind, R=0.45 * w, H=float(ext[2]), floor=0.006, q=2.5, well_r=0.15 * w, rim_w=0.05 * w)
         spec["container"] = {**c.to_json(), "mesh": None, "capacity_ml": None,
                              "asset": {"mesh": real_dish["path"], "fmt": real_dish["fmt"], "name": real_dish["id"],
                                        "up_axis": real_dish.get("up_axis", "Z"),
@@ -925,10 +931,10 @@ def _sample_scene_hard(rng: np.random.Generator, assets: list[dict], out: Path, 
     # size a procedural plate to the meal: a snack gets a smaller plate, a big spread a larger one
     n_foods = len(foods)
     if real_dish is None and c.kind == "plate":
-        W = c.well_r
+        W = serve_r(c)
         k = 1.0
         if n_foods == 0 and greens is None and A_s > 0:
-            k = float(np.sqrt(A_s / (np.pi * rng.uniform(0.6, 0.95))) / W)     # real plates are 50-85 % covered (scan footprints overestimate irregular items)
+            k = float(np.sqrt(A_s / (np.pi * rng.uniform(0.75, 1.1))) / W)     # real plates are 50-85 % covered (scan footprints overestimate irregular items)
         elif A_s > 0.35 * np.pi * W * W:
             k = float(np.sqrt(A_s / (0.35 * np.pi)) / W)
         if gm.get("heap") or gm.get("scans") or gm.get("toppings"):
@@ -938,9 +944,9 @@ def _sample_scene_hard(rng: np.random.Generator, assets: list[dict], out: Path, 
                 + sum(g_ / density_for(n_, "leaves") for n_, g_ in (gm.get("greens") or {}).items()) \
                 + sum(a_["volume_ml"] * g.get("scale", 1.0) ** 3 for g in groups for a_ in g["assets"])
             k = max(k, float(np.clip((v_ml / 350.0) ** 0.4, 0.75, 1.45)))
-        k = float(np.clip(c.R * np.clip(k, 0.6, 1.45), 0.08, 0.14) / c.R)
+        k = float(np.clip((c.R + c.rim_w) * np.clip(k, 0.6, 1.45), 0.090, 0.128) / (c.R + c.rim_w))   # outline radius 0.09-0.128 m (hull eq. dia median ~240 mm)
         if abs(k - 1) > 0.02:
-            c = replace(c, R=c.R * k, well_r=c.well_r * k, foot_r=c.foot_r * k)
+            c = replace(c, R=c.R * k, well_r=c.well_r * k, foot_r=c.foot_r * k, rim_w=c.rim_w * k)
             V, F = c.mesh()
             np.savez_compressed(out / "container.npz", V=V.astype(np.float32), F=F.astype(np.int32))
             spec["container"].update(c.to_json())
@@ -950,7 +956,7 @@ def _sample_scene_hard(rng: np.random.Generator, assets: list[dict], out: Path, 
     # Trim copies from the biggest multi-piece group (then the smallest garnish) until the scans' footprints
     # and the piece count fit the dish; fuller plates stay: the caps are those of a well-filled plate.
     if real_dish is None:
-        r_well = c.well_r if c.kind == "plate" else c.r_at_height(c.floor + 0.5 * (c.H - c.floor))
+        r_well = serve_r(c)
         area_w = np.pi * r_well ** 2
         cap_cov = CROWD_COVER[1 if (foods or greens_list) else 0] * area_w
         cap_n = int(np.clip(round(CROWD_N * area_w / (np.pi * 0.085 ** 2)), 8, 1.2 * CROWD_N))
@@ -998,14 +1004,14 @@ def _sample_scene_hard(rng: np.random.Generator, assets: list[dict], out: Path, 
             lev = None
             regions = rng.random() < (0.5 if meal.get("layout") else 0.8)
             if not regions:
-                rf = c.well_r * rng.uniform(0.7, 0.95)        # a served portion fills the well
+                rf = serve_r(c) * rng.uniform(0.8, 1.0)         # a served portion fills the serving disc
                 t = rng.uniform(0, 2 * np.pi)
-                off = rng.uniform(0, c.well_r - rf)
+                off = rng.uniform(0, serve_r(c) - rf)
                 centre = (float(off * np.cos(t)), float(off * np.sin(t)))
         if regions:
-            W = c.well_r
+            W = serve_r(c)
             scan_cov = A_s / (np.pi * W * W)
-            total = max(0.3, rng.uniform(0.6, 0.9) - 0.85 * scan_cov)   # fraction of the well the soft foods cover
+            total = max(0.35, rng.uniform(0.75, 1.0) - 0.85 * scan_cov)   # fraction of the well the soft foods cover
             fr = heap_fractions() if n_pieces > 1 else np.ones(1)
             radii = [float(np.clip(W * np.sqrt(total * f), 0.025, 0.8 * W)) for f in fr]
             order = np.argsort(radii)[::-1]
@@ -1065,7 +1071,7 @@ def _sample_scene_hard(rng: np.random.Generator, assets: list[dict], out: Path, 
                                          {"kind": "topping", "on_item": item_id, "radius": site[1]}, rng))
                 topping_sites.append((np.asarray(site[0], float), site[1]))
 
-    fit_r = c.well_r if c.kind == "plate" else c.r_at_height(c.floor + 0.5 * (c.H - c.floor))
+    fit_r = serve_r(c)
     mounds = [m for _, m, _, _ in heap]
     placed: list[tuple[np.ndarray, float, float]] = []     # (xy, radius, top z) of everything dropped so far
 
