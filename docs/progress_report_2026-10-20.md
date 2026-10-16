@@ -15,7 +15,7 @@ Source: thesis proposal (2026-10-02). Target: energy error near 13% or below.
 | Capture app and 3D reconstruction (Sep 20-Oct 3) | Partial | App and `pipeline/foodscan` exist. One real scan, a box (`docs/reconstruction.md`). No food scans. |
 | VLM naming and USDA lookup | Partial | `naming.py`, `nutrition.py` exist; no accuracy numbers. |
 | RQ1: scan vs single RGB or RGB-D frame | Synthetic only; real pending | hard_v12 (177 items, GT labels, container method), envelope target: K=24 scan beats one overhead frame by 26 pp item APE [+20, +34] (24 vs 48%) and 30 pp dish (14 vs 46%); against solid volume no difference, +0 [-10, +9] (`results/rq1/envelope.md`). Real data: only 2D single-frame (`results/n5k/README.md`) and MetaFood3D carving. |
-| RQ2: SAM 3 vs open-vocabulary 3D | Partial | SAM 3 lift implemented (`foodscan/segment.py`, `labels.py`), evaluated on synthetic scans (`results/seg3d/ablations.md`; real votes in 3(d)). No refiner beats the lift on instances after four rounds; line pivots from learned refiner to better lift plus light merge, PTv3 kept as semantic cleaner [decision] unless remaining round-4 arms change this. No Search3D code. |
+| RQ2: SAM 3 vs open-vocabulary 3D | Partial | SAM 3 lift implemented (`foodscan/segment.py`, `labels.py`), evaluated on synthetic scans (`results/seg3d/ablations.md`; real votes in 3(d)). No refiner beats the lift on instances after four rounds; decided 16 Oct: the learned instance refiner line is paused; segmentation pivots to lift quality (SAM 3 prompting, per-frame image inference, co-vote cross-view linking, more real-vote scans) plus a light merge step, with PTv3 kept only as a semantic (food/container/clutter) cleaner. No Search3D code. |
 | RQ3: SAM 3D completion vs plate closing | Not started | No SAM 3D code. Plane closing overestimates by +40% from one overhead view (MetaFood3D). SAM 3D needs the cluster [verify cluster status]. |
 | Volume checked on known objects | Not started | `calibrate.py` exists, no results. |
 | Weighed-meal dataset | Not started | `docs/collection_protocol.md`; target 40-60 meals. |
@@ -128,13 +128,15 @@ So density carries about +16% median bias and roughly 30-40% typical per-item er
 
 ## 5. Plan to Dec 17
 
+Plan dates are proposals by the author, pending advisor review.
+
 | Dates | Task | Go/no-go |
 |---|---|---|
 | Oct 16-20 | Real captures: calibration session (5 objects x 5 scans, 5 empty plates) and weighed meals, orbit plus overhead; label with `label_items.py`; real SAM 3 votes in image mode (about 50 s/scan) | At least 15 meals by Oct 20; if fewer, extend capture to Oct 31 |
 | Oct 21-31 | Per-kind density recalibration from weighed meals (USDA table +16% biased, 3(g)); envelope target in the real pipeline | Calibration objects under 10% median error; recalibrated density beats raw USDA on held-out meals |
 | Oct 21-Nov 7 | Density-matched 24-view synthetic batches (v13 underway, 48-view subset); train the envelope head on several (whole-batch hold-out of v12 still fails) | Head must beat the baseline on a held-out batch, not only across categories |
 | Oct 24-31 | Real-scan baseline (RQ1): SAM 3 lift, envelope volume, same meals from one overhead frame; kcal MAPE with bootstrap CI | Required |
-| Nov 1-14 | Pivot [decision]: improve the lift (per-frame masks, vote weighting, superpoints) with the CPU merge; PTv3 only as semantic cleaner; finish round-4 arms when the GPU is free [pending GPU]; add real-vote scans; stacked/loose items; registration gate; SAM 3D only if the cluster exists | Resume a learned instance refiner only if it beats the lift on real held-out volume error |
+| Nov 1-14 | Pivot (decided 16 Oct: refiner paused; lift quality plus light merge, PTv3 only as semantic cleaner): improve the lift (SAM 3 prompting, per-frame image inference, co-vote cross-view linking) with the CPU merge; finish round-4 arms when the GPU is free [pending GPU]; add real-vote scans; stacked/loose items; registration gate; SAM 3D only if the cluster exists | Resume a learned instance refiner only if it beats the lift on real held-out volume error |
 | Nov 8-21 | Per-item mass head | Only if density dominates on real data |
 | Nov 15-28 | Evaluation and ablations; Nutrition5k side claim (beat NuNet only if the 16-model average beats all five targets or their mean) | |
 | Nov 29-Dec 17 | Draft to advisor (Dec 7); demo; poster (Dec 8); submit Dec 17 | |
