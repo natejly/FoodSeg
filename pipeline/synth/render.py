@@ -29,6 +29,22 @@ CONTAINER_ID = 254
 DISTRACTOR_ID = 253
 
 
+def shade_smooth_by_angle(me, angle_deg: float = 35.0) -> None:
+    """Smooth shading with split normals across edges sharper than `angle_deg` (the container's lip and foot);
+    plain use_smooth interpolated normals over flat rim quads and made plates look puffy."""
+    for poly in me.polygons:
+        poly.use_smooth = True
+    bm = bmesh.new()
+    bm.from_mesh(me)
+    lim = np.deg2rad(angle_deg)
+    for e in bm.edges:
+        if len(e.link_faces) == 2 and e.calc_face_angle(0.0) > lim:
+            e.smooth = False
+    bm.to_mesh(me)
+    bm.free()
+    me.update()
+
+
 def mesh_from_npz(path: Path, name: str):
     z = np.load(path)
     obj = bproc.object.create_with_empty_mesh(name)
@@ -2107,8 +2123,7 @@ def main() -> None:
         cont.set_location([loc[0] - bb[:, 0].mean(), loc[1] - bb[:, 1].mean(), loc[2]])
     else:
         cont = mesh_from_npz(scene_dir / c["mesh"], "container")
-        for poly in cont.get_mesh().polygons:
-            poly.use_smooth = True
+        shade_smooth_by_angle(cont.get_mesh())
         ceramic_material(cont, c)
     cont.set_cp("category_id", CONTAINER_ID)
     cont_collider = collider_proxy(cont, "container_collider") if c.get("asset") else None

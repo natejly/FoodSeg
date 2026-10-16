@@ -89,6 +89,7 @@ class Container:
     well_r: float = 0.0   # plate: radius of the flat well
     rim_w: float = 0.012  # flat rim width
     wall: float = 0.004   # wall thickness
+    edge_r: float = 0.002 # radius of the rounded lip (clamped to 0.45 wall)
     foot_r: float = 0.0   # outer radius at the table (default: 0.6 R)
     square: float = 0.0   # 0 = round; else superellipse exponent n (3.5-6): the rim / outer wall are pushed out to
                           # a rounded square, the (flat) well stays round, so z_in / r_at_height still hold
@@ -108,19 +109,43 @@ class Container:
         rs = np.linspace(self.well_r, self.R, 4001)
         return float(np.interp(h, self.z_in(rs), rs))
 
+    @property
+    def fit_r(self) -> float:
+        """Radius out to which food is served: where the inner surface is 60 % up the wall (a plate's
+        flat well plus the lower half of its single smooth slope; a bowl's half-height radius)."""
+        return self.r_at_height(self.floor + 0.6 * (self.H - self.floor))
+
+    def wall_angle_deg(self) -> float:
+        """Steepest slope of a plate's inner wall (the smoothstep peaks at 1.5x the mean slope)."""
+        if self.kind != "plate":
+            return float("nan")
+        return float(np.degrees(np.arctan(1.5 * (self.H - self.floor) / max(self.R - self.well_r, 1e-9))))
+
     def profile(self, n: int = 64) -> np.ndarray:
-        rs = np.linspace(0, self.R, n)
-        if self.kind == "plate":   # keep a vertex at the well edge
-            rs = np.unique(np.concatenate([rs, [self.well_r]]))
-        inner = np.stack([rs, self.z_in(rs)], 1)
-        Ro = self.R + self.rim_w
-        foot = self.foot_r or 0.6 * self.R
-        # outer wall: offset of the inner wall, ending at the foot ring on the table
-        ro = np.linspace(Ro, foot, n)
+        """(r, z) polyline: inner surface in one smooth slope up to the crown at R, a short flat rim
+        (rim_w), a half-round lip of radius edge_r (arc vertices, no hard 90 degree corner so smooth
+        shading never spans a flat quad), then the outer wall down to the foot ring."""
+        R, Ro = self.R, self.R + self.rim_w
+        er = float(min(self.edge_r, 0.45 * self.wall))
+        rs = np.linspace(0, R, n)
+        if self.kind == "plate":   # vertices at the well edge and a denser run into the crown
+            rs = np.unique(np.concatenate([rs, [self.well_r], R - (R - self.well_r) * np.array([0.04, 0.09, 0.16, 0.25])]))
+        foot = self.foot_r or 0.6 * R
+        r_top = Ro - er                              # where the lip arc starts
+        keep = rs < r_top - 1e-6
+        inner = np.stack([rs[keep], self.z_in(rs[keep])], 1)
+        z_t = float(self.z_in(r_top)) if r_top <= R else self.H
+        t = np.linspace(0, np.pi / 2, 6)
+        arc_top = np.stack([r_top + er * np.sin(t), z_t - er + er * np.cos(t)], 1)
+        z_b = self.H - self.wall + er                # lower corner of the lip
+        t2 = t[1:]
+        arc_bot = np.stack([r_top + er * np.cos(t2), z_b - er * np.sin(t2)], 1)
+        n_o = min(n, 14)                             # the underside is hidden: coarse
+        ro = np.linspace(r_top, foot, n_o)
         zo = np.interp(ro, rs + self.wall, self.z_in(rs) - self.wall)
-        zo = np.clip(zo, 0.0, self.H)
+        zo = np.clip(np.minimum(zo, self.H - self.wall), 0.0, self.H)
         outer = np.stack([ro, zo], 1)
-        return np.concatenate([inner, [[Ro, self.H]], outer[1:], [[foot, 0.0], [0.0, 0.0]]])
+        return np.concatenate([inner, arc_top, arc_bot, outer[1:], [[foot, 0.0], [0.0, 0.0]]])
 
     def mesh(self, n_theta: int = 96) -> tuple[np.ndarray, np.ndarray]:
         if self.square <= 0:
@@ -135,7 +160,7 @@ class Container:
         r = np.hypot(V[:, 0], V[:, 1])
         th = np.arctan2(V[:, 1], V[:, 0])
         s_th = (np.abs(np.cos(th)) ** n + np.abs(np.sin(th)) ** n) ** (-1.0 / n)     # 1 on the axes, max on diagonals
-        r0, r1 = 0.55 * self.well_r, self.R + self.rim_w
+        r0, r1 = (self.fit_r if self.kind == "plate" else 0.55 * self.well_r), self.R + self.rim_w   # food never sits on the pushed-out part
         t = np.clip((r - r0) / max(r1 - r0, 1e-9), 0, 1)
         g = t * t * (3 - 2 * t)
         k = 1 + (s_th - 1) * g
@@ -177,17 +202,24 @@ def sample_container(rng: np.random.Generator, kind: str | None = None, p_square
         R = rng.uniform(0.085, 0.105)
         return Container("bowl", R=R, H=rng.uniform(0.032, 0.05), floor=rng.uniform(0.006, 0.01),
                          q=rng.uniform(2.6, 4.5), rim_w=rng.uniform(0.004, 0.01),
-                         wall=rng.uniform(0.003, 0.005), foot_r=R * rng.uniform(0.4, 0.6))
+                         wall=rng.uniform(0.004, 0.005), edge_r=rng.uniform(0.0012, 0.002), foot_r=R * rng.uniform(0.4, 0.6))
     if kind == "bowl":
         R = rng.uniform(0.055, 0.085)
         return Container("bowl", R=R, H=rng.uniform(0.04, 0.075), floor=rng.uniform(0.006, 0.012),
                          q=rng.uniform(1.6, 4.0), rim_w=rng.uniform(0.003, 0.008),
-                         wall=rng.uniform(0.003, 0.006), foot_r=R * rng.uniform(0.45, 0.65))
-    R = rng.uniform(0.085, 0.125)
+                         wall=rng.uniform(0.004, 0.006), edge_r=rng.uniform(0.0012, 0.002), foot_r=R * rng.uniform(0.45, 0.65))
+    # measured Nutrition5k / MetaFood3D plates (synth/targets): outline radius 0.095-0.14 m, well depth 9-17 mm
+    # (tail to 22), floor 4-6 mm, a rim of 0-6 mm (to 10 mm on 20 % of round plates), flat well 40-64 % of the
+    # outer radius and ONE smooth slope (15-26 deg) up to a rounded lip
     sq = float(rng.uniform(3.5, 6.0)) if rng.random() < p_square else 0.0
-    return Container("plate", R=R * (0.93 if sq else 1.0), H=rng.uniform(0.014, 0.03), floor=rng.uniform(0.004, 0.008),
-                     well_r=R * (0.93 if sq else 1.0) * rng.uniform(0.6, 0.85), rim_w=rng.uniform(0.008, 0.025),
-                     wall=rng.uniform(0.003, 0.005), foot_r=R * rng.uniform(0.55, 0.75) * (0.93 if sq else 1.0), square=sq)
+    Ro = rng.uniform(0.095, 0.140) / (1.09 if sq else 1.0)       # square plates: same hull area as a round one
+    rim_w = rng.uniform(0.0, 0.010 if (not sq and rng.random() < 0.2) else 0.006)
+    depth = rng.uniform(0.009, 0.017) if rng.random() < 0.9 else rng.uniform(0.017, 0.022)
+    floor = rng.uniform(0.004, 0.006)
+    R = Ro - rim_w
+    wall = rng.uniform(0.004, 0.006)
+    return Container("plate", R=R, H=floor + depth, floor=floor, well_r=Ro * rng.uniform(0.40, 0.64), rim_w=rim_w,
+                     wall=wall, edge_r=rng.uniform(0.0012, 0.0025), foot_r=Ro * rng.uniform(0.55, 0.75), square=sq)
 
 
 def container_from_json(d: dict) -> Container:
