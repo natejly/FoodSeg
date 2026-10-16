@@ -100,7 +100,12 @@ PIECES = {
     "ramen": [("noodle", 1.0e4, (80, 2.5, 2.5), (0.85, 0.7, 0.35), 0.4), ("cube", 600, (12, 3, 3), (0.2, 0.42, 0.08), 0.2)],
     "penne in tomato sauce": [("penne", 6e3, (26, 8, 8), (0.88, 0.7, 0.36), 0.4)],
     "couscous": [("quinoa", 4e5, (1.6, 1.6, 1.0), None, 0.3)],
-    "dal": [("lentil", 2.4e4, (4, 4, 1.6), (0.62, 0.4, 0.08), 0.4), ("chunk", 1.5e3, (9, 7, 5), (0.5, 0.32, 0.06), 0.55)],
+    # a smooth yellow-brown dal with some whole lentils, and a tadka: fried garlic / onion bits, cumin and mustard seeds,
+    # red chilli flakes, a little coriander
+    "dal": [("lentil", 1.3e4, (4, 4, 1.6), (0.46, 0.31, 0.09), 0.5), ("lentil", 6e3, (4, 4, 1.6), (0.36, 0.2, 0.05), 0.5),
+            ("chunk", 1.2e3, (8, 6, 4), (0.4, 0.26, 0.06), 0.6),
+            ("cube", 900, (4, 3, 2.5), (0.14, 0.07, 0.025), 0.5), ("lentil", 700, (3.2, 1.4, 1.2), (0.05, 0.03, 0.015), 0.4),
+            ("flake", 700, (6, 4, 1.2), (0.30, 0.04, 0.012), 0.35), ("flake", 350, (7, 5, 1.0), (0.07, 0.2, 0.04), 0.3)],
     # chicken pieces: rounded lumps stained by the sauce, mostly submerged (pale cubes read as paper)
     "chicken curry": [("chunk", 6e3, (16, 12, 10), (0.5, 0.28, 0.12), 0.55), ("chunk", 3e3, (13, 11, 9), (0.55, 0.36, 0.14), 0.45),
                       ("cube", 2e3, (11, 11, 8), (0.62, 0.34, 0.06), 0.5)],
@@ -136,9 +141,9 @@ EXTRAS = {
                                ((0.85, 0.8, 0.5), 0.03, 0.0015)], "film": (0.006, 3)},
     "curry sauce": {"oil": ((1.25, 0.8, 0.3), 0.4), "brown": ((0.75, 0.6, 0.4), 0.2),
                     "flecks": [((0.05, 0.12, 0.02), 0.05, 0.0025)], "film": (0.006, 2)},
-    "dal": {"oil": ((1.3, 0.9, 0.3), 0.35), "brown": ((0.65, 0.5, 0.35), 0.3),
-            "flecks": [((0.10, 0.04, 0.015), 0.05, 0.002), ((0.10, 0.24, 0.05), 0.05, 0.0025),
-                       ((0.5, 0.06, 0.01), 0.03, 0.0018)], "film": (0.005, 2)},
+    "dal": {"oil": ((1.3, 0.72, 0.22), 0.6), "brown": ((0.62, 0.5, 0.36), 0.45),
+            "flecks": [((0.10, 0.04, 0.015), 0.07, 0.002), ((0.10, 0.24, 0.05), 0.04, 0.0025),
+                       ((0.45, 0.05, 0.01), 0.05, 0.0018), ((0.25, 0.13, 0.04), 0.06, 0.003)], "film": (0.005, 2)},
     "lentil stew": {"oil": ((1.2, 0.85, 0.35), 0.25), "brown": ((0.65, 0.55, 0.4), 0.3),
                     "flecks": [((0.04, 0.12, 0.02), 0.04, 0.0025)], "film": (0.005, 2)},
     "chili": {"oil": ((1.5, 0.7, 0.3), 0.35), "brown": ((0.6, 0.5, 0.45), 0.35),
@@ -380,6 +385,8 @@ def shape(name: str, container_kind: str, rf: float, rng: np.random.Generator) -
     if k == "liquid":
         # a served spoonful of stew / curry is a 1-3 cm mound (soups level out, but they sit in bowls)
         mound = u(0.004, 0.014) if container_kind == "bowl" else min(rf * u(0.22, 0.42), 0.03)
+        if name == "dal":                         # thick dal heaps a little (a flat sheet read as paint)
+            mound = min(mound * 1.3 + 0.002, 0.034)
         return {"mound": mound, "p": u(3, 5), "relief": (u(0.0008, 0.0018), u(0.015, 0.03)), "wobble": 0.0015}
     if k == "porridge":
         mound = u(0.004, 0.014) if container_kind == "bowl" else min(rf * u(0.25, 0.5), 0.032)

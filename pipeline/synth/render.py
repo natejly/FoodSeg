@@ -920,6 +920,243 @@ def desaturate_materials(obj, sat: float) -> None:
                 nt.links.new(hs.outputs["Color"], sock)
 
 
+SCAN_JUICY = ("strawberr", "tomato", "grape", "kiwi", "melon", "apple", "orange", "pear", "peach", "plum", "mango", "lemon",
+              "lime", "pepper", "cucumber", "zucchini", "squash", "broccoli", "cauliflower", "asparagus", "bean", "pea",
+              "carrot", "cabbage", "avocado", "papaya", "pineapple", "onion", "mushroom", "berr", "olive", "fig", "banana",
+              "cherry", "potato", "edamame", "corn", "radish", "beet", "eggplant", "celery", "garlic", "lettuce", "spinach")
+SCAN_GREEN = ("broccoli", "cucumber", "zucchini", "asparagus", "bean", "pea", "cabbage", "edamame", "celery", "lime", "kale")
+SCAN_RED = ("strawberr", "tomato", "cherry", "raspberr", "watermelon", "radish", "beet")
+SCAN_BAKED = ("bread", "toast", "bun", "roll", "waffle", "pancake", "cake", "muffin", "cookie", "biscuit", "pastry", "pizza",
+              "tortilla", "bagel", "croissant", "cracker", "cupcake", "brownie", "donut", "doughnut", "pie", "sandwich", "burger")
+
+
+def scan_material(obj, it: dict) -> None:
+    """Make a scanned food (MetaFood3D / Objaverse) read as food rather than as a plastic model:
+      * Sketchfab 'unlit' glTF materials (Emission seen by camera rays, Transparent for every other ray) cast no shadow and
+        glow; they become a Principled BSDF on the same texture (this was the 'hot glowing' red / green piece);
+      * metallic 0, a real dielectric specular (MetaFood3D's MTL imports as Specular 1.0 / Roughness 1.0);
+      * roughness from the texture luminance + noise patches (skin vs cut surface vs wet spots) instead of one constant;
+      * fine albedo grain and a micro-bump from the texture, per-item hue / saturation / value jitter, the saturation
+        pulled down to a photographed food's (the textures are calibrated, light + sat bleed still over-saturates);
+      * a little subsurface scattering on fruit / vegetables (translucent edges) .
+    Per-item randomness comes from numpy's global state (seeded per scene), so renders are reproducible."""
+    name = str(it.get("name", "")).lower()
+    s_obj = float(it["to_m"]) * float(it["scale"])
+    has = lambda words: any(w in name for w in words)
+    juicy, green, red, baked = has(SCAN_JUICY), has(SCAN_GREEN), has(SCAN_RED), has(SCAN_BAKED)
+    rnd = np.random.uniform
+    sat = float(np.clip(np.random.normal(0.92 if (red or green) else 0.95, 0.03), 0.8, 1.0))   # linear-space saturation: 0.8 already reads pastel
+    val = float(rnd(0.9, 1.0)) * (0.92 if red else 1.0) * (0.8 if green else 1.0)
+    hue = 0.5 + float(np.random.normal(0.0, 0.008)) + (0.02 if green else 0.0)      # +: yellow-green -> green
+    r0 = float(rnd(0.5, 0.6) if (red or has(("grape", "apple", "tomato", "pepper", "cherry", "olive"))) else
+               rnd(0.72, 0.86) if baked else rnd(0.6, 0.74))
+    sss_w = float(rnd(0.12, 0.3)) if juicy else (0.05 if not baked else 0.0)
+    sss_w *= float(os.environ.get("SCAN_SSS", "1"))        # debug knob
+    done = set()
+    for m in obj.blender_obj.data.materials:
+        if m is None or not m.use_nodes or m.name in done:
+            continue
+        done.add(m.name)
+        nt, ln = m.node_tree.nodes, m.node_tree.links
+        out = next((n for n in nt if n.type == "OUTPUT_MATERIAL" and n.is_active_output), None) or \
+            next((n for n in nt if n.type == "OUTPUT_MATERIAL"), None)
+        if out is None:
+            continue
+        bsdf = next((n for n in nt if n.type == "BSDF_PRINCIPLED"), None)
+        if bsdf is None:                                  # Sketchfab unlit: Emission / Transparent / Light Path
+            tex = next((n for n in nt if n.type == "TEX_IMAGE"), None)
+            if tex is None:
+                continue
+            alpha = tex.outputs["Alpha"].is_linked and not any(
+                l.to_node.type == "MIX_SHADER" and l.to_socket.name == "Fac" for l in tex.outputs["Alpha"].links)
+            for n in list(nt):
+                if n.type in ("EMISSION", "BSDF_TRANSPARENT", "LIGHT_PATH", "MIX_SHADER"):
+                    nt.remove(n)
+            bsdf = nt.new("ShaderNodeBsdfPrincipled")
+            ln.new(tex.outputs["Color"], bsdf.inputs["Base Color"])
+            if alpha:
+                ln.new(tex.outputs["Alpha"], bsdf.inputs["Alpha"])
+            ln.new(bsdf.outputs["BSDF"], out.inputs["Surface"])
+
+        def nd(kind, **inp):
+            n = nt.new(kind)
+            for k, v in inp.items():
+                n.inputs[k].default_value = v
+            return n
+
+        def link(src, dst):
+            ln.new(src, dst)
+
+        if not bsdf.inputs["Metallic"].is_linked:
+            bsdf.inputs["Metallic"].default_value = 0.0
+        bsdf.inputs["Specular IOR Level"].default_value = 0.5 if not juicy else float(rnd(0.5, 0.65))
+        bsdf.inputs["Specular Tint"].default_value = (1.0, 1.0, 1.0, 1.0)
+        bsdf.inputs["Emission Strength"].default_value = 0.0
+        bc = bsdf.inputs["Base Color"]
+        coord = nd("ShaderNodeTexCoord")
+        mp = nd("ShaderNodeMapping")
+        mp.inputs["Scale"].default_value = (s_obj, s_obj, s_obj)          # object space -> metres
+        link(coord.outputs["Object"], mp.inputs["Vector"])
+
+        def noise(scale, detail):
+            n = nd("ShaderNodeTexNoise", Scale=float(scale), Detail=float(detail))
+            link(mp.outputs["Vector"], n.inputs["Vector"])
+            return n.outputs["Fac"]
+
+        def remap(sock, lo, hi, a=0.0, b=1.0):
+            n = nd("ShaderNodeMapRange", **{"From Min": a, "From Max": b, "To Min": lo, "To Max": hi})
+            link(sock, n.inputs["Value"])
+            return n.outputs["Result"]
+
+        # --- albedo: saturation / value / hue, warm bake for bread, fine + patchy variation
+        base_src = bc.links[0].from_socket if bc.is_linked else None
+        if base_src is None:
+            rgb = nd("ShaderNodeRGB")
+            rgb.outputs[0].default_value = bc.default_value
+            base_src = rgb.outputs[0]
+        hs = nd("ShaderNodeHueSaturation", Hue=hue, Saturation=sat, Value=val)
+        link(base_src, hs.inputs["Color"])
+        col = hs.outputs["Color"]
+        if baked:                                           # pale bake -> golden-brown crust
+            mw = nd("ShaderNodeMixRGB", Fac=1.0)
+            mw.blend_type = "MULTIPLY"
+            mw.inputs["Color2"].default_value = (1.0, float(rnd(0.86, 0.93)), float(rnd(0.68, 0.8)), 1.0)
+            link(col, mw.inputs["Color1"])
+            col = mw.outputs["Color"]
+        var = nd("ShaderNodeMath")
+        var.operation = "ADD"
+        link(remap(noise(450.0, 6.0), -0.07, 0.07), var.inputs[0])             # fine grain, ~2 mm
+        link(remap(noise(38.0, 3.0), -0.08, 0.08), var.inputs[1])              # blotches, ~3 cm
+        one = nd("ShaderNodeMath")
+        one.operation = "ADD"
+        link(var.outputs[0], one.inputs[0])
+        one.inputs[1].default_value = 1.0
+        mx = nd("ShaderNodeMixRGB", Fac=1.0)
+        mx.blend_type = "MULTIPLY"
+        link(col, mx.inputs["Color1"])
+        link(one.outputs[0], mx.inputs["Color2"])
+        link(mx.outputs["Color"], bc)
+        lum = nd("ShaderNodeRGBToBW")
+        link(col, lum.inputs["Color"])
+
+        # --- roughness: texture luminance (bright specks smoother, dark crevices rougher) + noise patches
+        rs = bsdf.inputs["Roughness"]
+        if rs.is_linked:                                    # glTF roughness map: keep its structure, compress the range
+            r_in = rs.links[0].from_socket
+            r_base = remap(r_in, max(0.3, r0 - 0.2), min(0.9, r0 + 0.25))
+        else:
+            r_base = remap(lum.outputs["Val"], min(0.95, r0 + 0.1), max(0.35, r0 - 0.1), 0.05, 0.75)
+        rj = nd("ShaderNodeMath")
+        rj.operation = "ADD"
+        link(r_base, rj.inputs[0])
+        link(remap(noise(95.0, 4.0), -0.12, 0.12), rj.inputs[1])
+        rc = nd("ShaderNodeMath")
+        rc.operation = "MAXIMUM"
+        link(rj.outputs[0], rc.inputs[0])
+        rc.inputs[1].default_value = 0.2
+        link(rc.outputs[0], rs)
+
+        # --- micro-bump from the texture luminance and a fine noise (on top of any normal map)
+        h = nd("ShaderNodeMath")
+        h.operation = "ADD"
+        link(lum.outputs["Val"], h.inputs[0])
+        link(remap(noise(700.0, 5.0), 0.0, 0.5), h.inputs[1])
+        bump = nd("ShaderNodeBump", Strength=float(rnd(0.25, 0.5)), Distance=0.0006)
+        link(h.outputs[0], bump.inputs["Height"])
+        nrm = bsdf.inputs["Normal"]
+        if nrm.is_linked:
+            link(nrm.links[0].from_socket, bump.inputs["Normal"])
+        link(bump.outputs["Normal"], nrm)
+
+        # --- translucency of fruit / vegetables
+        if sss_w > 0:
+            bsdf.inputs["Subsurface Weight"].default_value = sss_w
+            bsdf.inputs["Subsurface Radius"].default_value = (1.0, 0.45, 0.25) if not green else (0.6, 1.0, 0.3)
+            bsdf.inputs["Subsurface Scale"].default_value = float(rnd(0.0025, 0.004)) / max(s_obj, 1e-6) * SCAN_SSS_SCALE_MODE
+
+
+SCAN_SSS_SCALE_MODE = 1.0      # SSS radius is in object-space units: divide by the object scale to get millimetres
+
+
+def pane_material(obj, tint, refl: float = 0.03) -> None:
+    """A thin sheet of glass seen from above: transparent (slightly green-tinted) with a Fresnel mirror of the room.
+    No refraction, and shadow rays pass (the floor below stays lit)."""
+    mat = bproc.material.create("pane")
+    nt, links = mat.nodes, mat.links
+    for n in list(nt):
+        if n.type != "OUTPUT_MATERIAL":
+            nt.remove(n)
+    out = next(n for n in nt if n.type == "OUTPUT_MATERIAL")
+    tr = nt.new("ShaderNodeBsdfTransparent")
+    tr.inputs["Color"].default_value = (*tint, 1.0)
+    gl = nt.new("ShaderNodeBsdfGlossy")
+    gl.inputs["Roughness"].default_value = 0.04
+    fr = nt.new("ShaderNodeFresnel")
+    fr.inputs["IOR"].default_value = 1.5
+    f = nt.new("ShaderNodeMath")
+    f.operation = "ADD"
+    links.new(fr.outputs["Fac"], f.inputs[0])
+    f.inputs[1].default_value = float(refl)
+    mx = nt.new("ShaderNodeMixShader")
+    links.new(f.outputs[0], mx.inputs["Fac"])
+    links.new(tr.outputs["BSDF"], mx.inputs[1])
+    links.new(gl.outputs["BSDF"], mx.inputs[2])
+    links.new(mx.outputs["Shader"], out.inputs["Surface"])
+    obj.replace_materials(mat)
+
+
+def build_rig(rig: dict) -> object:
+    """The Nutrition5k capture rig seen from above: a glass pane in a thin black metal frame, a plywood strip with
+    screws under the glass, a dark cross brace and a pale floor further down, and a white table all round (spec_hard.rig_look).
+    Everything is positioned in the pane's frame (centre, yaw). Returns the pane (the surface the dish stands on)."""
+    W, H = rig["pane"]
+    fw = float(rig["frame_w"])
+    cx, cy = rig["centre"]
+    yaw = float(rig["yaw"])
+    ca, sa = np.cos(yaw), np.sin(yaw)
+
+    def box(sx, sy, z0, z1, x=0.0, y=0.0, rot=0.0):
+        o = bproc.object.create_primitive("CUBE", scale=[sx / 2, sy / 2, (z1 - z0) / 2])
+        o.persist_transformation_into_mesh()
+        o.set_location([cx + ca * x - sa * y, cy + sa * x + ca * y, (z0 + z1) / 2])
+        o.set_rotation_euler([0.0, 0.0, yaw + rot])
+        return o
+
+    fl = bproc.object.create_primitive("PLANE", scale=[4.0, 4.0, 1.0])
+    fl.persist_transformation_into_mesh()
+    fl.set_location([0.0, 0.0, -float(rig["floor_depth"])])
+    laminate_material(fl, rig["floor"], 0.35)
+    for ang, off, w_ in rig["braces"]:                       # the table's cross braces, dark, under the glass
+        b = box(0.7, w_, -float(rig["floor_depth"]) * 0.5 - 0.01, -float(rig["floor_depth"]) * 0.5, x=off * W, y=0.0, rot=ang)
+        flat_material(b, "brace", (0.07, 0.07, 0.075), 0.5)
+    st = box(rig["strip_w"], H + 2 * fw, -0.022, -0.010, x=rig["strip_x"])
+    slab_material(st, rig["strip"])
+    for sgn_x in (-1, 1):
+        for sgn_y in (-1, 1):
+            sc = bproc.object.create_primitive("CYLINDER", scale=[0.0045, 0.0045, 0.0015])
+            sc.persist_transformation_into_mesh()
+            x_, y_ = rig["strip_x"] + sgn_x * rig["strip_w"] * 0.22, sgn_y * (H / 2 - 0.022)
+            sc.set_location([cx + ca * x_ - sa * y_, cy + sa * x_ + ca * y_, -0.0105])
+            sc.set_rotation_euler([0.0, 0.0, yaw])
+            steel_material(sc, "screw", (0.32, 0.31, 0.3), 0.4)
+    pane = box(W, H, -0.006, 0.0)
+    pane_material(pane, rig["glass_tint"], rig["refl"])
+    pane.blender_obj.visible_shadow = False
+    for x_, y_, sx, sy in ((-(W + fw) / 2, 0, fw, H + 2 * fw), ((W + fw) / 2, 0, fw, H + 2 * fw),
+                           (0, -(H + fw) / 2, W, fw), (0, (H + fw) / 2, W, fw)):
+        bar = box(sx, sy, -0.03, float(rig["frame_h"]), x=x_, y=y_)
+        flat_material(bar, "frame", rig["frame_color"], 0.45)
+    ext = 3.0
+    Wo, Ho = W + 2 * fw, H + 2 * fw
+    for x_, y_, sx, sy in ((-(Wo / 2 + ext / 2), 0, ext, Ho + 2 * ext), ((Wo / 2 + ext / 2), 0, ext, Ho + 2 * ext),
+                           (0, -(Ho / 2 + ext / 2), Wo, ext), (0, (Ho / 2 + ext / 2), Wo, ext)):
+        sl = box(sx, sy, -0.03, 0.0, x=x_, y=y_)
+        laminate_material(sl, rig["surround"], rig["surround_rough"], rig.get("wear"))
+        sl.enable_rigidbody(False, collision_shape="BOX", collision_margin=0.0005)
+        sl.blender_obj.visible_shadow = False         # light reaches the floor below the glass as it does in the room (the pane's aperture is small)
+    return pane
+
+
 def ceramic_material(obj, c: dict) -> None:
     """Glazed dish (all procedural, object space in metres): body colour with low-frequency glaze
     unevenness and optional stoneware speckle; outline-following rim patterns (thin lines, band, dashes);
@@ -983,9 +1220,14 @@ def ceramic_material(obj, c: dict) -> None:
         out = colour
     rough = float(c["roughness"])
 
+    # glaze thickens and yellows towards the rolled edge, slightly greyer where it is worn thin
+    edge = N.ramp(d_edge, 0.0045, 0.0, 0.0, 1.0)
+    out = N.mix(N.math("MULTIPLY", edge, float(np.random.uniform(0.1, 0.28))), out, (col * np.array([0.9, 0.88, 0.8])).tolist())
     # rim patterns
     pat = g.get("pattern") or ({"type": "band", "color": g["rim_color"], "w": max(Ro * (1 - g.get("rim_frac", 0.9)), 0.004), "soft": 0.001}
                                if g.get("rim_color") is not None else None)
+    if pat and pat["type"] == "dots" and np.random.random() < 0.7:     # a ring of dots / dashes read as stylised: mostly plain
+        pat = None
     if pat:
         w, soft = float(pat["w"]), float(pat.get("soft", 0.001))
         if pat["type"] == "band":
@@ -1008,6 +1250,31 @@ def ceramic_material(obj, c: dict) -> None:
         m = N.math("MULTIPLY", N.math("MULTIPLY", blob, gate), float(sm["alpha"]))
         out = N.mix(m, out, sm["color"])
         rough = N.mix(m, rough, 0.12)
+
+    # a used plate: sauce wiped / smeared on the flat rim and edge (finger swipes along the rim), cutlery scuffs in the well
+    rim_on = N.ramp(rn, c["R"] * 0.96, c["R"] * 1.01)
+    if np.random.random() < 0.5:
+        for _ in range(int(np.random.randint(1, 3))):
+            sd = float(np.random.uniform(0, 100))
+            blob = N.ramp(noise(float(np.random.uniform(45, 110)), 4.0, sd, streak=float(np.random.uniform(3, 7))),
+                          float(np.random.uniform(0.52, 0.6)), float(np.random.uniform(0.66, 0.74)))
+            m = N.math("MULTIPLY", N.math("MULTIPLY", blob, rim_on), float(np.random.uniform(0.25, 0.6)))
+            out = N.mix(m, out, [float(v) for v in [(0.30, 0.13, 0.05), (0.45, 0.27, 0.09), (0.5, 0.42, 0.22), (0.36, 0.3, 0.22)][np.random.randint(4)]])
+            rough = N.mix(m, rough, 0.1)
+    if np.random.random() < 0.8:                          # grey metal marks: long arcs of fine lines, mostly in the well
+        for sc_ in (np.random.uniform(70, 130), np.random.uniform(180, 260)):
+            sm2 = N.node("ShaderNodeMapping")
+            sm2.inputs["Rotation"].default_value = (0.0, 0.0, float(np.random.uniform(0, np.pi)))
+            sm2.inputs["Scale"].default_value = (float(sc_), float(sc_ / np.random.uniform(8, 20)), float(sc_))
+            links.new(coord, sm2.inputs["Vector"])
+            vo2 = N.node("ShaderNodeTexVoronoi", Scale=1.0)
+            vo2.feature = "DISTANCE_TO_EDGE"
+            links.new(sm2.outputs["Vector"], vo2.inputs["Vector"])
+            lines2 = N.ramp(vo2.outputs["Distance"], 0.0, 0.025, 1.0, 0.0)
+            patch2 = N.ramp(noise(float(np.random.uniform(9, 20)), 2.0, float(np.random.uniform(0, 50))), 0.5, 0.7)
+            sc2 = N.math("MULTIPLY", N.math("MULTIPLY", lines2, patch2), float(np.random.uniform(0.3, 0.8)))
+            out = N.mix(N.math("MULTIPLY", sc2, 0.22), out, (col * 0.6 + 0.12).tolist())
+            rough = N.math("ADD", rough, N.math("MULTIPLY", sc2, 0.3), clamp=True)
 
     # greasy smudges and thumb prints: the clear coat gets rough where fingers have been
     coat_rough = float(g.get("coat_rough", 0.05))
@@ -1787,7 +2054,10 @@ def main() -> None:
 
     # table
     tab = spec["table"]
-    if tab.get("floor"):                      # a finite tabletop (an edge and the room's floor past it) seen in low frames
+    if spec.get("rig"):                       # Nutrition5k-style glass pane / frame / plywood strip rig
+        table = build_rig(spec["rig"])
+        table.enable_rigidbody(False, collision_shape="BOX", collision_margin=0.0005)
+    elif tab.get("floor"):                      # a finite tabletop (an edge and the room's floor past it) seen in low frames
         sx, sy = tab["size_m"], tab.get("size_y_m", tab["size_m"])
         table = bproc.object.create_primitive("CUBE", scale=[sx / 2, sy / 2, 0.016])
         table.persist_transformation_into_mesh()
@@ -1798,14 +2068,15 @@ def main() -> None:
         flat_material(fl, "floor", tab["floor"], 0.6)
     else:
         table = bproc.object.create_primitive("PLANE", scale=[tab["size_m"] / 2] * 3)
-    table.persist_transformation_into_mesh()  # object-space texture coordinates are then metres (tile sizes are real)
-    if tab.get("pbr"):                        # photographed wood / stone / laminate / cloth
-        pbr_table(table, tab)
-    elif tab.get("texture_scale"):            # mottled wood / laminate / cloth instead of flat colour
-        textured_material(table, "table", tab["color"], tab["roughness"], tab["texture_scale"])
-    else:
-        laminate_material(table, tab["color"], tab["roughness"], tab.get("wear"), tab.get("crumple"))
-    table.enable_rigidbody(False, collision_shape="BOX", collision_margin=0.0005)
+    if not spec.get("rig"):
+        table.persist_transformation_into_mesh()  # object-space texture coordinates are then metres (tile sizes are real)
+        if tab.get("pbr"):                        # photographed wood / stone / laminate / cloth
+            pbr_table(table, tab)
+        elif tab.get("texture_scale"):            # mottled wood / laminate / cloth instead of flat colour
+            textured_material(table, "table", tab["color"], tab["roughness"], tab["texture_scale"])
+        else:
+            laminate_material(table, tab["color"], tab["roughness"], tab.get("wear"), tab.get("crumple"))
+        table.enable_rigidbody(False, collision_shape="BOX", collision_margin=0.0005)
     mt = spec.get("mat")                      # board / tray / placemat / liner under the dish: a thin slab, label 0
     if mt:
         slab = bproc.object.create_primitive("CUBE", scale=[mt["size"][0] / 2, mt["size"][1] / 2, mt["thickness"] / 2])
@@ -1880,6 +2151,8 @@ def main() -> None:
                 textured_material(o, f"food_{it['id']}", jitter.tolist(), it.get("roughness", 0.5), scale)
             else:
                 flat_material(o, f"food_{it['id']}", jitter.tolist(), it.get("roughness", 0.5))
+        elif it["fmt"] in ("obj", "gltf", "glb") and not it.get("procedural"):
+            scan_material(o, it)                  # scanned food: photographed look instead of the importer's plastic
         o.set_cp("category_id", it["id"])
         proxy = None
         if it.get("matrix_world") is not None:     # settled by synth.mpm with the soft food

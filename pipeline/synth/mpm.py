@@ -28,7 +28,7 @@ import numpy as np
 import taichi as ti
 
 from .collision import to_blender
-from .geometry import mesh_volume
+from .geometry import mesh_volume, topping_mesh
 from .looks import ITEM_PHYSICS
 from .surface_detail import displace
 
@@ -547,6 +547,39 @@ def compact_drops(X: np.ndarray, body: np.ndarray, floor_z: float, static: np.nd
     return X, dz
 
 
+class _Surface:
+    """Height field of the settled food (max z of its mesh vertices per 1 mm bin, holes filled by the nearest bin, smoothed):
+    what a topping lying on the food rests on. `top(c, x, y)` mirrors geometry.Mound.top."""
+
+    def __init__(self, V: np.ndarray, centre, half: float, step: float = 0.001):
+        from scipy.ndimage import distance_transform_edt, gaussian_filter
+        self.x0, self.y0, self.step = centre[0] - half, centre[1] - half, step
+        n = int(2 * half / step) + 1
+        G = np.full((n, n), -np.inf)
+        ij = np.floor((V[:, :2] - [self.x0, self.y0]) / step).astype(int)
+        ok = ((ij >= 0) & (ij < n)).all(1)
+        np.maximum.at(G, (ij[ok, 0], ij[ok, 1]), V[ok, 2])
+        have = np.isfinite(G)
+        self.coverage = float(have.mean())
+        if have.sum() < 20:
+            self.G = None
+            return
+        idx = distance_transform_edt(~have, return_distances=False, return_indices=True)
+        G = G[idx[0], idx[1]]
+        self.G = gaussian_filter(G, 1.5)
+
+    def top(self, c, x, y):
+        from scipy.ndimage import map_coordinates
+        x, y = np.asarray(x, float), np.asarray(y, float)
+        pts = np.stack([(x - self.x0) / self.step, (y - self.y0) / self.step])
+        return map_coordinates(self.G, pts.reshape(2, -1), order=1, mode="nearest").reshape(x.shape)
+
+
+def _is_topping(it: dict) -> bool:
+    sh = it.get("shape") or {}
+    return sh.get("kind") == "topping" and sh.get("on_item") is not None and sh.get("thick") is not None
+
+
 # ---- a scene -----------------------------------------------------------------
 
 def settle(spec: dict, scene_dir: Path, sim_time: float = 1.0, dx: float = 0.002, log=print,
@@ -556,6 +589,10 @@ def settle(spec: dict, scene_dir: Path, sim_time: float = 1.0, dx: float = 0.002
     dump: also save the particles (start, end, owner id) to mpm_particles.npz."""
     items = spec["items"]
     soft = [it for it in items if it.get("physics") and not it["dynamic"] and not it.get("cloth")]
+    # a sauce / cream blob lying on a food is not simulated (as particles it splashed off the heap and floated, its
+    # shadow detached): it is re-laid on the settled surface below once that is known
+    tops = [it for it in soft if _is_topping(it)]
+    soft = [it for it in soft if not _is_topping(it)]
     drop = [it for it in items if it["dynamic"]]
     if not soft and not drop:
         return spec
@@ -650,6 +687,21 @@ def settle(spec: dict, scene_dir: Path, sim_time: float = 1.0, dx: float = 0.002
         mesh = f"mpm_{it['id']}.npz"
         np.savez_compressed(scene_dir / mesh, V=V.astype(np.float32), F=F.astype(np.int32))
         it.update(mesh=mesh, served_mesh=it["mesh"], volume_ml=float(mesh_volume(V, F) * 1e6), mpm=True, **extra)
+    final = {it["id"]: np.load(scene_dir / it["mesh"])["V"].astype(np.float64) for it in soft}
+    for it in tops:
+        sh = it["shape"]
+        base = np.concatenate([V for V in final.values()] or [np.zeros((0, 3))])
+        half = 1.6 * sh["radius"] + 0.02
+        surf = _Surface(base, sh["centre"], half)
+        if surf.G is None or surf.coverage < 0.15:
+            log(f"[mpm] topping {it['id']} {it.get('name')}: no settled surface under it, kept as served")
+            continue
+        V, F = topping_mesh(None, surf, tuple(sh["centre"]), sh["radius"], sh["thick"], seed=sh["seed"], lift=-4e-4)
+        mesh = f"mpm_{it['id']}.npz"
+        np.savez_compressed(scene_dir / mesh, V=V.astype(np.float32), F=F.astype(np.int32))
+        it.update(mesh=mesh, served_mesh=it["mesh"], volume_ml=float(mesh_volume(V, F) * 1e6), mpm=True)
+        log(f"[mpm] topping {it['id']} {it.get('name')}: laid on the settled surface (z {V[:, 2].min() * 1e3:.1f}.."
+            f"{V[:, 2].max() * 1e3:.1f} mm), volume {it['volume_ml']:.1f} mL")
     # dropped items: rigid pose of their particles
     for b, it in enumerate(drop):
         sel = owner == it["id"]

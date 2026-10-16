@@ -14,6 +14,7 @@ Same world / camera conventions as synth.spec.
 from __future__ import annotations
 
 import json
+import zlib
 from dataclasses import replace
 from functools import lru_cache
 from pathlib import Path
@@ -155,16 +156,19 @@ def distractors(rng: np.random.Generator, out: Path, r_clear: float, assets: lis
     stainless cutlery, glass, chopsticks, napkins, mugs in plain colours; the red-handled YCB cutlery
     is desaturated so it does not repeat across scenes."""
     if style == "cafeteria":
-        pool, p_none = ["fork", "knife", "napkin", "spoon", "phone", "shaker", "bottle", "plate2"], 0.4
+        pool, p_none = ["fork", "knife", "napkin", "spoon", "phone", "shaker", "bottle", "plate2"], 0.7
     else:
         pool, p_none = ["fork", "knife", "spoon", "mug", "glass", "napkin", "chopsticks", "board", "phone", "shaker", "bottle",
-                        "plate2"], 0.25
+                        "plate2"], 0.45
     if rng.random() < p_none:
         return []
     wts = np.array([{"board": 0.4, "chopsticks": 0.5, "plate2": 0.5, "shaker": 0.5, "bottle": 0.6}.get(k, 1.0) for k in pool])
     kinds = rng.choice(pool, size=min(int(rng.integers(1, 4)), len(pool)), replace=False, p=wts / wts.sum())
     props = [a for a in (assets or []) if a.get("role") == "clutter"]
     res, ang = [], rng.uniform(0, 2 * np.pi)
+    # where each prop lies: props of a set sit in unrelated places (a fork on one side, a glass behind), mostly on a
+    # side not shared with the others, at varying distances, with a loose yaw (not always tangent to the dish)
+    sides = rng.permutation(8)[:len(kinds)] * (2 * np.pi / 8) + rng.uniform(-0.3, 0.3, len(kinds))
     for i, k in enumerate(kinds):
         k = str(k)
         real = [a for a in props if any(t in a["id"].lower() for t in REAL_PROPS.get(k, ()))]
@@ -172,8 +176,9 @@ def distractors(rng: np.random.Generator, out: Path, r_clear: float, assets: lis
             a = real[rng.integers(len(real))]
             half = 0.5 * max(a["extent_m"][:2])
             dist = r_clear + (0.5 * min(a["extent_m"][:2]) if k != "mug" else half) + rng.uniform(0.02, 0.06)
-            ang_i = ang + i * rng.uniform(0.8, 1.4)
-            yaw = ang_i + np.pi / 2 if k != "mug" else rng.uniform(0, 2 * np.pi)   # cutlery tangent
+            ang_i = float(sides[i])
+            dist += rng.uniform(0.0, 0.07)
+            yaw = ang_i + np.pi / 2 + rng.normal(0, 0.45) if (k != "mug" and rng.random() < 0.75) else rng.uniform(0, 2 * np.pi)
             res.append({"name": k, "mesh": a["path"], "fmt": a["fmt"], "up_axis": a.get("up_axis", "Z"),
                         "asset_id": a["id"], "location": [float(dist * np.cos(ang_i)), float(dist * np.sin(ang_i)), 0.0],
                         "euler": [0.0, 0.0, float(yaw)], "sat": float(rng.uniform(0.0, 0.08)) if k in ("knife", "fork", "spoon")
@@ -226,11 +231,12 @@ def distractors(rng: np.random.Generator, out: Path, r_clear: float, assets: lis
             col, metal, rough = STEEL[int(rng.choice(4, p=[0.4, 0.35, 0.2, 0.05]))], 1.0, float(rng.uniform(0.25, 0.5))
             reach = 0.05
         V = V - [0, 0, V[:, 2].min()]
-        dist = r_clear + reach + rng.uniform(0.01, 0.05)
-        a = ang + i * rng.uniform(0.8, 1.4)
+        dist = r_clear + reach + rng.uniform(0.01, 0.1)
+        a = float(sides[i])
         mesh = f"distractor_{i}.npz"
         np.savez_compressed(out / mesh, V=V.astype(np.float32), F=F.astype(np.int32))
-        yaw = a + np.pi / 2 if k in ("knife", "fork", "spoon", "chopsticks") else rng.uniform(0, 2 * np.pi)  # cutlery tangent
+        yaw = a + np.pi / 2 + rng.normal(0, 0.45) if (k in ("knife", "fork", "spoon", "chopsticks") and rng.random() < 0.75) \
+            else rng.uniform(0, 2 * np.pi)                      # cutlery roughly tangent, sometimes anyhow
         res.append({"name": k, "mesh": mesh, "location": [float(dist * np.cos(a)), float(dist * np.sin(a)), 0.0],
                     "euler": [0.0, 0.0, float(yaw)], "color": [float(v) for v in col], "metallic": metal,
                     "roughness": rough, **extra})
@@ -340,8 +346,8 @@ TABLES = [   # plain procedural laminate (render.laminate_material): colour rang
     ((0.20, 0.20, 0.21), (0.45, 0.45, 0.46), (0.2, 0.5), 1.5),         # grey stone / concrete
     ((0.30, 0.31, 0.28), (0.5, 0.5, 0.45), (0.7, 0.95), 1),            # cloth: grey-green linen
 ]
-P_PBR = {"home": 0.5, "cafeteria": 0.55}
-KIND_P = {"wood": 0.25, "cloth": 0.25, "stone": 0.5}
+P_PBR = {"home": 0.7, "cafeteria": 0.55}
+KIND_P = {"wood": 0.5, "cloth": 0.3, "stone": 0.2}
 
 
 def _pbr(rng, t: dict, sat=(0.5, 0.95), tint_sd: float = 0.04, flat=(0.5, 0.9)) -> dict:
@@ -392,9 +398,9 @@ def table_extras(rng: np.random.Generator, t: dict, style: str) -> dict:
     W["smudge"] = float(rng.uniform(0.3, 1.0)) if rng.random() < 0.6 else 0.0
     if (t.get("pbr") or {}).get("kind") == "stone":        # matte stone / plaster: no streaky scratches or smears, soft normals
         W["scratch"], W["smudge"] = 0.0, 0.0
-        t["pbr"]["nstr"] = min(t["pbr"]["nstr"], 0.35)
+        t["pbr"]["nstr"] = min(t["pbr"]["nstr"], 0.18)
     t["wear"] = W
-    if not t.get("pbr") and rng.random() < 0.35:          # a crumpled sheet / cloth: dark tarp, grey backdrop, creased linen
+    if not t.get("pbr") and rng.random() < 0.12:          # a crumpled sheet / cloth: dark tarp, grey backdrop, creased linen
         dark = rng.random() < 0.5
         base = rng.uniform(0.03, 0.12) if dark else rng.uniform(0.2, 0.45)
         t["color"] = [float(base * v) for v in (1.0, rng.uniform(0.97, 1.03), rng.uniform(0.93, 1.03))]
@@ -437,12 +443,12 @@ def _table_look(rng: np.random.Generator, surfaces: list[dict] | None = None, st
 def mat_look(rng: np.random.Generator, surfaces: list[dict] | None, style: str, r_out: float) -> dict | None:
     """A flat board / tray / placemat / napkin liner under the dish (a thin slab, label 0). It always
     reaches past the dish outline r_out."""
-    p = 0.7 if style == "cafeteria" else 0.35
+    p = 0.7 if style == "cafeteria" else 0.25
     if rng.random() > p:
         return None
     need = 2.0 * r_out + 0.06
     kind = str(rng.choice(["tray", "board"], p=[0.45, 0.55])) if style == "cafeteria" else \
-        str(rng.choice(["board", "placemat", "paper", "slate"], p=[0.4, 0.3, 0.15, 0.15]))
+        str(rng.choice(["board", "placemat", "paper", "slate"], p=[0.5, 0.3, 0.03, 0.17]))
     w = max(need * rng.uniform(1.0, 1.15), rng.uniform(0.34, 0.46))
     h = max(need * rng.uniform(1.0, 1.1), rng.uniform(0.26, 0.34))
     if kind == "paper":
@@ -473,6 +479,57 @@ def mat_look(rng: np.random.Generator, surfaces: list[dict] | None, style: str, 
                  "smudge": float(rng.uniform(0.3, 1.0)) if rng.random() < 0.6 else 0.0, "gloss": None,
                  "seed": float(rng.uniform(0, 100)), "scratch_rot": float(rng.uniform(0, np.pi))}
     return m
+
+
+P_RIG = 0.85          # share of the cafeteria-style scenes captured on the Nutrition5k rig (render.build_rig)
+
+
+def rig_look(rng: np.random.Generator, surfaces: list[dict] | None, c, r_out: float) -> dict:
+    """The Nutrition5k capture rig seen from above (measured on realsense_overhead frames, 0.75 mm / px): a 0.37 x 0.35 m glass
+    pane in a ~1 cm black metal frame; under the glass a 0.115 m wide plywood strip along the long side with a pair of
+    screws at each end, dark cross braces and a pale floor far below; a white table all round."""
+    half = c.R + c.rim_w                                  # the dish stays on the glass
+    W = max(float(rng.uniform(0.355, 0.38)), 2 * half + 0.045)
+    H = max(float(rng.uniform(0.335, 0.36)), 2 * half + 0.045)
+    fw = float(rng.uniform(0.010, 0.014))
+    off = [float(rng.uniform(-1, 1) * max(W / 2 - half - fw - 0.01, 0.0)),
+           float(rng.uniform(-1, 1) * max(H / 2 - half - fw - 0.01, 0.0))]
+    woods = [t for t in (surfaces or []) if Path(t["dir"]).name in TAN_WOODS]
+    if woods:
+        strip = {"pbr": _pbr(rng, woods[rng.integers(len(woods))], (0.95, 1.0), flat=(0.2, 0.5)), "color": [0.5, 0.5, 0.5], "roughness": 0.5}
+        strip["pbr"]["rotation"] = float(rng.choice([0.0, np.pi / 2]))          # grain along the strip
+    else:
+        strip = {"color": [float(v) for v in np.array([0.55, 0.40, 0.23]) * rng.uniform(0.85, 1.1, 3)], "roughness": 0.55}
+    wear = table_extras(rng, {}, "cafeteria")["wear"]
+    wear["gloss"] = None
+    g = float(rng.uniform(0.6, 0.9))
+    return {"pane": [W, H], "frame_w": fw, "frame_h": float(rng.uniform(0.001, 0.004)), "centre": [-off[0], -off[1]],
+            "yaw": float(rng.uniform(0, 2 * np.pi)), "strip": strip, "strip_w": float(rng.uniform(0.11, 0.12)),
+            "strip_x": float(rng.uniform(-0.06, 0.06)), "frame_color": [0.015, 0.015, 0.017],
+            "glass_tint": [g * 0.93, g, g * 0.97], "refl": float(rng.uniform(0.01, 0.05)),
+            "floor": [float(v) for v in rng.uniform(0.4, 0.65) * np.array([0.95, 1.0, 1.02])], "floor_depth": float(rng.uniform(0.18, 0.4)),
+            "braces": [[float(rng.uniform(0.4, 1.1) * s), float(rng.uniform(-0.25, 0.25)), float(rng.uniform(0.006, 0.012))]
+                       for s in (1, -1)[: int(rng.integers(1, 3))]],
+            "surround": [float(v) for v in rng.uniform(0.62, 0.85) * np.array([1.0, 1.0, rng.uniform(0.96, 1.02)])],
+            "surround_rough": float(rng.uniform(0.35, 0.55)), "wear": wear}
+
+
+def push_outside_rig(rig: dict, dist: list[dict], r_clear: float) -> None:
+    """Props (cutlery, napkins) lie on the white table round the frame, not on the glass: move each one radially out
+    until it clears the pane + frame by its own reach."""
+    W, H = rig["pane"]
+    fw, (cx, cy), yaw = rig["frame_w"], rig["centre"], rig["yaw"]
+    ca, sa = np.cos(yaw), np.sin(yaw)
+    for d in dist:
+        p = np.asarray(d["location"][:2], float)
+        u = p / max(np.linalg.norm(p), 1e-6)
+        for _ in range(60):
+            q = np.array([p[0] - cx, p[1] - cy])
+            lx, ly = ca * q[0] + sa * q[1], -sa * q[0] + ca * q[1]
+            if abs(lx) > W / 2 + fw + 0.07 or abs(ly) > H / 2 + fw + 0.07:
+                break
+            p = p + 0.01 * u
+        d["location"][0], d["location"][1] = float(p[0]), float(p[1])
 
 
 # ---- lighting -----------------------------------------------------------------
@@ -1059,10 +1116,14 @@ def _sample_scene_hard(rng: np.random.Generator, assets: list[dict], out: Path, 
                 if site is None:
                     continue
                 name, col, rough = menu[rng.integers(len(menu))]
-                Vt, Ft = topping_mesh(c, mnd, site[0], site[1], float(rng.uniform(0.007, 0.012)),   # >= 3 particles deep, thick enough to be seen / measured
-                                      seed=int(rng.integers(1 << 31)))
+                thick_t = float(rng.uniform(0.007, 0.012))                   # >= 3 particles deep, thick enough to be seen / measured
+                seed_t = int(rng.integers(1 << 31))
+                Vt, Ft = topping_mesh(c, mnd, site[0], site[1], thick_t, seed=seed_t)
+                # the blob is re-laid on the *settled* surface of the food below by synth.mpm.settle (it is not simulated:
+                # as a particle blob it splashed off the heap and floated); the parameters are kept for that
                 items.append(_procedural(name, f"topping_{item_id}_{j_}.npz", Vt, Ft, out, col, rough, "procedural_topping",
-                                         {"kind": "topping", "on_item": item_id, "radius": site[1]}, rng))
+                                         {"kind": "topping", "on_item": item_id, "radius": site[1], "thick": thick_t,
+                                          "seed": seed_t, "centre": [float(site[0][0]), float(site[0][1])]}, rng))
                 topping_sites.append((np.asarray(site[0], float), site[1]))
 
     fit_r = c.well_r if c.kind == "plate" else c.r_at_height(c.floor + 0.5 * (c.H - c.floor))
@@ -1368,5 +1429,11 @@ def _sample_scene_hard(rng: np.random.Generator, assets: list[dict], out: Path, 
                    "dof": {"fstop": float(rng.uniform(8, 16)), "focus": [0.0, 0.0, float(c.H * 0.5)]}},
         "world_to_arkit": world_to_arkit(rng).tolist(),
     })
+    # settings drawn from a stream of their own (the food above and the camera are the same as without them)
+    side = np.random.default_rng([zlib.crc32(scene_id.encode()), 7])
+    if style == "cafeteria" and side.random() < P_RIG:
+        spec["rig"] = rig_look(side, surfaces, c, r_out)
+        spec["mat"] = None
+        push_outside_rig(spec["rig"], spec["distractors"], r_out)
     (out / "spec.json").write_text(json.dumps(spec, indent=1, default=lambda o: o.tolist()))
     return spec

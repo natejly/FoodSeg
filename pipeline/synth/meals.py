@@ -18,7 +18,7 @@ import numpy as np
 # Kind, physics and real pieces (noodles, beans, tofu cubes...) are in synth.looks.
 FOODS = {
     "spaghetti": ((0.82, 0.62, 0.28), 0.45), "penne in tomato sauce": ((0.48, 0.09, 0.03), 0.3),
-    "couscous": ((0.8, 0.62, 0.32), 0.7), "dal": ((0.72, 0.45, 0.08), 0.3),
+    "couscous": ((0.8, 0.62, 0.32), 0.7), "dal": ((0.60, 0.41, 0.10), 0.4),
     "chicken curry": ((0.55, 0.22, 0.05), 0.3), "green curry": ((0.42, 0.45, 0.14), 0.3),
     "hummus": ((0.72, 0.58, 0.36), 0.45), "refried beans": ((0.3, 0.17, 0.08), 0.5),
     "black beans": ((0.07, 0.05, 0.05), 0.35), "baked beans": ((0.55, 0.18, 0.05), 0.3),
