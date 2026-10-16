@@ -8,3 +8,7 @@ DerivedData/
 xcuserdata/
 capture-app/build/
 .env
+
+# training checkpoints (large; results/ keeps summaries + predictions)
+results/**/best.pt
+results/**/model.pt
