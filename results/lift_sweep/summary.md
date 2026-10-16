@@ -156,3 +156,68 @@ Superpoints per scan (mean): 200 geom: 212, 200 geom+colour: 209, 400 geom: 410,
 | **LOSO-selected among combined** | 0.744 | 0.586 | 0.36 | 10 / 52 | 0 | 0.335 | 0.778 | +0.062 [-0.006, +0.123] | LOSO scans +/-/=: 9/1/1 |
 
 LOSO picks: s000000: bg_abstain=True link=('cluster-cosine', 0.8) min_nvotes=1 weighting=cos+qual; s000001: bg_abstain=True link=('cluster-cosine', 0.8) min_nvotes=1 weighting=cos+qual; s000002: bg_abstain=True link=('cluster-cosine', 0.8) min_nvotes=1 weighting=cos+qual; s000007: bg_abstain=True link=('cluster-cosine', 0.8) min_nvotes=1 weighting=cos+qual; s000009: bg_abstain=True link=('cluster-cosine', 0.8) min_nvotes=1 weighting=cos+qual; s000011: bg_abstain=True link=('cluster-cosine', 0.8) min_nvotes=1 weighting=cos+qual; s000012: bg_abstain=True link=('cluster-cosine', 0.8) min_nvotes=1 weighting=cos+qual; s000013: bg_abstain=True link=('cluster-cosine', 0.8) min_nvotes=1 weighting=cos+qual; s000014: bg_abstain=True link=('cluster-cosine', 0.8) min_nvotes=1 weighting=cos+qual; s000016: bg_abstain=True link=('cluster-cosine', 0.8) min_nvotes=1 weighting=cos+qual; s000017: bg_abstain=True link=('cluster-cosine', 0.8) min_nvotes=1 weighting=cos+qual
+
+
+---
+
+# 40 scans (20 hard_v12 + 20 hard_v13, real SAM 3 v2 image votes), 2026-10-16
+
+Run: `python -m eval.lift_sweep run --all40 --procs 20 --out ../results/lift_sweep/scans40` then `report --out ...` (CPU, 210 s; full tables and raw numbers in `scans40/summary.md`, `scans40/results.json`) and the extra combinations below (`scans40/extras.md`). Scan ids `v13/sNNNNNN` resolve to data/synth/hard_v13*, bare ids to hard_v12*. 273 valid GT items. Deltas are paired per-scan inst-mIoU differences vs `current` (cos weighting + repair linking, min_nvotes 2, argmax), 2000-resample bootstrap over 40 scans. Superpoints = 200, geom+colour, hard (the best setting on 11 scans).
+
+| setting | inst mIoU | PQ | exact count | fragmented GT items | boundary IoU | oracle-merge ceiling | d inst vs current (95% CI) | scans +/-/= |
+|---|---|---|---|---|---|---|---|---|
+| current | 0.582 | 0.362 | 0.10 | 115 / 273 | 0.303 | 0.632 | +0.000 [+0.000, +0.000] | 0/0/40 |
+| cos | 0.624 | 0.474 | 0.20 | 73 / 273 | 0.327 | 0.644 | +0.047 [+0.022, +0.072] | 25/6/9 |
+| cos+qual | 0.631 | 0.488 | 0.25 | 70 / 273 | 0.333 | 0.651 | +0.048 [+0.021, +0.074] | 25/10/5 |
+| cos+qual+sp | 0.551 | 0.498 | 0.38 | 74 / 273 | 0.281 | 0.565 | -0.014 [-0.049, +0.020] | 13/23/4 |
+| cos+qual+smooth4 | 0.632 | 0.518 | 0.35 | 66 / 273 | 0.331 | 0.651 | +0.050 [+0.022, +0.077] | 28/9/3 |
+| cos+sp | 0.549 | 0.492 | 0.33 | 76 / 273 | 0.283 | 0.561 | -0.015 [-0.048, +0.017] | 13/23/4 |
+| cos+smooth4 | 0.624 | 0.505 | 0.28 | 68 / 273 | 0.324 | 0.644 | +0.049 [+0.024, +0.073] | 29/6/5 |
+| min | 0.635 | 0.502 | 0.33 | 68 / 273 | 0.336 | 0.655 | +0.051 [+0.026, +0.076] | 27/5/8 |
+| min+qual | 0.634 | 0.507 | 0.30 | 67 / 273 | 0.336 | 0.656 | +0.049 [+0.022, +0.076] | 27/9/4 |
+| min+qual+sp | 0.567 | 0.487 | 0.28 | 83 / 273 | 0.285 | 0.585 | -0.002 [-0.038, +0.033] | 17/20/3 |
+| min+qual+smooth4 | 0.639 | 0.533 | 0.33 | 65 / 273 | 0.331 | 0.660 | +0.054 [+0.026, +0.082] | 30/8/2 |
+| min+sp | 0.562 | 0.487 | 0.23 | 80 / 273 | 0.287 | 0.578 | -0.005 [-0.039, +0.027] | 17/20/3 |
+| min+smooth4 | 0.638 | 0.517 | 0.38 | 68 / 273 | 0.326 | 0.656 | +0.054 [+0.029, +0.080] | 32/6/2 |
+| **LOSO among these + current** | 0.622 | 0.508 | 0.33 | 72 / 273 | 0.323 | 0.641 | +0.045 [+0.020, +0.071] | 30/8/2 |
+
+LOSO picks: {'min+qual+smooth4': 37, 'min+smooth4': 2, 'cos+qual': 1}
+
+Per-set paired delta vs current (mean over scans):
+
+| setting | v12 (20) | v13 (20) |
+|---|---|---|
+| cos | +0.058 | +0.036 |
+| cos+qual | +0.066 | +0.031 |
+| cos+qual+sp | -0.016 | -0.012 |
+| cos+qual+smooth4 | +0.065 | +0.035 |
+| cos+sp | -0.019 | -0.010 |
+| cos+smooth4 | +0.057 | +0.041 |
+| min | +0.047 | +0.055 |
+| min+qual | +0.047 | +0.050 |
+| min+qual+sp | -0.021 | +0.016 |
+| min+qual+smooth4 | +0.048 | +0.059 |
+| min+sp | -0.021 | +0.011 |
+| min+smooth4 | +0.047 | +0.062 |
+
+cos on v12: +0.058 [+0.019, +0.093]
+
+cos on v13: +0.036 [+0.008, +0.075]
+
+min on v12: +0.047 [+0.011, +0.080]
+
+min on v13: +0.055 [+0.021, +0.093]
+
+cos+qual on v12: +0.066 [+0.025, +0.106]
+
+cos+qual on v13: +0.031 [+0.001, +0.067]
+
+cos+qual+sp on v12: -0.016 [-0.079, +0.037]
+
+cos+qual+sp on v13: -0.012 [-0.046, +0.032]
+
+cos+qual+smooth4 on v12: +0.065 [+0.024, +0.106]
+
+cos+qual+smooth4 on v13: +0.035 [+0.002, +0.074]
+
+Reading: with 40 scans the co-vote linking gain is real: cosine clustering 0.8 is +0.047 [+0.022, +0.072] (CI excludes 0; positive in both sets, v12 +0.058, v13 +0.036), PQ 0.36 -> 0.47, fragmented items 115 -> 73. Average-linkage on min-overlap ("cluster-min 0.8") is slightly better at 40 scans (+0.051 [+0.026, +0.076], exact count 0.33, fragmented 68). Mask-quality weighting adds ~0 on top (+0.048 / +0.049). 4 mm smoothing adds +0.001 to +0.005 and ~0.01 PQ at the cost of ~0.002-0.01 boundary IoU. Superpoints now hurt significantly alone (-0.028 [-0.054, -0.007]) and with clustering (-0.014 [-0.049, +0.020]; oracle-merge ceiling falls to 0.565). Leave-one-scan-out in the linking family picks cluster-min 0.8 for (nearly) every scan, not cosine 0.8 as on 11 scans; the family winner changed but the choice "co-vote clustering at ~0.8" is stable. Perfect-merge ceiling for the clustered default is 0.644-0.659, so little remains for a merge refiner on whole ids.

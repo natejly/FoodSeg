@@ -127,3 +127,16 @@ Generic "food" at 0.3 returns 7.2 masks per frame (12.5 at 0.15, 4.2 at 0.5); 98
 
 ## Cost
 GPU (under flock, excluding lock waits): image 57 s smoke test + 586 s for 11 scans, video 1649 s for 6 scans (budget stop), about 2300 s in total (38 min) of the 45 min allowance.
+
+## 40 scans: hard_v12 (20) vs hard_v13 (20), v2 image-mode real votes (2026-10-16)
+
+Image-mode runs for the 9 missing v12 scans (s000003-06, 08, 10, 15, 18, 19; no OOM) and all 20 hard_v13 scans (no OOM, peak 2.9 GB); GPU about 30 min (644 s + 1178 s incl. model load). Per-scan means over scans; merges/splits are totals (same code as above). The 11 original v12 scans were re-matched/re-exported from the same raw maps; instance mIoU moved 0.662 -> 0.659 (id numbering of unmatched instances differs).
+
+| metric | v12 real | v12 pseudo | v13 real | v13 pseudo | pooled real | pooled pseudo |
+|---|---|---|---|---|---|---|
+| food points lift_label != label | 0.227 | 0.151 | 0.222 | 0.206 | 0.224 | 0.178 |
+| food points with no vote | 0.005 | 0.043 | 0.012 | 0.061 | 0.009 | 0.052 |
+| mean lift_share (voted) | 0.806 | 0.852 | 0.870 | 0.853 | 0.838 | 0.852 |
+| per-scan instance mIoU | 0.656 | 0.754 | 0.644 | 0.659 | 0.650 | 0.707 |
+| merges (total) | 16 | 10 | 15 | 14 | 31 | 24 |
+| fragmented GT items = splits (total) | 29 | 9 | 24 | 16 | 53 | 25 |

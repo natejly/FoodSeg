@@ -36,6 +36,17 @@ SCANS = REPO / "data/synth/hard_v12_sam3_v2_image/scans"
 RAWROOT = REPO / "data/synth/hard_v12/scans"
 SIDS = ["s000000", "s000001", "s000002", "s000007", "s000009", "s000011", "s000012", "s000013", "s000014",
         "s000016", "s000017"]
+ROOTS = {"v12": (SCANS, RAWROOT),
+         "v13": (REPO / "data/synth/hard_v13_sam3_v2_image/scans", REPO / "data/synth/hard_v13/scans")}
+
+
+def roots(sid):
+    """sid 'v13/s000003' -> (voted scan dir, raw-mask scan dir); a bare sid is hard_v12."""
+    v, _, n = sid.rpartition("/")
+    a, b = ROOTS[v or "v12"]
+    return a / n, b / n
+
+
 BIG = 65001
 AUX = {BIG, BIG + 1}
 MAX_IDS = 252
@@ -107,7 +118,7 @@ class ScanData:
         from PIL import Image
         from seg3d.data import load_scan, semantic_of, voxelize
         self.sid = sid
-        sd = SCANS / sid
+        sd = roots(sid)[0]
         z = np.load(sd / "gt" / "seg_points.npz")
         self.xyz = z["xyz"].astype(np.float64)
         self.nrm = z["normal"].astype(np.float64)
@@ -122,7 +133,7 @@ class ScanData:
                        inst=np.where(sem == 3, lab, 0).astype(np.int64),
                        ignore=np.isin(lab, d["ignore_ids"]) if d["ignore_ids"] else np.zeros(len(vi), bool))
         self.scan = Scan(sd)
-        raw, _, fsc = load_raw(RAWROOT / sid / "masks_sam3_v2i")
+        raw, _, fsc = load_raw(roots(sid)[1] / "masks_sam3_v2i")
         self.raw_maps = raw
         self.work = {}
         self.work_scores = {}
@@ -244,7 +255,7 @@ def sp_oracle(sd: ScanData, n, feat):
     """Diagnostic: label every superpoint with its GT-majority item -> instance mIoU = ceiling of superpoint relabelling."""
     sp = sd.superpoints(n, feat)
     lab = np.zeros(sd.n, np.int32)
-    gt = np.load(SCANS / sd.sid / "gt" / "seg_points.npz")["label"]
+    gt = np.load(roots(sd.sid)[0] / "gt" / "seg_points.npz")["label"]
     for s in range(sp.max() + 1):
         m = sp == s
         g = gt[m]
@@ -314,7 +325,8 @@ def loso_pick(table, names, sids):
 
 def cmd_run(a):
     OUT.mkdir(parents=True, exist_ok=True)
-    sids = a.only or SIDS
+    sids = a.only or (SIDS + [f"v13/s{i:06d}" for i in range(20)] + [f"v12/s{i:06d}" for i in range(20) if f"s{i:06d}" not in SIDS]
+                      if a.all40 else SIDS)
     g = grids()
     t0 = time.time()
     all1 = uniq([c for v in g.values() for c in v])
@@ -378,13 +390,13 @@ def cmd_report():
 
     head = ("| setting | inst mIoU | PQ | exact count | fragmented GT items | items w/o lift id | boundary IoU | oracle-merge ceiling | "
             "d inst vs current, per scan (95% CI) | note |\n|---|---|---|---|---|---|---|---|---|---|")
-    out = ["# Lift sweep (CPU, 11 real-SAM 3 hard_v12 scans)", ""]
+    out = [f"# Lift sweep (CPU, {len(sids)} real-SAM 3 scans)", ""]
     reading = OUT / "reading.md"
     if reading.exists():
         out += [reading.read_text().rstrip(), ""]
     out += [f"Code `pipeline/eval/lift_sweep.py` (+ `pipeline/foodscan/labels.py`), raw numbers `results.json`. Total sweep runtime {R['runtime_s']:.0f} s on CPU "
-            f"(11 scans in parallel). Union over the 11 scans, {base['n_items']} valid GT items, evaluated on the 2 mm canonical voxel scene as in `results/seg3d/merge`. "
-            "Deltas are the paired per-scan mean-inst-IoU difference vs `current` (2000-resample bootstrap over the 11 scans). "
+            f"({len(sids)} scans in parallel). Union over the {len(sids)} scans, {base['n_items']} valid GT items, evaluated on the 2 mm canonical voxel scene as in `results/seg3d/merge`. "
+            f"Deltas are the paired per-scan mean-inst-IoU difference vs `current` (2000-resample bootstrap over the {len(sids)} scans). "
             "`oracle-merge ceiling` = inst mIoU after merging every pair of lift ids whose GT-majority item (purity >= .5) is the same: what a perfect refiner/merge could add on top of that setting. "
             "fragmented = GT item with >= 2 lift ids holding >= 15 % each; no lift id = < 5 % of the item's points carry a food id.", "",
             "Pipeline replayed from the stored RAW per-frame SAM 3 maps: projection once, instance linking (as `segment.link_instances`, one-frame clusters dropped), weighting, decision, optional smoothing/superpoints; "
@@ -414,7 +426,7 @@ def cmd_report():
         out.append(row(k[2:], [table[k][s] for s in sids])[0])
     meta = [table["__meta"][s] for s in sids]
     out += ["", "Superpoints per scan (mean): " + ", ".join(f"{k}: {np.mean([m['n_sp'][k] for m in meta]):.0f}" for k in meta[0]["n_sp"]) + ".", ""]
-    out += ["## Combined (cross of the family winners nominated on all 11 scans; nomination is slightly optimistic, the LOSO row re-picks without the held-out scan)", "", head]
+    out += ["## Combined (cross of the family winners nominated on all scans; nomination is slightly optimistic, the LOSO row re-picks without the held-out scan)", "", head]
     ck = R["combos"]
     for k in ck:
         out.append(row(name_of(json.loads(k)), [table[k][s] for s in sids])[0])
@@ -431,10 +443,16 @@ def main():
     r = sub.add_parser("run")
     r.add_argument("--procs", type=int, default=11)
     r.add_argument("--only", nargs="*")
+    r.add_argument("--all40", action="store_true", help="all 20 hard_v12 + 20 hard_v13 real-vote scans")
+    r.add_argument("--out", type=Path, help="output dir (default results/lift_sweep)")
     r.set_defaults(fn=cmd_run)
     q = sub.add_parser("report")
+    q.add_argument("--out", type=Path)
     q.set_defaults(fn=lambda a: cmd_report())
     a = ap.parse_args()
+    if getattr(a, "out", None):
+        global OUT
+        OUT = a.out
     a.fn(a)
 
 

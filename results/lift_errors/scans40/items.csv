@@ -1,0 +1,274 @@
+sid,item,name,category,kind,source,volume_ml,size_bin,n_points,n_points_full,iou,error_type,frag,merged,n_ids_gt20,food_cov,matched_id,matched_share,frames_visible,frac_frames_sam_mask,frac_frames_split2d,mean_sam_score,touches,touch_frac,stacked,supports,rim_near,occluded_fraction
+v12/s000000,1,lettuce,lettuce,leaf,procedural_leaves,6.7865,<15 ml,1043,2464,0.4409,fragmented,True,False,2,0.9885,4,0.4506,24,0.9167,0.3333,0.4137,True,0.0844,True,False,True,0.5671
+v12/s000000,3,yeast bread,Yeast_bread,scan,metafood3d,840.2909,>=150 ml,2867,6932,0.9744,ok,False,False,1,1.0,1,0.9976,24,1.0,0.0417,0.7846,False,0.0255,False,False,False,0.7422
+v12/s000000,6,cucumber,Cucumber,pile,metafood3d,60.3879,50-150 ml,987,2305,0.9757,ok,False,False,1,0.9959,6,0.9757,20,1.0,0.15,0.4592,False,0.0122,False,False,False,0.6342
+v12/s000000,7,cucumber,Cucumber,pile,metafood3d,60.3879,50-150 ml,901,2048,0.3663,fragmented,True,False,3,0.9989,2,0.3663,21,1.0,0.9048,0.7402,False,0.0,False,False,True,0.6042
+v12/s000001,1,pork chop,Pork_Chop,scan,metafood3d,184.73,>=150 ml,1745,3982,0.9212,ok,False,True,1,0.9736,2,0.9713,24,1.0,0.0,0.7875,True,0.0682,False,False,False,0.5442
+v12/s000001,2,grapes,Grapes,scan,metafood3d,32.4,15-50 ml,155,365,0.3608,fragmented,True,True,2,0.7484,4,0.3677,23,0.6087,0.3043,0.7201,True,0.2968,True,False,False,0.8796
+v12/s000001,3,broccoli,Broccoli,scan,metafood3d,328.4675,>=150 ml,1651,3924,0.9808,ok,False,False,1,0.9945,1,0.9927,24,1.0,0.0,0.9358,False,0.003,False,False,False,0.8121
+v12/s000001,4,broccoli,Broccoli,scan,metafood3d,32.7,15-50 ml,181,436,0.4986,merged,False,True,1,1.0,3,1.0,21,1.0,0.0,0.9247,True,0.1823,False,False,False,0.8639
+v12/s000001,5,broccoli,Broccoli,scan,metafood3d,31.37,15-50 ml,210,474,0.0,merged,False,True,1,1.0,5,0.0,24,1.0,0.375,0.8998,True,0.2952,False,False,False,0.8199
+v12/s000002,1,chicken thighs,Chicken_thighs,scan,metafood3d,178.42,>=150 ml,77,163,0.7935,ok,False,False,1,1.0,8,0.9481,18,1.0,0.0556,0.5022,True,0.2727,False,True,False,0.9799
+v12/s000002,2,chicken thighs,Chicken_thighs,scan,metafood3d,250.97,>=150 ml,957,2310,0.9379,ok,False,False,1,1.0,4,0.9937,24,1.0,0.125,0.5267,True,0.0637,False,False,False,0.8242
+v12/s000002,3,rice,Rice,scan,metafood3d,175.5771,>=150 ml,1604,3793,0.951,ok,False,False,1,0.9956,1,0.9551,24,1.0,0.125,0.5168,False,0.0443,False,False,False,0.693
+v12/s000002,4,boiled egg,boiled egg,procedural,primitive,27.2261,15-50 ml,33,62,0.6585,boundary,False,False,1,0.8788,11,0.8182,11,1.0,0.1818,0.6163,True,0.6061,False,False,False,0.8945
+v12/s000002,5,sushi,Sushi,pile,metafood3d,32.33,15-50 ml,220,505,0.8044,ok,False,False,1,1.0,7,0.8227,24,1.0,0.125,0.5721,True,0.1727,True,False,False,0.7425
+v12/s000002,6,sushi,sushi,pile,objaverse,17.6514,15-50 ml,237,570,0.8381,ok,False,False,1,1.0,2,0.9831,24,1.0,0.0417,0.6334,True,0.1603,False,False,False,0.6417
+v12/s000002,7,sushi,Sushi,pile,metafood3d,22.15,15-50 ml,171,401,0.843,ok,False,False,1,0.848,3,0.848,24,1.0,0.2083,0.6473,False,0.0,False,False,False,0.8058
+v12/s000002,8,sushi,Sushi,pile,metafood3d,28.75,15-50 ml,145,312,0.8986,ok,False,False,1,0.9517,6,0.9172,24,1.0,0.125,0.6148,True,0.1103,False,False,False,0.8147
+v12/s000002,9,sushi,sushi,pile,objaverse,17.6514,15-50 ml,160,357,0.4664,under-covered,False,False,1,0.6937,5,0.6937,24,1.0,0.0833,0.6222,False,0.0,False,False,False,0.7628
+v12/s000002,10,sushi,sushi,pile,objaverse,17.6514,15-50 ml,103,218,0.8491,ok,False,False,1,1.0,9,0.8738,24,1.0,0.0417,0.6617,True,0.0874,True,False,False,0.8135
+v12/s000003,1,black beans,black beans,procedural,procedural_piece,16.6623,15-50 ml,679,1598,0.7318,boundary,False,False,1,0.9941,5,0.8277,24,1.0,0.0417,0.5786,True,0.2725,False,True,False,0.4355
+v12/s000003,2,yogurt,yogurt,procedural,procedural_piece,48.3637,15-50 ml,637,1559,0.8985,ok,False,False,1,0.9639,4,0.9168,24,1.0,0.0,0.693,True,0.0989,False,False,False,0.7209
+v12/s000003,3,gravy,gravy,topping,procedural_topping,0.5627,<15 ml,93,239,0.3333,fragmented,True,True,2,0.957,9,0.3333,24,1.0,0.4583,0.5896,True,0.7204,True,False,False,0.2254
+v12/s000003,4,melted cheese,melted cheese,topping,procedural_topping,0.8728,<15 ml,95,242,0.7686,ok,False,False,1,1.0,8,0.9789,24,1.0,0.25,0.6045,True,0.5263,True,False,False,0.0
+v12/s000003,5,cookies,cookies,procedural,objaverse,9.4048,<15 ml,1018,2419,0.8615,ok,False,True,1,0.9971,3,0.947,24,1.0,0.0,0.7974,True,0.1965,False,False,False,0.2399
+v12/s000003,6,cookies,Cookies,scan,metafood3d,44.24,15-50 ml,1512,3639,0.8785,ok,False,False,1,0.9649,1,0.9325,24,1.0,0.0,0.8327,True,0.1276,False,False,False,0.4641
+v12/s000003,7,bread roll,bread roll,procedural,primitive,74.1509,50-150 ml,983,2368,0.9849,ok,False,False,1,1.0,2,0.9939,24,1.0,0.0,0.8388,False,0.0071,False,False,False,0.5821
+v12/s000003,8,blueberries,Blueberries,scan,metafood3d,11.1008,<15 ml,318,710,0.556,boundary,False,False,1,0.8899,7,0.7956,24,1.0,0.0833,0.525,True,0.4025,True,False,False,0.3724
+v12/s000003,9,squash,squash,pile,primitive,11.4244,<15 ml,37,83,0.4048,fragmented,True,True,2,0.8649,15,0.4595,15,1.0,0.8667,0.5891,True,0.7838,False,False,False,0.8793
+v12/s000003,10,squash,squash,pile,primitive,11.4244,<15 ml,40,90,0.3171,fragmented,True,True,2,1.0,17,0.325,17,1.0,0.7647,0.5513,True,0.825,False,False,False,0.873
+v12/s000003,11,squash,squash,pile,primitive,11.4244,<15 ml,107,295,0.7266,merged,False,True,1,1.0,10,0.8692,23,1.0,0.4783,0.5679,True,0.5047,False,False,False,0.6466
+v12/s000003,12,squash,squash,pile,primitive,11.4244,<15 ml,137,327,0.8025,ok,False,True,1,1.0,6,0.9489,24,1.0,0.25,0.5956,True,0.4088,False,False,False,0.7156
+v12/s000003,13,squash,squash,pile,primitive,11.4244,<15 ml,109,235,0.9217,ok,False,False,1,1.0,12,0.9725,24,1.0,0.0,0.6532,True,0.1009,False,False,False,0.7644
+v12/s000003,14,squash,squash,pile,primitive,11.4244,<15 ml,122,279,0.7847,ok,False,False,1,1.0,11,0.9262,24,1.0,0.2083,0.5987,True,0.2623,True,False,False,0.7156
+v12/s000004,2,kiwi,Kiwi,scan,metafood3d,38.03,15-50 ml,175,341,0.6426,merged,False,True,1,1.0,5,0.9143,24,1.0,0.375,0.6903,True,0.5543,False,False,False,0.7723
+v12/s000004,3,melons,Melons,pile,metafood3d,33.84,15-50 ml,246,564,0.8077,ok,False,False,1,1.0,6,0.8537,24,1.0,0.0833,0.6417,True,0.3659,False,False,False,0.7696
+v12/s000004,4,melons,Melons,pile,metafood3d,22.94,15-50 ml,266,601,0.8838,ok,False,False,1,0.9511,3,0.9436,24,1.0,0.0,0.762,True,0.1579,False,False,False,0.6093
+v12/s000004,5,melons,Melons,pile,metafood3d,23.02,15-50 ml,192,452,0.7032,boundary,False,False,1,1.0,7,0.8021,24,1.0,0.5417,0.6415,True,0.5781,False,False,False,0.6863
+v12/s000004,6,melons,Melons,pile,metafood3d,33.84,15-50 ml,488,1131,0.9215,ok,False,False,1,1.0,1,0.9857,24,1.0,0.0833,0.6594,True,0.1885,False,False,False,0.5764
+v12/s000004,7,melons,Melons,pile,metafood3d,23.02,15-50 ml,241,580,0.9555,ok,False,False,1,1.0,4,0.9793,24,1.0,0.0417,0.6648,True,0.1494,False,False,False,0.6939
+v12/s000004,8,strawberry,Strawberry,pile,metafood3d,13.5761,<15 ml,191,458,0.8636,ok,False,False,1,0.911,9,0.8953,21,0.7619,0.0,0.8121,False,0.0471,False,False,False,0.5752
+v12/s000004,9,strawberry,Strawberry,pile,metafood3d,28.7709,15-50 ml,310,697,0.921,ok,False,False,1,1.0,2,0.9774,24,1.0,0.0,0.7811,True,0.071,False,False,False,0.6376
+v12/s000004,10,strawberry,strawberry,pile,objaverse,3.5408,<15 ml,104,235,0.3365,fragmented,True,True,2,1.0,8,0.3365,24,1.0,0.625,0.7668,True,0.625,True,False,False,0.3442
+v12/s000005,1,mashed potato,Mashed_Potato,scan,metafood3d,171.762,>=150 ml,2182,5165,0.9056,ok,False,True,1,0.9212,1,0.9184,24,1.0,0.0,0.8359,False,0.0234,False,False,False,0.6254
+v12/s000005,2,green beans,Green_beans,scan,metafood3d,3.2991,<15 ml,101,213,0.2115,fragmented,True,True,2,0.495,8,0.2178,21,0.5238,0.0952,0.5397,True,0.2574,True,False,False,0.4782
+v12/s000005,3,cherry tomato,cherry tomato,pile,primitive,8.8788,<15 ml,99,211,0.8962,ok,False,False,1,1.0,5,0.9596,21,1.0,0.1905,0.5997,True,0.3737,False,False,False,0.6992
+v12/s000005,4,cherry tomato,cherry tomato,pile,primitive,8.1351,<15 ml,152,318,0.9281,ok,False,False,1,1.0,3,0.9342,24,1.0,0.0833,0.6218,True,0.2434,False,False,False,0.5664
+v12/s000005,5,cherry tomato,cherry tomato,pile,primitive,8.8788,<15 ml,81,165,0.9529,ok,False,False,1,1.0,6,1.0,24,1.0,0.0,0.6331,True,0.1605,False,False,False,0.6795
+v12/s000005,7,cherry tomato,cherry tomato,pile,primitive,8.8788,<15 ml,126,300,0.9466,ok,False,False,1,1.0,4,0.9841,21,1.0,0.0,0.6199,True,0.2143,False,False,False,0.605
+v12/s000005,8,cherry tomato,cherry tomato,pile,primitive,8.5164,<15 ml,138,308,0.971,ok,False,False,1,0.9783,2,0.971,24,1.0,0.0,0.6401,True,0.1232,False,False,False,0.5049
+v12/s000006,1,ice cream,Ice_cream,scan,metafood3d,134.96,50-150 ml,645,1609,0.8928,ok,False,False,1,0.9969,3,0.9426,24,1.0,0.2917,0.6382,True,0.1938,False,True,False,0.767
+v12/s000006,2,cookies,cookies,procedural,objaverse,22.3677,15-50 ml,160,354,0.6821,boundary,False,False,1,0.9313,5,0.7375,24,1.0,0.2083,0.6337,True,0.55,False,False,False,0.7923
+v12/s000006,3,cookies,Cookies,scan,metafood3d,44.24,15-50 ml,1271,2989,0.9681,ok,False,False,1,0.9906,1,0.9788,24,1.0,0.0,0.6969,True,0.0527,True,False,False,0.4962
+v12/s000006,4,strawberry,strawberry,pile,objaverse,14.5905,<15 ml,183,418,0.6897,fragmented,True,True,2,1.0,7,0.765,24,1.0,0.1667,0.7465,True,0.3825,True,False,False,0.5791
+v12/s000006,5,strawberry,Strawberry,pile,metafood3d,15.0191,15-50 ml,131,315,0.9237,ok,False,False,1,0.9237,4,0.9237,17,1.0,0.1176,0.8498,False,0.0,False,False,False,0.7283
+v12/s000006,6,strawberry,strawberry,pile,objaverse,6.3248,<15 ml,101,222,0.4757,fragmented,True,True,2,1.0,9,0.4851,21,1.0,0.4286,0.75,True,0.4455,False,False,False,0.6067
+v12/s000006,7,strawberry,strawberry,pile,ycb,48.3234,15-50 ml,381,875,1.0,ok,False,False,1,1.0,2,1.0,24,1.0,0.0417,0.9119,False,0.0,False,False,False,0.6646
+v12/s000006,8,strawberry,Strawberry,pile,metafood3d,13.5761,<15 ml,153,311,0.8757,ok,False,False,1,0.9869,6,0.9673,23,1.0,0.1739,0.7633,True,0.183,False,False,False,0.6403
+v12/s000007,2,pasta mixed dishes,Pasta_mixed_dishes,scan,metafood3d,212.559,>=150 ml,400,849,0.6959,boundary,False,False,1,0.785,4,0.7725,19,0.9474,0.0526,0.7244,False,0.0225,False,False,False,0.8857
+v12/s000007,3,yeast bread,Yeast_bread,scan,metafood3d,223.1182,>=150 ml,1513,3588,0.9934,ok,False,False,1,1.0,3,0.9967,23,0.9565,0.0435,0.7725,False,0.0198,False,False,False,0.7039
+v12/s000007,4,broccoli,Broccoli,scan,metafood3d,328.4675,>=150 ml,1233,2883,0.9738,ok,False,True,1,0.9935,1,0.9935,24,1.0,0.0,0.8524,False,0.0324,False,False,False,0.8297
+v12/s000007,5,broccoli,Broccoli,scan,metafood3d,30.82,15-50 ml,95,230,0.7158,fragmented,True,True,2,1.0,5,0.7158,17,1.0,0.3529,0.7727,True,0.2737,False,False,False,0.884
+v12/s000007,6,broccoli,Broccoli,scan,metafood3d,91.7261,50-150 ml,391,857,0.9495,ok,False,False,1,0.9616,2,0.9616,24,1.0,0.0,0.8493,False,0.0026,False,False,False,0.8704
+v12/s000008,1,bacon,Bacon,scan,metafood3d,6.01,<15 ml,214,520,0.0043,missed,False,False,0,0.014,10,0.0093,24,0.0,0.0,nan,True,0.1449,False,True,False,0.6555
+v12/s000008,2,bacon,Bacon,scan,metafood3d,6.01,<15 ml,245,556,0.0596,under-covered,False,False,0,0.0735,4,0.0735,24,0.0,0.0,nan,False,0.0327,False,False,False,0.6424
+v12/s000008,6,cucumber,Cucumber,pile,metafood3d,13.0871,<15 ml,30,65,0.0,missed,False,False,0,0.0,9,0.0,14,0.0,0.0,nan,False,0.0,False,False,False,0.8969
+v12/s000008,8,cucumber,Cucumber,pile,metafood3d,60.3879,50-150 ml,840,1966,0.2883,fragmented,True,False,3,0.9738,8,0.2893,24,1.0,0.8333,0.6964,True,0.0524,False,False,False,0.5735
+v12/s000008,9,cucumber,Cucumber,pile,metafood3d,60.3879,50-150 ml,374,852,0.7727,ok,False,False,1,0.9572,2,0.8636,24,1.0,0.0417,0.6188,True,0.2914,False,False,False,0.7941
+v12/s000008,15,cucumber,Cucumber,pile,metafood3d,60.3879,50-150 ml,780,1797,0.897,ok,False,False,1,1.0,1,0.9154,24,1.0,0.0417,0.5196,True,0.1692,False,False,False,0.664
+v12/s000008,17,cucumber,Cucumber,pile,metafood3d,60.3879,50-150 ml,130,320,0.4171,fragmented,True,True,2,1.0,16,0.5615,24,1.0,0.4583,0.6389,True,0.7385,False,False,False,0.8497
+v12/s000008,18,cucumber,Cucumber,pile,metafood3d,60.3879,50-150 ml,171,366,0.4912,fragmented,True,False,2,1.0,15,0.4912,22,1.0,0.5455,0.6674,False,0.0,False,False,False,0.8926
+v12/s000008,19,cucumber,Cucumber,pile,metafood3d,13.0871,<15 ml,70,172,0.0,merged,False,True,1,1.0,14,0.0,24,1.0,0.2083,0.711,True,1.0,False,False,False,0.7311
+v12/s000008,20,cucumber,Cucumber,pile,metafood3d,60.3879,50-150 ml,102,197,0.8039,ok,False,False,1,0.8039,7,0.8039,17,0.9412,0.0588,0.6101,False,0.0,False,False,False,0.9159
+v12/s000008,22,cucumber,Cucumber,pile,metafood3d,13.0871,<15 ml,181,450,0.6423,merged,False,True,1,1.0,5,0.9724,24,1.0,0.0,0.7292,True,0.4751,False,False,False,0.6589
+v12/s000008,23,cucumber,Cucumber,pile,metafood3d,13.0871,<15 ml,116,295,0.4208,under-covered,False,False,1,1.0,12,0.8017,18,1.0,0.3333,0.6962,True,0.5,False,False,False,0.6915
+v12/s000008,24,cucumber,Cucumber,pile,metafood3d,13.0871,<15 ml,122,267,0.4115,fragmented,True,True,2,0.9508,11,0.6475,24,0.9583,0.25,0.6864,True,0.7705,False,False,False,0.7537
+v12/s000008,25,cucumber,Cucumber,pile,metafood3d,13.0871,<15 ml,283,650,0.8234,ok,False,True,1,1.0,3,0.9717,24,1.0,0.0,0.7255,True,0.2226,False,False,False,0.547
+v12/s000008,26,cherry tomato,cherry tomato,pile,primitive,7.965,<15 ml,90,185,0.0,merged,False,True,1,0.9222,13,0.0,18,1.0,0.0556,0.6417,True,0.0667,False,False,False,0.5694
+v12/s000008,27,cherry tomato,cherry tomato,pile,primitive,8.8788,<15 ml,145,327,0.2737,merged,False,True,1,0.931,6,0.8966,24,1.0,0.0417,0.6156,True,0.331,False,False,False,0.4556
+v12/s000008,28,cherry tomato,cherry tomato,pile,primitive,8.0818,<15 ml,33,82,0.2453,fragmented,True,True,2,1.0,17,0.3939,15,0.9333,0.0,0.6212,True,0.303,False,False,False,0.75
+v12/s000008,29,cherry tomato,cherry tomato,pile,primitive,8.8788,<15 ml,60,141,0.0,merged,False,True,1,1.0,19,0.0,24,1.0,0.0833,0.6265,True,0.8667,False,False,False,0.6718
+v12/s000008,30,cherry tomato,cherry tomato,pile,primitive,8.0818,<15 ml,105,252,0.0,merged,False,True,1,0.9048,24,0.0,21,1.0,0.0,0.6194,True,0.3429,False,False,False,0.4851
+v12/s000008,31,cherry tomato,cherry tomato,pile,primitive,8.0818,<15 ml,67,167,0.0,merged,False,True,1,1.0,0,0.0,18,1.0,0.0556,0.6241,True,0.5821,True,False,False,0.5548
+v12/s000009,1,ice cream,Ice_cream,scan,metafood3d,52.784,50-150 ml,542,1247,0.8597,ok,False,False,1,0.9686,2,0.9613,24,1.0,0.0417,0.7616,True,0.0775,True,False,False,0.6148
+v12/s000009,2,cake slice,cake slice,procedural,primitive,104.8205,50-150 ml,748,1626,0.9304,ok,False,False,1,0.9479,1,0.9465,24,1.0,0.0,0.4666,False,0.0013,False,False,False,0.712
+v12/s000009,3,kiwi,Kiwi,scan,metafood3d,14.45,<15 ml,511,1210,0.9167,ok,False,False,1,0.9628,3,0.9472,24,0.875,0.0,0.8286,True,0.0705,False,False,False,0.4724
+v12/s000010,1,yeast bread,Yeast_bread,scan,metafood3d,83.8628,50-150 ml,1641,4054,0.4137,merged,False,True,1,0.844,1,0.6752,24,1.0,0.0,0.8169,True,0.1907,False,False,False,0.1155
+v12/s000010,2,boiled egg,boiled egg,procedural,primitive,25.2093,15-50 ml,276,756,0.5551,boundary,False,False,1,0.9783,2,0.9312,24,1.0,0.1667,0.7502,True,0.4529,True,False,False,0.3849
+v12/s000010,3,olive,olive,pile,primitive,3.3426,<15 ml,35,62,0.2,under-covered,False,False,1,0.5429,7,0.2286,11,0.3636,0.0909,0.7355,True,0.4857,False,False,False,0.1461
+v12/s000010,4,olive,olive,pile,primitive,3.7254,<15 ml,49,134,0.0652,merged,False,True,1,1.0,5,0.1224,21,1.0,0.7143,0.7886,True,0.7551,False,False,False,0.2217
+v12/s000010,5,olive,olive,pile,primitive,3.4908,<15 ml,83,211,0.1596,merged,False,True,1,1.0,10,0.1807,24,1.0,0.7083,0.7412,True,0.7831,False,False,False,0.159
+v12/s000010,6,olive,olive,pile,primitive,2.9955,<15 ml,49,118,0.0,merged,False,True,1,1.0,6,0.0,17,1.0,0.4706,0.7858,True,0.3673,False,True,False,0.3288
+v12/s000010,7,olive,olive,pile,primitive,2.8102,<15 ml,69,182,0.2697,fragmented,True,True,3,1.0,4,0.3478,22,1.0,0.6364,0.7317,True,0.7101,False,False,False,0.2565
+v12/s000010,8,olive,olive,pile,primitive,2.7243,<15 ml,69,173,0.3644,fragmented,True,True,2,1.0,3,0.6232,23,1.0,0.7826,0.758,True,0.942,False,False,False,0.1815
+v12/s000011,1,hummus,hummus,procedural,procedural_piece,60.9971,50-150 ml,905,2296,0.8279,ok,False,False,1,0.9083,4,0.8453,24,1.0,0.0,0.7612,True,0.0851,False,False,False,0.4741
+v12/s000011,2,mixed greens,mixed greens,leaf,procedural_leaves,0.8283,<15 ml,384,966,0.5168,fragmented,True,False,2,0.8698,1,0.5599,24,1.0,0.9583,0.6165,False,0.0,False,False,True,0.0377
+v12/s000011,3,cookies,cookies,procedural,objaverse,3.7873,<15 ml,861,2128,0.9145,ok,False,False,1,0.9977,3,0.9814,24,1.0,0.0,0.748,True,0.2102,True,False,False,0.0627
+v12/s000012,1,yeast bread,Yeast_bread,scan,metafood3d,116.13,50-150 ml,1290,2956,0.8444,ok,False,False,1,0.8822,2,0.8752,24,1.0,0.0,0.7841,True,0.0907,False,False,False,0.7437
+v12/s000012,3,broccoli,Broccoli,scan,metafood3d,32.7,15-50 ml,374,872,0.9733,ok,False,False,1,1.0,3,0.9733,24,1.0,0.0,0.9097,False,0.0267,False,False,False,0.6933
+v12/s000012,4,broccoli,Broccoli,scan,metafood3d,23.72,15-50 ml,193,460,0.8705,ok,False,False,1,0.8705,4,0.8705,24,1.0,0.0,0.8957,False,0.0,False,False,False,0.7729
+v12/s000012,5,salmon grill,Salmon_Grill,scan,metafood3d,138.1214,50-150 ml,2014,4600,0.9684,ok,False,False,1,0.9911,1,0.9727,24,1.0,0.0,0.8477,False,0.0382,False,False,False,0.5533
+v12/s000013,1,lettuce,lettuce,leaf,procedural_leaves,15.457,15-50 ml,2289,5503,0.9601,ok,False,True,1,0.9886,1,0.9886,24,1.0,0.0,0.9238,False,0.0406,False,False,False,0.4983
+v12/s000013,2,broccoli,Broccoli,scan,metafood3d,31.37,15-50 ml,78,179,0.0,merged,False,True,1,0.8718,0,0.0,22,0.8182,0.0455,0.6888,False,0.0,False,False,False,0.9438
+v12/s000013,3,broccoli,Broccoli,scan,metafood3d,31.37,15-50 ml,153,324,0.4589,merged,False,True,1,0.8497,2,0.6928,20,1.0,0.15,0.764,True,0.2092,False,False,False,0.7987
+v12/s000013,5,cucumber,Cucumber,scan,metafood3d,13.0871,<15 ml,54,120,0.0,merged,False,True,1,0.6111,0,0.0,20,0.95,0.25,0.8821,True,0.6481,False,True,False,0.7276
+v12/s000014,2,broccoli,Broccoli,scan,metafood3d,328.4675,>=150 ml,1726,4269,0.9413,ok,False,False,1,0.9896,1,0.9757,24,1.0,0.0417,0.7732,False,0.0313,False,False,False,0.8054
+v12/s000014,3,broccoli,Broccoli,scan,metafood3d,23.72,15-50 ml,298,740,0.7864,ok,False,False,1,1.0,5,0.8154,24,1.0,0.0833,0.7013,True,0.1611,False,False,False,0.7709
+v12/s000014,4,boiled egg,boiled egg,procedural,primitive,21.7004,15-50 ml,65,146,0.2804,fragmented,True,True,2,0.7692,6,0.4615,18,0.6111,0.2222,0.623,True,0.3077,False,False,False,0.7917
+v12/s000014,5,cauliflower,Cauliflower,pile,metafood3d,30.9694,15-50 ml,300,689,0.8801,ok,False,False,1,0.9433,3,0.93,24,1.0,0.125,0.789,True,0.1,False,False,False,0.6902
+v12/s000014,6,cauliflower,Cauliflower,pile,metafood3d,30.9694,15-50 ml,339,809,0.8971,ok,False,False,1,0.8997,2,0.8997,24,1.0,0.0,0.8587,False,0.0,False,False,False,0.7108
+v12/s000014,7,cauliflower,Cauliflower,pile,metafood3d,30.9694,15-50 ml,157,320,0.7143,merged,False,True,1,1.0,4,0.828,24,1.0,0.4583,0.7158,True,0.4777,False,False,False,0.795
+v12/s000015,2,asparagus,Asparagus,scan,metafood3d,16.3584,15-50 ml,187,450,0.0,missed,False,False,0,0.0107,6,0.0,22,0.0455,0.0,0.3277,False,0.0374,False,False,False,0.8932
+v12/s000015,4,asparagus,Asparagus,scan,metafood3d,107.7771,50-150 ml,518,1208,0.579,boundary,False,False,1,0.8166,1,0.7355,24,1.0,0.1667,0.4547,True,0.4942,False,False,False,0.8732
+v12/s000015,5,asparagus,Asparagus,scan,metafood3d,16.3584,15-50 ml,427,1037,0.0,under-covered,False,False,0,0.2974,5,0.0,24,0.25,0.125,0.4164,True,0.4567,False,False,False,0.7424
+v12/s000015,6,omelet,Omelet,scan,metafood3d,128.8952,50-150 ml,1441,3465,0.6954,boundary,False,False,1,0.8917,3,0.7668,24,0.9583,0.2917,0.4432,True,0.2679,False,False,False,0.6775
+v12/s000015,7,sausages,Sausages,scan,metafood3d,53.219,50-150 ml,778,1876,0.8801,ok,False,False,1,0.9974,2,0.9434,24,1.0,0.25,0.6392,True,0.2031,True,False,False,0.6085
+v12/s000015,8,sausages,Sausages,scan,metafood3d,90.15,50-150 ml,1505,3558,0.4974,fragmented,True,False,2,0.9568,4,0.5648,24,1.0,0.7083,0.5639,True,0.0625,True,False,False,0.5801
+v12/s000016,1,yogurt,yogurt,procedural,procedural_piece,121.5194,50-150 ml,1018,2464,0.727,boundary,False,False,1,0.9253,2,0.8684,24,1.0,0.125,0.6402,True,0.1267,False,True,False,0.7341
+v12/s000016,3,radicchio,radicchio,leaf,procedural_leaves,1.7597,<15 ml,672,1680,0.4771,fragmented,True,False,2,0.9732,3,0.5104,24,1.0,0.7917,0.547,True,0.1027,True,False,True,0.1719
+v12/s000016,4,bread roll,bread roll,procedural,primitive,98.1424,50-150 ml,1120,2786,0.9674,ok,False,False,1,0.9991,1,0.9812,24,1.0,0.0,0.8116,True,0.0554,False,False,False,0.5228
+v12/s000016,5,papaya,Papaya,scan,metafood3d,10.52,<15 ml,577,1458,0.8965,ok,False,False,1,0.9965,4,0.9307,24,1.0,0.0,0.6799,True,0.1768,True,False,False,0.2323
+v12/s000017,1,mashed potato,mashed potato,procedural,procedural_piece,14.6991,<15 ml,411,1009,0.7155,boundary,False,False,1,0.8029,3,0.7956,24,0.9167,0.0417,0.7187,True,0.2044,False,True,False,0.6469
+v12/s000017,2,corn,corn,procedural,procedural_piece,47.5164,15-50 ml,1065,2667,0.7679,ok,False,True,1,0.8423,2,0.8357,24,1.0,0.0,0.8556,True,0.077,False,False,False,0.4857
+v12/s000017,3,gravy,gravy,topping,procedural_topping,1.2269,<15 ml,199,456,0.4724,fragmented,True,True,2,1.0,4,0.4724,24,1.0,1.0,0.689,True,0.5226,True,False,False,0.0097
+v12/s000017,4,chicken breast,chicken breast,procedural,primitive,93.0135,50-150 ml,2367,5530,0.8497,ok,False,False,1,0.8847,1,0.8623,24,1.0,0.0,0.804,True,0.057,True,False,False,0.3955
+v12/s000018,1,brown rice,brown rice,procedural,procedural_piece,96.1245,50-150 ml,2071,4548,0.9336,ok,False,False,1,0.9913,1,0.9908,24,1.0,0.0,0.7349,True,0.069,False,False,False,0.505
+v12/s000018,2,black beans,black beans,procedural,procedural_piece,93.3911,50-150 ml,1569,3425,0.8847,ok,False,False,1,0.9898,4,0.905,24,1.0,0.0,0.7041,True,0.1695,False,False,False,0.5482
+v12/s000018,3,corn,corn,procedural,procedural_piece,34.1351,15-50 ml,897,2078,0.8987,ok,False,False,1,0.9978,2,0.9788,24,1.0,0.125,0.6694,True,0.1304,False,False,False,0.5211
+v12/s000018,4,sour cream,sour cream,topping,procedural_topping,2.8282,<15 ml,233,530,0.9068,ok,False,False,1,1.0,3,0.9185,24,1.0,0.375,0.56,True,0.3991,True,False,False,0.0414
+v12/s000019,2,couscous,couscous,procedural,procedural_piece,283.942,>=150 ml,2140,5114,0.9436,ok,False,False,1,0.9463,1,0.9463,24,1.0,0.125,0.6381,False,0.0093,False,False,False,0.7661
+v12/s000019,3,mixed greens,mixed greens,leaf,procedural_leaves,14.9766,<15 ml,1530,3581,0.8646,ok,False,True,1,0.9712,2,0.9601,24,1.0,0.25,0.5925,False,0.0261,False,False,False,0.5651
+v12/s000019,4,falafel,Falafel,pile,metafood3d,30.9,15-50 ml,253,619,0.9377,ok,False,False,1,1.0,7,0.9526,20,1.0,0.05,0.762,True,0.1265,False,True,False,0.7591
+v12/s000019,5,falafel,Falafel,pile,metafood3d,32.87,15-50 ml,159,387,0.7073,boundary,False,False,1,0.9748,18,0.7296,23,1.0,0.3913,0.7334,True,0.2516,False,False,False,0.7936
+v12/s000019,6,falafel,Falafel,pile,metafood3d,32.87,15-50 ml,60,139,0.6211,boundary,False,False,1,1.0,20,0.9833,19,1.0,0.1053,0.7297,True,0.5833,False,False,False,0.8748
+v12/s000019,7,falafel,Falafel,pile,metafood3d,30.7494,15-50 ml,179,404,0.9833,ok,False,False,1,1.0,6,0.9888,24,1.0,0.0417,0.7543,True,0.067,False,False,False,0.7522
+v12/s000019,9,falafel,Falafel,pile,metafood3d,30.7494,15-50 ml,105,250,0.0,merged,False,True,1,1.0,10,0.0,24,1.0,0.1667,0.7118,True,0.781,False,False,False,0.8269
+v12/s000019,10,falafel,Falafel,pile,metafood3d,29.0525,15-50 ml,93,211,0.4886,merged,False,True,1,1.0,14,0.9247,24,1.0,0.0833,0.7039,True,0.6344,False,False,False,0.8059
+v12/s000019,11,falafel,Falafel,pile,metafood3d,31.8158,15-50 ml,301,712,0.9027,ok,False,False,1,1.0,3,0.9867,24,1.0,0.0,0.7884,True,0.206,True,False,False,0.649
+v12/s000019,12,falafel,Falafel,pile,metafood3d,32.87,15-50 ml,188,429,0.9947,ok,False,False,1,1.0,4,1.0,24,1.0,0.0417,0.7714,False,0.0,False,False,False,0.7981
+v12/s000019,13,falafel,Falafel,pile,metafood3d,29.0525,15-50 ml,232,555,0.9442,ok,False,False,1,1.0,12,0.9483,21,1.0,0.0952,0.7465,True,0.0603,False,False,False,0.7135
+v12/s000019,14,falafel,Falafel,pile,metafood3d,31.8158,15-50 ml,301,693,0.9441,ok,False,False,1,1.0,5,0.9535,24,1.0,0.0,0.7781,True,0.103,False,False,False,0.7009
+v12/s000019,15,falafel,Falafel,pile,metafood3d,29.0525,15-50 ml,150,356,0.9202,ok,False,False,1,1.0,8,1.0,24,1.0,0.2083,0.7699,True,0.1133,False,False,False,0.8365
+v12/s000019,16,falafel,Falafel,pile,metafood3d,29.0525,15-50 ml,186,433,0.9681,ok,False,False,1,1.0,9,0.9785,23,1.0,0.0435,0.7944,True,0.0806,False,False,False,0.7948
+v12/s000019,17,falafel,Falafel,pile,metafood3d,30.7494,15-50 ml,54,102,0.0,merged,False,True,1,1.0,11,0.0,15,1.0,0.2,0.6646,True,0.2407,False,True,False,0.8982
+v12/s000019,19,cucumber,Cucumber,pile,metafood3d,60.3879,50-150 ml,720,1660,0.3417,fragmented,True,False,2,0.9833,15,0.3417,21,1.0,0.7143,0.7146,False,0.0083,False,False,False,0.6471
+v12/s000019,20,cucumber,Cucumber,pile,metafood3d,13.0871,<15 ml,128,293,0.9766,ok,False,False,1,0.9766,13,0.9766,18,0.8889,0.2222,0.637,False,0.0,False,False,False,0.7733
+v12/s000019,21,cucumber,Cucumber,pile,metafood3d,13.0871,<15 ml,127,314,0.9065,ok,False,False,1,1.0,17,0.9921,15,1.0,0.1333,0.6597,True,0.063,True,False,False,0.7856
+v13/s000000,1,black beans,black beans,procedural,procedural_piece,256.6475,>=150 ml,3471,9251,0.7993,ok,False,False,1,0.8992,1,0.8882,24,1.0,0.0417,0.693,False,0.0467,False,False,False,0.6315
+v13/s000000,2,salmon grill,Salmon_Grill,scan,metafood3d,162.19,>=150 ml,2308,5768,0.742,boundary,False,False,1,0.9874,2,0.8908,24,1.0,0.1667,0.6484,True,0.1417,False,False,False,0.5204
+v13/s000000,3,broccoli,Broccoli,scan,metafood3d,30.82,15-50 ml,894,2110,0.6545,fragmented,True,False,2,0.9855,4,0.6611,24,1.0,0.2083,0.6561,True,0.2025,True,False,False,0.4349
+v13/s000000,4,broccoli,Broccoli,scan,metafood3d,30.82,15-50 ml,664,1538,0.8093,ok,False,False,1,0.9729,5,0.9202,24,1.0,0.0417,0.7097,True,0.1627,False,False,False,0.4849
+v13/s000001,1,green curry,green curry,procedural,procedural_piece,152.2762,>=150 ml,1586,3746,0.6332,boundary,False,False,1,0.8499,2,0.6728,24,1.0,0.0,0.6264,True,0.3083,False,False,False,0.6407
+v13/s000001,2,rice,Rice,scan,metafood3d,159.7524,>=150 ml,3753,8798,0.9177,ok,False,False,1,0.9979,1,0.9917,24,1.0,0.0,0.8978,True,0.1204,False,False,False,0.3305
+v13/s000002,1,oatmeal,oatmeal,procedural,procedural_piece,290.4898,>=150 ml,3902,9665,0.8141,ok,False,False,1,0.927,1,0.908,24,1.0,0.0,0.7075,False,0.0472,False,False,False,0.7279
+v13/s000002,2,quesadilla,Quesadilla,scan,metafood3d,96.92,50-150 ml,1502,3715,0.7897,ok,False,False,1,0.9847,7,0.8349,24,1.0,0.25,0.6972,True,0.0952,False,False,False,0.6979
+v13/s000002,3,melons,Melons,pile,metafood3d,23.02,15-50 ml,316,790,0.9156,ok,False,False,1,0.9873,9,0.9272,17,1.0,0.0,0.7755,True,0.1424,False,False,False,0.6933
+v13/s000002,4,melons,Melons,pile,metafood3d,23.02,15-50 ml,109,251,0.5087,boundary,False,False,1,1.0,10,0.8073,22,1.0,0.4545,0.7527,True,0.2936,False,False,False,0.7193
+v13/s000002,5,melons,Melons,pile,metafood3d,23.02,15-50 ml,237,581,0.734,boundary,False,False,1,0.9916,16,0.8734,22,1.0,0.3636,0.7441,True,0.4684,False,False,False,0.7538
+v13/s000002,6,melons,Melons,pile,metafood3d,23.02,15-50 ml,388,914,0.8985,ok,False,False,1,0.9381,4,0.9356,24,1.0,0.0833,0.7864,False,0.0438,False,False,False,0.5743
+v13/s000002,7,melons,Melons,pile,metafood3d,23.02,15-50 ml,186,389,0.9246,ok,False,False,1,1.0,15,0.9892,17,1.0,0.1176,0.7591,True,0.086,True,False,False,0.7415
+v13/s000002,8,melons,Melons,pile,metafood3d,31.0374,15-50 ml,303,685,0.8086,ok,False,False,1,1.0,8,0.9901,24,1.0,0.0,0.7747,False,0.0198,False,False,False,0.6829
+v13/s000002,9,melons,Melons,pile,metafood3d,31.0374,15-50 ml,302,670,0.7564,ok,False,False,1,0.9901,13,0.7815,24,1.0,0.25,0.7514,True,0.1026,False,False,False,0.7193
+v13/s000002,10,melons,Melons,pile,metafood3d,31.0374,15-50 ml,422,961,0.9317,ok,False,False,1,0.9929,6,0.9692,24,1.0,0.0833,0.7746,False,0.0237,False,False,False,0.6414
+v13/s000002,11,melons,Melons,pile,metafood3d,31.0374,15-50 ml,255,571,0.8842,ok,False,False,1,1.0,2,0.9882,24,1.0,0.0833,0.7775,False,0.0157,False,False,False,0.7343
+v13/s000002,12,tomato slice,Tomato_slice,pile,metafood3d,13.8568,<15 ml,356,796,0.8051,ok,False,False,1,0.9972,3,0.882,21,1.0,0.0476,0.7696,True,0.2837,False,False,False,0.522
+v13/s000002,13,tomato slice,Tomato_slice,pile,metafood3d,18.505,15-50 ml,532,1225,0.7213,boundary,False,False,1,1.0,12,0.8026,24,1.0,0.2917,0.7601,True,0.094,True,False,False,0.4691
+v13/s000002,14,tomato slice,Tomato_slice,pile,metafood3d,18.505,15-50 ml,406,955,0.844,ok,False,False,1,0.9064,5,0.9064,19,1.0,0.0526,0.8086,True,0.1429,False,False,False,0.5795
+v13/s000003,1,mixed greens,mixed greens,leaf,procedural_leaves,4.6717,<15 ml,1803,4814,0.7194,boundary,False,False,1,0.8874,2,0.782,24,1.0,0.0833,0.6593,True,0.0693,True,False,False,0.1127
+v13/s000003,2,pasta mixed dishes,Pasta_mixed_dishes,scan,metafood3d,171.1516,>=150 ml,6330,16153,0.827,ok,False,False,1,0.9265,1,0.9076,24,1.0,0.0,0.7975,False,0.0122,False,False,False,0.3295
+v13/s000004,1,oatmeal,oatmeal,procedural,procedural_piece,72.215,50-150 ml,2057,5118,0.5211,merged,False,True,1,0.9713,1,0.9621,24,1.0,0.0,0.7479,True,0.106,False,False,False,0.5685
+v13/s000004,2,brown rice,brown rice,procedural,procedural_piece,27.4938,15-50 ml,442,1072,0.0113,merged,False,True,1,0.8484,13,0.0113,24,0.875,0.0417,0.7158,True,0.1652,False,True,False,0.657
+v13/s000004,3,fried mushrooms,Fried mushrooms,pile,metafood3d,17.58,15-50 ml,272,604,0.4953,fragmented,True,True,2,0.9963,8,0.5809,24,1.0,0.2083,0.733,True,0.2941,False,False,False,0.6215
+v13/s000004,4,fried mushrooms,Fried mushrooms,pile,metafood3d,13.13,<15 ml,55,112,0.0,fragmented,True,True,2,1.0,22,0.0,14,1.0,0.4286,0.7607,True,0.4364,False,False,False,0.8445
+v13/s000004,5,fried mushrooms,Fried mushrooms,pile,metafood3d,13.13,<15 ml,284,673,0.3979,fragmented,True,True,2,0.9965,11,0.3979,24,1.0,0.0417,0.7134,True,0.1479,True,False,False,0.5744
+v13/s000004,6,fried mushrooms,Fried mushrooms,pile,metafood3d,13.13,<15 ml,409,970,0.6831,boundary,False,False,1,0.9046,6,0.7115,24,1.0,0.0,0.7719,True,0.0856,False,False,False,0.3069
+v13/s000004,7,fried mushrooms,Fried mushrooms,pile,metafood3d,17.58,15-50 ml,37,78,0.0,fragmented,True,True,2,0.9189,0,0.0,9,1.0,0.6667,0.6681,True,0.7838,False,True,False,0.8537
+v13/s000004,8,fried mushrooms,Fried mushrooms,pile,metafood3d,11.66,<15 ml,123,293,0.0,merged,False,True,1,1.0,0,0.0,24,1.0,0.4167,0.6255,True,0.748,False,False,False,0.611
+v13/s000004,9,fried mushrooms,Fried mushrooms,pile,metafood3d,13.13,<15 ml,248,639,0.3383,fragmented,True,True,2,0.996,12,0.3629,24,1.0,0.2917,0.6531,True,0.379,False,False,False,0.5585
+v13/s000004,10,fried mushrooms,Fried mushrooms,pile,metafood3d,11.66,<15 ml,403,1019,0.4293,fragmented,True,True,2,0.928,10,0.4293,24,1.0,0.0417,0.7548,True,0.0993,True,False,True,0.3769
+v13/s000004,11,fried mushrooms,Fried mushrooms,pile,metafood3d,15.98,15-50 ml,456,1159,0.6763,merged,False,True,1,0.9956,3,0.875,24,1.0,0.1667,0.6016,True,0.4408,False,False,False,0.4651
+v13/s000004,12,fried mushrooms,Fried mushrooms,pile,metafood3d,17.58,15-50 ml,457,1144,0.8577,ok,False,True,1,0.9869,5,0.8972,24,1.0,0.0,0.7203,True,0.1554,True,False,False,0.3838
+v13/s000004,13,chicken nugget,Chicken_Nugget,pile,metafood3d,9.0884,<15 ml,197,506,0.0102,merged,False,True,1,0.7157,14,0.0102,24,1.0,0.0417,0.7085,True,0.2589,False,True,False,0.5798
+v13/s000004,14,chicken nugget,Chicken_Nugget,pile,metafood3d,9.0884,<15 ml,391,1038,0.4442,fragmented,True,True,2,0.665,9,0.4476,24,1.0,0.0,0.7446,True,0.0844,False,False,False,0.333
+v13/s000004,15,chicken nugget,Chicken_Nugget,pile,metafood3d,9.0884,<15 ml,574,1513,0.7939,ok,False,False,1,0.9425,2,0.8188,24,1.0,0.5,0.7884,True,0.2509,False,False,False,0.2879
+v13/s000004,16,chicken nugget,Chicken_Nugget,pile,metafood3d,9.0884,<15 ml,449,1224,0.7128,boundary,False,False,1,0.8218,4,0.7461,24,1.0,0.25,0.7431,True,0.196,False,False,False,0.3504
+v13/s000004,17,chicken nugget,Chicken_Nugget,pile,metafood3d,9.0884,<15 ml,406,1101,0.5806,fragmented,True,True,2,0.9236,7,0.6207,24,1.0,0.125,0.7021,True,0.3374,False,False,False,0.3656
+v13/s000005,1,fried rice,fried rice,procedural,procedural_piece,143.4764,50-150 ml,553,1315,0.0206,merged,False,True,1,0.8933,8,0.0253,24,1.0,0.0,0.7119,True,0.2188,False,True,False,0.7874
+v13/s000005,2,radicchio,radicchio,leaf,procedural_leaves,4.7298,<15 ml,1149,2930,0.5997,merged,False,True,1,0.9582,1,0.9399,24,1.0,0.125,0.7055,True,0.1323,True,False,True,0.3066
+v13/s000005,3,brussels sprout,brussels sprout,pile,primitive,10.4292,<15 ml,372,904,0.5905,fragmented,True,False,2,1.0,2,0.6317,24,1.0,0.4583,0.7919,True,0.1478,True,False,False,0.3907
+v13/s000005,4,brussels sprout,brussels sprout,pile,primitive,10.4292,<15 ml,284,674,0.8562,ok,False,False,1,1.0,4,0.9225,22,0.9545,0.0,0.8094,True,0.0704,False,True,False,0.412
+v13/s000005,5,brussels sprout,brussels sprout,pile,primitive,10.4292,<15 ml,395,888,0.9272,ok,False,False,1,0.9975,3,0.9671,24,1.0,0.125,0.7904,True,0.1013,False,False,False,0.3119
+v13/s000006,1,broccoli,Broccoli,scan,metafood3d,328.4675,>=150 ml,489,1057,0.6655,fragmented,True,True,2,0.998,4,0.7607,24,1.0,0.2917,0.7667,True,0.0961,False,False,False,0.8933
+v13/s000006,2,broccoli,Broccoli,scan,metafood3d,31.37,15-50 ml,301,712,0.742,boundary,False,False,1,0.7841,2,0.7741,22,1.0,0.0455,0.7322,True,0.0565,False,True,False,0.7781
+v13/s000006,3,broccoli,Broccoli,scan,metafood3d,328.4675,>=150 ml,671,1479,0.9028,ok,False,False,1,0.927,1,0.927,19,1.0,0.0526,0.7987,False,0.0,False,False,False,0.9096
+v13/s000006,4,strawberry,strawberry,pile,objaverse,14.5905,<15 ml,222,503,0.8554,ok,False,True,1,0.964,3,0.9324,19,1.0,0.2105,0.6809,True,0.0721,True,False,False,0.5705
+v13/s000006,5,strawberry,Strawberry,pile,metafood3d,13.5761,<15 ml,162,360,0.907,ok,False,False,1,0.963,5,0.963,16,1.0,0.125,0.6196,True,0.0926,False,False,False,0.6688
+v13/s000006,7,strawberry,Strawberry,pile,metafood3d,21.4762,15-50 ml,255,578,0.8392,ok,False,False,1,0.8392,6,0.8392,17,1.0,0.0588,0.6203,False,0.0,False,False,False,0.6961
+v13/s000006,8,strawberry,strawberry,pile,ycb,48.3234,15-50 ml,51,91,0.236,fragmented,True,True,2,1.0,8,0.7451,11,1.0,1.0,0.7397,True,0.3529,False,False,False,0.883
+v13/s000006,12,almonds,Almonds,pile,metafood3d,2.0247,<15 ml,86,204,0.5604,boundary,False,False,1,0.7907,7,0.593,16,0.6875,0.0625,0.5513,False,0.0,False,False,False,0.5487
+v13/s000006,14,almonds,Almonds,pile,metafood3d,3.69,<15 ml,28,58,0.1034,merged,False,True,1,0.4286,12,0.1071,8,0.875,0.0,0.7342,False,0.0,False,False,False,0.6882
+v13/s000007,1,mixed greens,mixed greens,leaf,procedural_leaves,14.1367,<15 ml,3194,7833,0.5771,merged,False,True,1,0.7023,2,0.6888,24,0.7083,0.0417,0.5812,True,0.3519,False,False,False,0.2545
+v13/s000007,2,lettuce,lettuce,leaf,procedural_leaves,6.4873,<15 ml,780,1789,0.0,merged,False,True,1,0.5859,0,0.0,24,0.5833,0.0833,0.5344,True,0.9179,False,False,False,0.2781
+v13/s000007,3,pizza,Pizza,scan,metafood3d,85.2253,50-150 ml,2626,6398,0.6672,boundary,False,False,1,0.837,1,0.8168,24,1.0,0.0417,0.7639,True,0.0998,False,True,False,0.6149
+v13/s000008,1,green curry,green curry,procedural,procedural_piece,383.0583,>=150 ml,4560,11597,0.8838,ok,False,False,1,0.9336,1,0.9241,24,1.0,0.0,0.7214,False,0.0274,False,False,False,0.6777
+v13/s000008,2,rice,Rice,scan,metafood3d,179.8476,>=150 ml,1988,4553,0.9252,ok,False,False,1,0.9738,2,0.9577,24,1.0,0.0833,0.6594,False,0.0418,False,False,False,0.5741
+v13/s000009,1,rice,Rice,scan,metafood3d,81.9371,50-150 ml,440,984,0.033,merged,False,True,1,0.6705,5,0.0341,24,0.7917,0.0833,0.655,True,0.1477,False,False,False,0.7665
+v13/s000009,2,salmon grill,Salmon_Grill,scan,metafood3d,183.2254,>=150 ml,1958,4605,0.8012,ok,False,True,1,0.9944,1,0.9918,24,1.0,0.0,0.6596,True,0.0552,False,False,False,0.6129
+v13/s000009,3,boiled egg,boiled egg,procedural,primitive,27.2261,15-50 ml,349,828,0.9771,ok,False,False,1,1.0,2,0.9799,24,1.0,0.0417,0.7499,True,0.0659,False,False,False,0.5745
+v13/s000009,4,sushi,Sushi,pile,metafood3d,22.15,15-50 ml,289,645,0.5502,fragmented,True,True,2,1.0,7,0.5502,24,1.0,0.375,0.6607,False,0.0173,False,False,False,0.6623
+v13/s000009,5,sushi,sushi,pile,objaverse,17.6514,15-50 ml,311,729,0.9651,ok,False,False,1,1.0,3,0.9775,24,1.0,0.0833,0.5275,True,0.0547,True,False,False,0.5238
+v13/s000009,6,sushi,Sushi,pile,metafood3d,28.75,15-50 ml,409,947,0.9548,ok,False,False,1,1.0,4,0.9804,24,1.0,0.0,0.5948,True,0.0758,False,False,False,0.4851
+v13/s000010,1,black beans,black beans,procedural,procedural_piece,36.1956,15-50 ml,691,1696,0.4347,under-covered,False,False,1,0.9407,2,0.9204,18,1.0,0.0,0.5853,False,0.0,False,False,False,0.7155
+v13/s000010,2,oatmeal,oatmeal,procedural,procedural_piece,74.0701,50-150 ml,1325,3081,0.2482,under-covered,False,False,1,0.3517,4,0.3434,21,0.1905,0.0,0.4468,False,0.0098,False,False,False,0.6538
+v13/s000010,3,waffle,Waffle,scan,metafood3d,579.02,>=150 ml,2645,6572,0.52,merged,False,True,1,0.9996,1,0.9985,24,1.0,0.2083,0.6866,True,0.0726,False,False,False,0.7535
+v13/s000010,4,sushi,sushi,pile,objaverse,17.6514,15-50 ml,187,501,0.0758,merged,False,True,1,0.9198,8,0.0802,24,1.0,0.3333,0.6887,True,0.7112,False,False,False,0.6432
+v13/s000010,5,sushi,Sushi,pile,metafood3d,22.15,15-50 ml,325,855,0.0423,merged,False,True,1,0.9231,6,0.0431,24,0.9167,0.3333,0.6587,True,0.4646,False,False,False,0.6912
+v13/s000010,6,sushi,Sushi,pile,metafood3d,42.87,15-50 ml,662,1685,0.3515,fragmented,True,True,2,0.9985,3,0.4683,24,1.0,0.5,0.6854,True,0.2689,False,False,False,0.6002
+v13/s000010,7,sushi,Sushi,pile,metafood3d,28.7,15-50 ml,514,1318,0.1547,merged,False,True,1,0.9825,5,0.1887,24,0.9583,0.3333,0.6807,True,0.3405,False,False,False,0.5235
+v13/s000011,1,pizza,Pizza,scan,metafood3d,33.4339,15-50 ml,1860,4737,0.9315,ok,False,False,1,0.9575,1,0.9575,24,1.0,0.0,0.9766,False,0.0,False,False,False,0.3187
+v13/s000012,1,sandwich,Sandwich,scan,metafood3d,548.2,>=150 ml,1795,3935,0.9438,ok,False,False,1,0.9939,1,0.9638,24,1.0,0.0,0.724,True,0.0836,False,False,False,0.823
+v13/s000012,2,grapes,Grapes,scan,metafood3d,17.088,15-50 ml,59,131,0.5738,fragmented,True,False,2,0.8305,6,0.5932,16,0.875,0.0,0.624,False,0.0,False,False,False,0.8928
+v13/s000012,3,coleslaw,Coleslaw,scan,metafood3d,126.65,50-150 ml,1475,3254,0.9221,ok,False,False,1,0.9722,2,0.9627,24,1.0,0.0833,0.716,True,0.0698,True,False,False,0.5824
+v13/s000012,4,broccoli,Broccoli,scan,metafood3d,23.72,15-50 ml,224,507,0.9567,ok,False,False,1,0.9955,5,0.9866,24,1.0,0.0417,0.8046,True,0.0625,False,False,False,0.7733
+v13/s000012,5,broccoli,Broccoli,scan,metafood3d,91.7261,50-150 ml,709,1594,0.9487,ok,False,False,1,1.0,3,0.9647,24,1.0,0.0,0.8755,True,0.0621,True,False,False,0.735
+v13/s000012,6,broccoli,Broccoli,scan,metafood3d,31.37,15-50 ml,273,646,0.8676,ok,False,False,1,0.956,4,0.9121,24,1.0,0.0417,0.8016,True,0.0696,False,False,False,0.7729
+v13/s000013,1,spinach (raw),spinach (raw),leaf,procedural_leaves,6.9794,<15 ml,1703,4375,0.294,under-covered,False,False,1,0.9712,3,0.2959,24,1.0,0.375,0.6579,True,0.091,False,False,False,0.3463
+v13/s000013,2,carrot,Carrot,scan,metafood3d,22.6077,15-50 ml,266,608,0.5159,boundary,False,False,1,0.6278,9,0.5489,24,0.8333,0.2083,0.7192,True,0.1917,False,True,False,0.7443
+v13/s000013,3,carrot,Carrot,scan,metafood3d,7.43,<15 ml,97,259,0.5321,boundary,False,False,1,0.6289,6,0.5979,24,0.5833,0.0,0.8314,True,0.4536,False,False,False,0.7584
+v13/s000013,4,carrot,Carrot,scan,metafood3d,7.43,<15 ml,226,619,0.7535,ok,False,False,1,0.969,4,0.9469,24,1.0,0.0,0.8611,True,0.1903,False,False,False,0.4625
+v13/s000013,5,chicken tender,Chicken_tender,scan,metafood3d,43.95,15-50 ml,150,367,0.3041,fragmented,True,True,2,0.6667,17,0.3933,18,0.9444,0.0,0.7089,True,0.5733,False,True,False,0.8837
+v13/s000013,6,chicken tender,Chicken_tender,scan,metafood3d,63.2756,50-150 ml,906,2251,0.8123,ok,False,True,1,0.9371,2,0.8885,24,1.0,0.0,0.7876,True,0.0982,False,False,False,0.6429
+v13/s000013,7,chicken tender,Chicken_tender,scan,metafood3d,42.06,15-50 ml,1109,2713,0.9012,ok,False,False,1,0.9558,1,0.9297,24,1.0,0.0417,0.8337,True,0.0757,False,False,True,0.4859
+v13/s000013,9,olive,olive,pile,primitive,2.9955,<15 ml,115,279,0.5882,boundary,False,False,1,0.8609,7,0.6957,24,0.9167,0.4167,0.8249,True,0.5739,False,False,False,0.4772
+v13/s000013,10,olive,olive,pile,primitive,3.3426,<15 ml,119,312,0.6875,boundary,False,False,1,0.958,5,0.7395,24,1.0,0.7083,0.8322,True,0.563,False,False,False,0.4228
+v13/s000013,11,olive,olive,pile,primitive,2.7243,<15 ml,73,182,0.4766,under-covered,False,False,1,0.8493,14,0.6986,17,0.8824,0.4118,0.8269,True,0.5342,False,False,False,0.4523
+v13/s000014,1,lasagna,Lasagna,scan,metafood3d,86.6917,50-150 ml,1294,3022,0.9261,ok,False,False,1,0.9598,1,0.9397,24,1.0,0.0,0.8128,True,0.1144,False,True,False,0.5842
+v13/s000014,2,kiwi,Kiwi,scan,metafood3d,14.45,<15 ml,604,1487,0.9493,ok,False,False,1,0.9818,2,0.9603,24,1.0,0.0,0.8719,True,0.0712,False,False,False,0.3506
+v13/s000014,3,melons,Melons,pile,metafood3d,24.5328,15-50 ml,515,1271,0.943,ok,False,False,1,0.9728,3,0.9631,24,1.0,0.0,0.856,True,0.0971,True,False,False,0.4947
+v13/s000014,4,melons,Melons,pile,metafood3d,24.5328,15-50 ml,389,918,0.9157,ok,False,False,1,1.0,5,0.9769,24,1.0,0.0,0.8417,True,0.2005,True,False,False,0.5134
+v13/s000014,5,melons,Melons,pile,metafood3d,24.5328,15-50 ml,357,804,0.9415,ok,False,False,1,0.9552,4,0.9468,24,1.0,0.0,0.8662,True,0.0588,False,False,False,0.5463
+v13/s000015,1,hummus,hummus,procedural,procedural_piece,53.1885,50-150 ml,1559,4086,0.2371,fragmented,True,True,2,0.9929,1,0.4169,24,1.0,0.5,0.8487,True,0.3528,False,False,False,0.3537
+v13/s000015,2,couscous,couscous,procedural,procedural_piece,179.2153,>=150 ml,2664,6868,0.5194,merged,False,True,1,0.9444,5,0.9215,24,1.0,0.0,0.9143,True,0.0544,False,False,False,0.3935
+v13/s000015,3,cucumber,Cucumber,pile,metafood3d,13.0871,<15 ml,321,866,0.3149,under-covered,False,False,1,0.9813,2,0.7819,21,1.0,0.4762,0.8967,True,0.6947,False,False,False,0.1763
+v13/s000015,4,cucumber,Cucumber,pile,metafood3d,13.0871,<15 ml,491,1360,0.1802,fragmented,True,True,2,0.9959,4,0.2444,24,1.0,0.6667,0.8957,True,0.8839,False,False,False,0.1495
+v13/s000015,5,cucumber,Cucumber,pile,metafood3d,13.0871,<15 ml,419,1115,0.3888,under-covered,False,False,1,0.8353,3,0.8305,24,0.875,0.2083,0.8727,True,0.3508,False,False,False,0.2962
+v13/s000015,6,cucumber,Cucumber,pile,metafood3d,13.0871,<15 ml,305,798,0.1352,fragmented,True,True,3,0.9934,6,0.3246,23,1.0,0.4783,0.8966,True,0.8885,False,False,False,0.2059
+v13/s000016,1,cereal with milk,cereal with milk,procedural,procedural_piece,365.8615,>=150 ml,5849,15344,0.406,under-covered,False,False,1,0.8988,1,0.8123,24,1.0,0.0,0.823,False,0.0024,False,False,False,0.2591
+v13/s000016,2,blueberries,Blueberries,scan,metafood3d,2.5703,<15 ml,48,136,0.1368,fragmented,True,False,2,1.0,3,0.2708,17,1.0,0.4706,0.734,True,0.6458,False,False,False,0.0
+v13/s000017,1,burger,Burger,scan,metafood3d,445.7622,>=150 ml,1708,4046,0.4943,under-covered,False,False,1,0.9789,2,0.5375,24,1.0,0.7917,0.6474,True,0.1587,False,False,False,0.6671
+v13/s000017,2,boiled egg,boiled egg,procedural,primitive,23.6386,15-50 ml,183,395,0.125,merged,False,True,1,0.9235,6,0.1913,21,0.9524,0.619,0.5803,True,0.5191,False,False,True,0.317
+v13/s000017,3,tortilla chips,Tortilla_Chips,pile,metafood3d,2.109,<15 ml,280,619,0.2779,fragmented,True,True,2,0.9929,15,0.4357,17,1.0,0.2941,0.4927,True,0.7143,False,False,False,0.0265
+v13/s000017,4,tortilla chips,Tortilla_Chips,pile,metafood3d,4.51,<15 ml,456,999,0.6331,merged,False,True,1,0.8048,5,0.7456,19,0.9474,0.1053,0.5891,True,0.2215,False,False,True,0.0941
+v13/s000017,5,tortilla chips,Tortilla_Chips,pile,metafood3d,4.51,<15 ml,198,471,0.2779,merged,False,True,1,0.9899,9,0.9545,14,1.0,0.0714,0.4857,True,0.7121,False,False,False,0.205
+v13/s000017,6,cherry tomato,cherry tomato,pile,primitive,7.7364,<15 ml,122,300,0.0892,fragmented,True,True,2,0.9918,14,0.1148,15,1.0,0.7333,0.6762,True,0.7705,False,False,False,0.2153
+v13/s000017,7,cherry tomato,cherry tomato,pile,primitive,7.7364,<15 ml,156,424,0.2445,merged,False,True,1,0.8974,11,0.4295,20,1.0,0.55,0.6591,True,0.5705,False,False,False,0.0
+v13/s000017,8,cherry tomato,cherry tomato,pile,primitive,8.0818,<15 ml,212,510,0.2812,fragmented,True,False,2,0.9245,12,0.3396,19,1.0,0.4211,0.6757,True,0.5283,False,False,False,0.0277
+v13/s000018,1,quinoa,quinoa,procedural,procedural_piece,70.2529,50-150 ml,693,1728,0.6829,merged,False,True,1,0.7965,4,0.7706,24,1.0,0.0833,0.7274,True,0.2251,False,False,False,0.7349
+v13/s000018,2,hummus,hummus,procedural,procedural_piece,31.1302,15-50 ml,730,1839,0.6945,merged,False,True,1,0.8932,2,0.8781,24,1.0,0.0,0.6982,True,0.1767,False,False,False,0.5672
+v13/s000018,3,salsa,salsa,topping,procedural_topping,15.0178,15-50 ml,129,312,0.0,fragmented,True,True,2,0.938,20,0.0,24,1.0,1.0,0.673,True,0.9535,True,False,False,0.6798
+v13/s000018,5,tomato sauce,tomato sauce,topping,procedural_topping,5.515,<15 ml,209,503,0.5794,fragmented,True,True,2,1.0,12,0.6459,23,1.0,0.8696,0.6265,True,0.5646,True,False,False,0.3995
+v13/s000018,6,lemon slice,lemon slice,pile,objaverse,33.9136,15-50 ml,169,372,0.6473,boundary,False,False,1,0.8876,13,0.7929,23,1.0,0.1739,0.7823,True,0.071,False,False,False,0.7175
+v13/s000018,7,lemon slice,lemon slice,pile,objaverse,33.9136,15-50 ml,499,1229,0.7909,ok,False,True,1,0.994,11,0.9098,24,1.0,0.0,0.7678,True,0.2405,False,False,False,0.5523
+v13/s000018,8,lemon slice,lemon slice,pile,objaverse,33.9136,15-50 ml,566,1311,0.8624,ok,False,False,1,0.9788,3,0.9187,24,1.0,0.0,0.784,True,0.1572,False,False,False,0.5245
+v13/s000018,9,lemon slice,lemon slice,pile,objaverse,22.2167,15-50 ml,378,937,0.0653,merged,False,True,1,0.8042,14,0.0661,24,1.0,0.375,0.5568,True,0.3545,False,False,False,0.5976
+v13/s000018,10,lemon slice,lemon slice,pile,objaverse,33.9136,15-50 ml,287,687,0.7225,boundary,False,False,1,0.9686,10,0.8711,24,1.0,0.1667,0.7199,True,0.2822,False,False,False,0.7259
+v13/s000018,11,lemon slice,lemon slice,pile,objaverse,22.2167,15-50 ml,417,960,0.5828,merged,False,True,1,0.9976,1,0.9281,24,1.0,0.1667,0.5566,True,0.1391,True,False,False,0.5977
+v13/s000018,12,melons,Melons,pile,metafood3d,22.94,15-50 ml,445,1108,0.9843,ok,False,False,1,0.9978,5,0.9843,24,1.0,0.0,0.8149,False,0.0157,False,False,False,0.4487
+v13/s000018,13,melons,Melons,pile,metafood3d,22.94,15-50 ml,512,1317,0.9146,ok,False,False,1,0.9961,7,0.9414,24,1.0,0.0833,0.8256,True,0.1328,False,False,False,0.5513
+v13/s000018,14,melons,Melons,pile,metafood3d,22.94,15-50 ml,233,565,0.877,ok,False,False,1,0.9185,9,0.9185,24,1.0,0.0417,0.8275,True,0.1459,False,False,False,0.6264
+v13/s000018,15,melons,Melons,pile,metafood3d,22.94,15-50 ml,450,1063,0.9648,ok,False,False,1,0.9956,6,0.9733,24,1.0,0.0,0.825,True,0.0578,False,False,False,0.4967
+v13/s000018,16,melons,Melons,pile,metafood3d,22.94,15-50 ml,306,753,0.9498,ok,False,False,1,1.0,8,0.9902,24,1.0,0.0,0.8298,True,0.1373,False,False,False,0.646
+v13/s000019,1,dal,dal,procedural,procedural_piece,58.0332,50-150 ml,895,2275,0.7549,ok,False,False,1,0.9709,2,0.8257,24,0.9583,0.0417,0.6419,True,0.2391,False,False,False,0.5933
+v13/s000019,2,white rice,white rice,procedural,procedural_piece,251.3736,>=150 ml,2702,6512,0.9387,ok,False,False,1,0.9952,1,0.9911,24,1.0,0.0,0.8359,True,0.0588,False,False,False,0.5418
+v13/s000019,3,sour cream,sour cream,topping,procedural_topping,6.5377,<15 ml,332,776,0.4592,fragmented,True,False,2,1.0,3,0.491,24,1.0,0.2083,0.5284,True,0.4608,True,False,False,0.1939
