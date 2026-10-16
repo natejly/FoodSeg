@@ -22,7 +22,7 @@ RENDER_L = 0.66        # median (rendered / texture) lightness and chroma, measu
 RENDER_C = 0.58
 STRENGTH_L = 0.7
 STRENGTH_C = 0.85
-GENERIC_L, GENERIC_C = 66.0, 50.0          # caps on a texture's median lightness / chroma without a reference food
+GENERIC_L, GENERIC_C = 72.0, 62.0          # caps on a texture's median lightness / chroma without a reference food
 FILL_SHARE = 0.02      # an unused-area colour covers at least this much of the atlas
 FILL_TOL = 10          # (0..255) per channel
 GREY_C = 8.0           # neutral texel: Lab chroma below this ...
@@ -116,8 +116,8 @@ def grade_params(stats: dict, target: dict | None) -> dict:
         Ls, Cs = target["L"] / RENDER_L, target["C_p50"] / RENDER_C
         Cmax = max(1.0 * Cs, 32.0)
     else:
-        Ls, Cs = GENERIC_L, GENERIC_C
-        Cmax = 65.0
+        Ls, Cs = (GENERIC_L if C50 > 25.0 else 100.0), GENERIC_C       # pale foods (egg, rice, cream) may be bright
+        Cmax = 75.0
     L_to = L50 + STRENGTH_L * (Ls - L50) if L50 > Ls else (L50 + 0.5 * (Ls - L50) if L50 < 0.6 * Ls else L50)
     if C50 > Cs:
         C_to = C50 + STRENGTH_C * (Cs - C50)
@@ -214,3 +214,16 @@ def prepare(rgb: np.ndarray, name: str, grade: bool = True, chunk: int = 1 << 20
     for i in range(0, len(flat), chunk):
         out[i:i + chunk] = np.clip(lab_to_srgb(lab[i:i + chunk]) * 255 + 0.5, 0, 255).astype(np.uint8)
     return out.reshape(h, w, 3), info
+
+
+def grade_flat_colour(linear_rgb, name: str) -> list[float]:
+    """The same grade for a flat procedural colour (linear RGB, as Blender's Base Color takes it): a brussels sprout
+    painted (0.25, 0.4, 0.08) renders lime; its Nutrition5k photos are dark olive."""
+    from synth.colour_audit import linear_to_srgb
+    lab = srgb_to_lab(linear_to_srgb(linear_rgb))
+    st = dict(L50=float(lab[0]), C50=float(chroma(lab)), C90=float(chroma(lab)), hue=float(hue_deg(lab)))
+    p = grade_params(st, n5k_target(name))
+    g = grade_lab(lab[None].astype(np.float32), p, st)[0]
+    srgb = np.clip(lab_to_srgb(g), 0.0, 1.0)
+    lin = np.where(srgb <= 0.04045, srgb / 12.92, ((srgb + 0.055) / 1.055) ** 2.4)
+    return [round(float(x), 4) for x in lin]

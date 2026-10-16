@@ -92,3 +92,11 @@ def test_streak_ratio():
     healthy = rng.random((64, 64)) * 255
     streaks = np.repeat(rng.random((64, 1)) * 255, 64, axis=1)
     assert ca.streak_ratio(healthy) < ca.STREAK_RATIO < ca.streak_ratio(streaks)
+
+
+def test_grade_flat_colour_darkens_lime_sprout():
+    before = ca.srgb_to_lab(ca.linear_to_srgb([0.25, 0.4, 0.08]))
+    after = ca.srgb_to_lab(ca.linear_to_srgb(tg.grade_flat_colour([0.25, 0.4, 0.08], "brussels sprout")))
+    assert after[0] < before[0] - 8 and ca.chroma(after) < ca.chroma(before)
+    same = tg.grade_flat_colour([0.85, 0.82, 0.75], "boiled egg")
+    assert np.allclose(same, [0.85, 0.82, 0.75], atol=0.03)

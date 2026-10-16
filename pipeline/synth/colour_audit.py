@@ -140,8 +140,10 @@ def streak_ratio(gray: np.ndarray) -> float:
 
 
 def write_assets_excluding_streaks(src: Path, dst: Path) -> list[str]:
-    """Copy an assets jsonl, setting qa_exclude (reason 'streak_texture') on rows whose texture is a smear."""
+    """Copy an assets jsonl, setting qa_exclude (reason 'streak_texture') on rows whose texture is a smear and
+    grading the flat colours of procedural primitives (synth.tex_grade.grade_flat_colour)."""
     from PIL import Image
+    from synth.tex_grade import grade_flat_colour
     bad, rows = [], []
     for line in open(src):
         a = json.loads(line)
@@ -153,6 +155,9 @@ def write_assets_excluding_streaks(src: Path, dst: Path) -> list[str]:
                     a["qa_exclude"], a["qa_reason"] = True, "streak_texture"
                     a["qa_flags"] = list(a.get("qa_flags") or []) + ["streak_texture"]
                     bad.append(a["id"])
+        if a.get("color") is not None and a.get("source") == "primitive":
+            a["color_v6"] = a["color"]
+            a["color"] = grade_flat_colour(a["color"], a.get("name", ""))
         rows.append(a)
     with open(dst, "w") as f:
         for a in rows:
@@ -190,7 +195,7 @@ def _real_lab(asset_id: str, category: str | None) -> np.ndarray | None:
 # Nutrition5k statistics are biased for them
 N5K_PALE = {"white rice", "cauliflower", "egg whites", "cottage cheese", "yogurt", "frozen yogurt", "tofu", "eggs", "oatmeal"}
 N5K_ALIAS = {"boiled egg": None, "salmon grill": "salmon", "chicken nugget": "chicken", "fried mushroom": "mushroom", "melon": None,
-             "cherry tomato": "cherry tomatoes", "french fr": "potatoes", "strawberry": "strawberries",
+             "cherry tomato": "cherry tomatoes", "tomato": "cherry tomatoes", "french fr": "potatoes", "strawberry": "strawberries",
              "sushi": None, "pasta": None, "bread": None}
 _n5k: dict | None = None
 
