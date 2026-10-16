@@ -69,8 +69,8 @@ def orbit_poses(rng: np.random.Generator, n: int, centre: np.ndarray,
     shift0 = np.zeros(2)
     if dish_r is not None:
         el0 = np.deg2rad(rng.uniform(36, 62))
-        frac = rng.uniform(0.55, 0.80)                       # plate outline radius vs image width; measured silhouette major axis ~1.09x (food, rim) -> U(0.60, 0.87)
-        dist0 = float(np.clip(2 * dish_r * FX / (RGB_W * frac), 0.27, 0.45))   # the LiDAR is unusable below ~0.25 m (min_range 0.18 + bias): small plates frame looser
+        frac = rng.uniform(0.60, 0.90)                       # plate outline vs image width (N5k 0.6-0.83 of W; U(0.62, 0.90) target)
+        dist0 = float(np.clip(2 * dish_r * FX / (RGB_W * frac), 0.25, 0.45))   # the LiDAR is unusable below ~0.25 m (min_range 0.18 + bias): small plates frame looser
         shift0 = rng.uniform(-0.05, 0.05, 2) * [1.0, 0.8]    # scan-wide framing bias, fraction of W
     poses, times = [], []
     duration = rng.uniform(20, 40)
@@ -85,7 +85,7 @@ def orbit_poses(rng: np.random.Generator, n: int, centre: np.ndarray,
             el = np.deg2rad(rng.uniform(72, 86) if dish_r is None else rng.uniform(76, 88))
         d = dist0 * (1 + rng.normal(0, 0.05)) * (0.95 if (dish_r is not None and i >= n_ring) else 1.0)
         if dish_r is not None:
-            d = max(d, 0.25)
+            d = max(d, 0.235)
         eye = centre + d * np.array([np.cos(el) * np.cos(az), np.cos(el) * np.sin(az), np.sin(el)])
         tgt = centre + rng.normal(0, 0.012, 3) * [1, 1, 0.3]
         T = look_at(eye, tgt, roll=np.deg2rad(rng.normal(0, 4)))
