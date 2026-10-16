@@ -50,6 +50,7 @@ class Config:
     seed: int = 0
     train_regime: str = "r1"             # r1: default lift corruption | r2: augment.HARD_LIFT corruption on every sample
     eval_regime: str = "r1"              # r1: stored lift as-is | r2: hard lift applied deterministically at eval
+    skip_val: bool = False                 # no in-training validation (semantic.py evaluates last.pt itself)
     max_mem_gb: float = 4.0                # abort if torch peak alloc exceeds (shared GPU)
     data: DataConfig = field(default_factory=DataConfig)
     aug: A.AugConfig = field(default_factory=A.AugConfig)
@@ -232,7 +233,7 @@ def main(argv=None):
                    s_per_iter=(time.time() - te) / max(len(losses), 1))
         if a.smoke:
             rec["loss_first5"], rec["loss_last5"] = float(np.mean(losses[:5])), float(np.mean(losses[-5:]))
-        if (ep + 1) % cfg.val_every == 0 or stop:
+        if not cfg.skip_val and ((ep + 1) % cfg.val_every == 0 or stop):
             torch.cuda.empty_cache()
             rec["val"] = evaluate(model, ds_va, cfg, baseline=(ep == 0))
             model.train()

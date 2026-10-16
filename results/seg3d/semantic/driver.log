@@ -1,0 +1,21 @@
+semantic/full_f0: rc=99 wall 900s
+LOCK WAIT TIMEOUT
+semantic/full_f0: rc=0 wall 306s
+LOCK WAIT TIMEOUT
+W1016 14:53:22.140000 2595882 site-packages/torch/fx/_symbolic_trace.py:53] is_fx_tracing will return true for both fx.symbolic_trace and torch.export. Please use is_fx_tracing_symbolic_tracing() for specifically fx.symbolic_trace or torch.compiler.is_compiling() for specifically torch.export/compile.
+final done full_f0 14 scans, peak GiB 0.9539318084716797
+semantic/nolift_f0: rc=0 wall 222s
+W1016 14:57:16.653000 2609084 site-packages/torch/fx/_symbolic_trace.py:53] is_fx_tracing will return true for both fx.symbolic_trace and torch.export. Please use is_fx_tracing_symbolic_tracing() for specifically fx.symbolic_trace or torch.compiler.is_compiling() for specifically torch.export/compile.
+final done nolift_f0 14 scans, peak GiB 0.9539318084716797
+semantic/full_f1: rc=0 wall 241s
+W1016 15:01:28.701000 2622246 site-packages/torch/fx/_symbolic_trace.py:53] is_fx_tracing will return true for both fx.symbolic_trace and torch.export. Please use is_fx_tracing_symbolic_tracing() for specifically fx.symbolic_trace or torch.compiler.is_compiling() for specifically torch.export/compile.
+final done full_f1 14 scans, peak GiB 0.9539318084716797
+semantic/nolift_f1: rc=0 wall 239s
+W1016 15:05:38.998000 2636099 site-packages/torch/fx/_symbolic_trace.py:53] is_fx_tracing will return true for both fx.symbolic_trace and torch.export. Please use is_fx_tracing_symbolic_tracing() for specifically fx.symbolic_trace or torch.compiler.is_compiling() for specifically torch.export/compile.
+final done nolift_f1 14 scans, peak GiB 0.9539318084716797
+semantic/full_f2: rc=0 wall 233s
+W1016 15:19:40.514000 2680455 site-packages/torch/fx/_symbolic_trace.py:53] is_fx_tracing will return true for both fx.symbolic_trace and torch.export. Please use is_fx_tracing_symbolic_tracing() for specifically fx.symbolic_trace or torch.compiler.is_compiling() for specifically torch.export/compile.
+final done full_f2 12 scans, peak GiB 0.9539318084716797
+semantic/nolift_f2: rc=0 wall 807s
+W1016 15:42:06.301000 2749279 site-packages/torch/fx/_symbolic_trace.py:53] is_fx_tracing will return true for both fx.symbolic_trace and torch.export. Please use is_fx_tracing_symbolic_tracing() for specifically fx.symbolic_trace or torch.compiler.is_compiling() for specifically torch.export/compile.
+final done nolift_f2 12 scans, peak GiB 0.9539318084716797
