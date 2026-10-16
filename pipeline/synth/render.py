@@ -946,6 +946,60 @@ SCAN_BAKED = ("bread", "toast", "bun", "roll", "waffle", "pancake", "cake", "muf
               "tortilla", "bagel", "croissant", "cracker", "cupcake", "brownie", "donut", "doughnut", "pie", "sandwich", "burger")
 
 
+_GRADED: set = set()
+_GRADE_DIR = None
+_GRADE_CACHE: dict = {}
+
+
+def grade_scan_textures(obj, name: str) -> None:
+    """Repair + colour-grade the atlas of a scanned food in memory (synth.tex_grade): unused-area fill, grey hole-fill
+    islands, over-bright / neon colour.  SCAN_GRADE=0 disables (A/B)."""
+    if os.environ.get("SCAN_GRADE", "1") == "0":
+        return
+    root = str(Path(globals().get("__file__", "synth/render.py")).resolve().parent.parent)
+    if root not in sys.path:
+        sys.path.insert(0, root)
+    from synth import tex_grade
+    for m in obj.blender_obj.data.materials:
+        if m is None or not m.use_nodes:
+            continue
+        for n in m.node_tree.nodes:
+            im = getattr(n, "image", None) if n.type == "TEX_IMAGE" else None
+            if im is None or im.colorspace_settings.name != "sRGB" or (im.name, name) in _GRADED:
+                continue
+            _GRADED.add((im.name, name))
+            key = (os.path.realpath(bpy.path.abspath(im.filepath)), name)
+            if key in _GRADE_CACHE:                     # same atlas on another item of the scene
+                im.filepath = _GRADE_CACHE[key]
+                im.reload()
+                continue
+            try:
+                w, h = im.size
+                px = np.empty(w * h * 4, np.float32)
+                im.pixels.foreach_get(px)
+                px = px.reshape(h, w, 4)
+                rgb = np.clip(px[..., :3] * 255 + 0.5, 0, 255).astype(np.uint8)
+                out, info = tex_grade.prepare(rgb, name)
+                px[..., :3] = out.astype(np.float32) / 255.0
+                im.pixels.foreach_set(px.reshape(-1))
+                # persist: Cycles may re-read a FILE image from disk, so point it at the graded copy
+                global _GRADE_DIR
+                if _GRADE_DIR is None:
+                    import tempfile
+                    _GRADE_DIR = tempfile.mkdtemp(prefix="scan_grade_")
+                    import atexit, shutil
+                    atexit.register(shutil.rmtree, _GRADE_DIR, True)
+                tp = os.path.join(_GRADE_DIR, f"{len(_GRADED)}.png")
+                im.filepath_raw = tp
+                im.file_format = "PNG"
+                im.save()
+                im.reload()
+                _GRADE_CACHE[key] = tp
+                print(f"[render] grade {name}: {info}", flush=True)
+            except Exception as e:  # noqa: BLE001
+                print(f"[render] grade {name} failed: {e}", flush=True)
+
+
 def scan_material(obj, it: dict) -> None:
     """Make a scanned food (MetaFood3D / Objaverse) read as food rather than as a plastic model:
       * Sketchfab 'unlit' glTF materials (Emission seen by camera rays, Transparent for every other ray) cast no shadow and
@@ -957,6 +1011,7 @@ def scan_material(obj, it: dict) -> None:
       * a little subsurface scattering on fruit / vegetables (translucent edges) .
     Per-item randomness comes from numpy's global state (seeded per scene), so renders are reproducible."""
     name = str(it.get("name", "")).lower()
+    grade_scan_textures(obj, name)
     s_obj = float(it["to_m"]) * float(it["scale"])
     has = lambda words: any(w in name for w in words)
     juicy, green, red, baked = has(SCAN_JUICY), has(SCAN_GREEN), has(SCAN_RED), has(SCAN_BAKED)
