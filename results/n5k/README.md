@@ -193,3 +193,14 @@ Finals (all train data, 100 epochs, ingredient aux): s3_ie100_full 10.0 / 13.8 /
 fat and protein. Note: NuNet's test set is "the split of [9] minus three test images
 duplicated in training", not stated to be `depth_test_ids` (507), so the comparison is close
 but not guaranteed identical.
+
+### Dual ConvNeXt-B, 150 epochs (2026-10-17)
+
+`b3t_dual_ie150_full`: ConvNeXt-B RGB encoder + ConvNeXt-T depth encoder, ingredient aux 0.5,
+150 epochs, all train data, SAM 3 cache. Single-model test: mass 19.1 g (9.6 %), kcal 33.5
+(13.1 %), fat 2.7 (20.9 %), carb 3.8 (19.4 %), protein 3.6 (20.8 %).
+
+**Average of all 17 full-data models** (same fixed rule, geometric mean; the 16 above plus this
+run): **mass 9.0 %, kcal 13.0 %, fat 21.1 %, carb 19.6 %, protein 20.3 % (mean 16.6)** vs NuNet
+8.7 / 12.8 / 19.7 / 18.7 / 18.4 (mean 15.65). Still behind NuNet on every target (kcal closest,
+13.0 vs 12.80); none are at or below NuNet.
