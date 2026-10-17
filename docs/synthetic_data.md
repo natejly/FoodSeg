@@ -64,3 +64,129 @@ synth-only / real-only / synth-pretrain + real-FT for (a) SAM 3 food segmentatio
 
 ## Sources
 github.com/DLR-RM/BlenderProc · github.com/google-research/kubric · docs.isaacsim.omniverse.nvidia.com · 2409.01966 · 2304.05619 · github.com/omniobject3d/OmniObject3D · 2312.06192 · github.com/saeejithnair/nvsynth · 2309.07704 · 2606.08948 · 2404.12257 · 2604.12356 · 2107.07191 · 2606.02021 · 2404.07987 · 2311.12891 · 2512.08747 · 2208.03792 · 1907.07061 · 2607.18576 · 2009.07378 · github.com/ankurhanda/simkinect · Luetzenburg 2021 (10.1038/s41598-021-01763-9) · Tondo 2023 (10.3390/s23187832)
+
+## Implementation (`pipeline/synth/`, started 2026-10-11)
+
+Scenes are written in the **FoodScan capture format**, so `fuse`, `run_meal`, `segment`,
+`depth_upsample` run on them unchanged; ground truth sits next to it in `gt.json` / `gt/`.
+
+| Stage | Module | Env |
+|---|---|---|
+| asset index: units, exact volume, mass if known; procedural primitives | `synth/assets.py` | `synth` |
+| scene spec: container (lathe bowl/plate), container-conforming fill, items, lights, hand-held orbit (protocol: ~45° ring + top-down), ARKit-like world | `synth/spec.py`, `synth/geometry.py` | `synth` |
+| render: physics drop, RGB, z-depth, instance ids (one Blender per scene) | `synth/render.py` | Blender 4.2.1 via BlenderProc 2.8 |
+| finalize: iPad LiDAR model (`synth/lidar.py`), FoodScan dirs, GT masks, exact container template | `synth/finalize.py` | `synth` |
+| all of the above in a loop / Slurm array | `synth/batch.py`, `scripts/bouchet/synth_render.sbatch` | `synth` |
+| volume error vs GT, plane vs container support, oracle masks | `synth/evaluate.py` | `foodseg` (open3d) |
+
+```bash
+cd pipeline
+conda activate synth     # python 3.11: pip install -r synth/requirements.txt
+python -m synth.assets --out ../data/synth/assets.jsonl --metafood3d ../data/datasets/MetaFood3D
+python -m synth.batch --assets ../data/synth/assets.jsonl --root ../data/synth/v0 --n 20 --res-scale 0.5
+conda activate foodseg
+python -m synth.evaluate ../data/synth/v0/scans --out ../results/synth/v0
+```
+
+Per scan: `gt.json` (per-item `volume_ml`, `mass_g` when the asset has it, container
+parameters + `capacity_ml`, table plane in ARKit coords, LiDAR params), `gt/masks/`
+(oracle masks: `run_meal --masks SCAN/gt/masks`), `gt/container.npz` (exact template:
+`run_meal --container SCAN/gt/container.npz`), `gt/container/` (dish masks),
+`gt/depth_clean/` and optionally `gt/depth_hr/`.
+
+Conventions: Blender world is Z up; `world_to_arkit` swaps to Y up with a random yaw and
+offset (an ARKit session origin is arbitrary). Camera axes are the same in Blender and
+ARKit (+X right, +Y up, −Z forward). ARKit K puts pixel centres at +0.5, BlenderProc at
+integers, so `render.py` subtracts 0.5 from cx, cy.
+
+Caveats / TODO
+- iPad K is a placeholder (fx 1440 at 1920×1440); take it from a real `frames.jsonl`.
+- `LidarParams` are literature placeholders; fit them on the `cal_*` scans and keep the
+  fitted values (they are copied into every `gt.json`).
+- v0 procedural food has flat colours (the hard preset adds noise colour + bump); real
+  appearance comes from MetaFood3D / OmniObject3D textures. HDRIs (`--hdri-dir`, Poly
+  Haven) and table textures are optional.
+- No amodal masks yet (needs a per-item render pass).
+- Physics: items that leave the dish or are visible in < 3 frames are flagged in `gt.json`
+  (`off_container`, `frames_visible`) and excluded by `synth/evaluate.py`.
+- Physics runs on a convex-hull proxy (≤ 20k sampled vertices) of each scan, whose pose is
+  copied back: Bullet's hull shape walks every vertex per contact query, and with the
+  full 0.3-1.6 M-vertex scans one scene did not finish physics in 10 min.
+
+### Real online assets and physics (2026-10-13)
+
+- `synth.fetch_assets` downloads real scans with no account: Poly Haven food (CC0, glTF), YCB
+  (CC BY 4.0: cutlery, bowl, plate, mug, plastic fruit) and Google Scanned Objects (CC BY 4.0:
+  plates, bowls, ramekins, mugs) into `data/datasets/online/` with `sources.jsonl` (licence,
+  attribution). `assets.index_online` indexes them with a `role` (food / container / clutter);
+  index with everything: `data/synth/assets_v3.jsonl`. GSO zips keep the texture away from the
+  mesh, so the fetcher copies it next to `model.obj` (else dishes render magenta).
+- Hard preset: 40 % of scenes use a real scanned dish (those scenes hold only dropped items,
+  since procedural heaps are built on the analytic dish surface); clutter is 80 % real YCB
+  cutlery / GSO mugs.
+- **Compound colliders**: `synth.collision` decomposes each scan with CoACD (decimated to 20k
+  faces, <= 12 convex parts, ~7-10 s per asset, cached in `data/synth/collision/`); render.py
+  makes the scan a COMPOUND rigid body of hidden convex parts. Items now nest and lean on each
+  other instead of resting on one hull, and physics got faster (139 s vs ~520 s for the same
+  pile scene). Pile items are poured with random orientation; singles tilt up to ~0.3 rad.
+- **Cloth leafy greens**: 35 % of hard scenes get a salad portion (lettuce, spinach, arugula,
+  mixed greens, kale, radicchio): 6-16 leaf sheets dropped as one cloth object with
+  self-collision onto the settled scene, frozen and given 0.6 mm thickness; volume = the
+  thickened sheets. Stable settings came from a sweep (`simulate_cloth` docstring): mass
+  3 g / vertex, air damping 0.5, contact distance 0.6 mm, quality 15, 150 frames, leaf tips
+  >= 40 % of full width and leaves >= 3 cm (pointed tips or 2 cm leaves put vertices closer
+  than the contact distance and the cloth exploded). Leaves that slide over a small bowl's
+  rim are caught by `synth.manifest`'s `leaves_off_dish` flag (> 10 % of the salad's surface
+  off the dish) and dropped.
+
+### Hard preset: the 3D segmentation stress test (`--preset hard`, `synth/spec_hard.py`)
+
+v0 scenes (and the `eval/mf3d_composite.py` scenes: separate scans on a flat plane, no
+colour) are close to solved for 3D instance segmentation (DGCNN mIoU 0.945). Real meals
+fail on what they lack, so the hard preset adds, keeping every volume exact:
+
+| Case | How | Exactness |
+|---|---|---|
+| amorphous foods touching | one heap (`geometry.Mound`) split into 1-3 wedges with wavy boundaries (`split_angles`), each a different fill food with its own mound height; 30 % of splits pick the closest-coloured fills | wedges partition the heap: piece volumes sum to the whole (test) |
+| stacked food | toppings (sauce, cheese, pesto…) lying on a piece's top surface, fully inside it (`topping_mesh`) | closed mesh on top of the surface, no overlap |
+| same-class piles | 2-5 scans of one MetaFood3D category dropped together | physics; asset volumes |
+| clutter | knife / fork / spoon / mug / napkin on the table, label 253 | not food; excluded from masks |
+| appearance | noise colour + bump on procedural food (`render.textured_material`) | — |
+
+Plates are 60 %, bowls 40 %; up to 8 food items. Each scan also gets `gt/points.npz`
+(about one surface sample per mm² of every object in its final pose, ARKit frame,
+labels 1..K / 254 container / 253 clutter), and `synth.seg_export` fuses the scan the way
+`run_meal` does and labels each fused point by its nearest sample within 4 mm, giving
+`gt/seg_points.npz` (xyz, rgb, normal, label) for training DGCNN / PTv3 on the fused
+cloud.
+
+```bash
+cd pipeline
+conda activate synth
+python -m synth.batch --assets ../data/synth/assets.jsonl --root ../data/synth/hard --preset hard \
+    --n 20 --res-scale 0.5 --spp 32
+conda activate foodseg
+python -m synth.seg_export ../data/synth/hard/scans
+```
+
+### MetaFood3D as downloaded (checked 2026-10-11)
+- `3D_Mesh/<Category>/<object>/<Name>.obj` + `.mtl` + `.jpg` texture; 637 meshes, 108
+  categories, 38 GB extracted. Units are **metres**, **Z up**, resting on z ≈ 0
+  (Revopoint turntable), so `render.py` imports them with `up_axis="Z"` and spawns them
+  upright (yaw + small tilt).
+- `complete_dataset_nutrition_v2.xlsx`: Object_name (= category folder), Food_Type
+  (= object folder; case/underscores differ, so keys are normalised), FNDDS code,
+  Weight (g), kcal, macros, Volume (mL). 635/637 meshes join (no row: Carrot/carrot_8,
+  Edamame/new_edamame_4).
+- The xlsx `Volume` **is the mesh volume**: on the 133 closed meshes with a row, trimesh
+  volume matches it with median difference 0.00 % (4 differ by > 5 %).
+- Only 164 meshes are closed (+15 after trimesh hole filling). For open meshes the GT
+  volume falls back to the xlsx value (`volume_source: ref`, 376 meshes); 97 with neither
+  are `volume_ok: false` and are not used. 522 usable meshes in 100 categories.
+- `X(bowl)` categories (Almond, Blueberry, Corn) are the **contents of a bowl with the
+  bowl removed**: bowl-shaped underside, bulk density ≈ 0.64 g/mL for almonds. They are
+  `container_shaped` and kept out of random placement; TODO fit a bowl to their underside
+  and render them in it (the hardest volume case).
+- Meshes are 0.3-1.6 M faces; decimating for physics/rendering speed is a later option.
+- download.blender.org returns 403 from some networks; fetch Blender 4.2.1 from a mirror
+  (ftp.nluug.nl) and check it against `blender-4.2.1.sha256`.

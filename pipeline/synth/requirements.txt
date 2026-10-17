@@ -1,0 +1,10 @@
+blenderproc==2.8.0
+trimesh
+networkx
+openpyxl
+numpy
+scipy
+pillow
+pytest
+taichi==1.7.2
+scikit-image
