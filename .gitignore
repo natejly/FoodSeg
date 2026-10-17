@@ -12,3 +12,23 @@ capture-app/build/
 # training checkpoints (large; results/ keeps summaries + predictions)
 results/**/best.pt
 results/**/model.pt
+
+# scratch job queues
+queue.txt
+queue.txt.done
+results/**/queue.txt
+results/**/queue.txt.done
+
+# regenerable caches / large intermediates (results/ keeps logs, summaries, predictions)
+results/**/cache/
+results/**/cache40/
+results/**/snap/
+results/n5k/features_*.npz
+results/n5k/masks_sam3/
+results/n5k/masks_v2/
+results/lift_replay40/
+results/sam3_variants/work/
+results/seg3d/r4_data/real_v12/scans/
+results/**/*.pt
+results/**/*.pth
+results/**/*.ckpt
