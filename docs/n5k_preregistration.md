@@ -41,3 +41,24 @@ chosen only by val mean5 (and a val-split ensemble check), before any test evalu
 ## Test protocol
 
 Test is evaluated exactly once, after set B is decided and all Phase 2 models are trained, with `eval.n5k_predict --split test --i-am-phase3` and only with the user's approval. Nothing is retuned after that evaluation.
+
+### Set B decision (2026-10-17, before any test evaluation)
+
+Phase 1b val results (train 2,480 / val 275, 2 seeds unless noted), val mean5: ConvNeXt-XL log at 80 epochs 11.34 +- 0.25 (TTA per-seed 11.16 / 11.52; mass 7.14, kcal 10.88) vs 12.08 at 40 epochs; XL at 640x480 12.19; SigLIP2-L llrd 0.9 13.34 (1 seed); DINOv3-L llrd 0.9 13.61 (1 seed); ConvNeXt-XXL 16.18.
+
+**B1 (chosen): `convnext_xlarge.fb_in22k_ft_in1k`, `--loss log`, `--epochs 80`, `--full --no-test`, seeds 0-4** (`scripts/bouchet/n5k_phase2b.txt`, 5 models).
+
+**B2: none.** Val-split ensemble check (4-flip TTA predictions from `val_predictions.csv`, equal weight per model, val mean5 %; the 80-epoch pair alone is 11.20):
+
+| ensemble | val mean5 |
+|---|---|
+| cnx80 s0+s1 | 11.20 |
+| + cnl_raw (2 seeds) | 11.57 |
+| + sg2l_llrd9 (1 seed) | 11.32 |
+| + dv3l_llrd9 (1 seed) | 11.13 |
+| + cnx_log 40 ep (2 seeds) | 11.43 |
+| + cnx640_log (2 seeds) | 11.43 |
+
+No candidate improves the 80-epoch pair by the pre-set 0.1 mean5 (best: DINOv3-L, -0.07, from 1 model). Caveat: each figure rests on 1-2 models and 275 val dishes, so differences of a few hundredths are noise. Hence no second Set B config.
+
+Final Phase 2 ensemble = all 15 full-data models: A1 (5) + A2 (5) + B1 (5), equal weight per model.
