@@ -1,0 +1,15 @@
+/home/kyle/src/sam3/sam3/model/model_misc.py:71: UserWarning: Flash Attention is disabled as it requires a GPU with Ampere (8.0) CUDA capability.
+  OLD_GPU, USE_FLASH_ATTN, MATH_KERNEL_ON = get_sdpa_settings()
+/home/kyle/miniconda3/envs/foodseg/lib/python3.12/site-packages/timm/models/layers/__init__.py:49: FutureWarning: Importing from timm.models.layers is deprecated, please import via timm.layers
+  warnings.warn(f"Importing from {__name__} is deprecated, please import via timm.layers", FutureWarning)
+3262 dishes to mask
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "/home/kyle/Desktop/FoodSeg/pipeline/eval/n5k_masks_sam3.py", line 80, in <module>
+    main()
+  File "/home/kyle/Desktop/FoodSeg/pipeline/eval/n5k_masks_sam3.py", line 67, in main
+    dish = np.concatenate([masks(st, "plate"), masks(st, "bowl")])
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ValueError: all the input array dimensions except for the concatenation axis must match exactly, but along dimension 1, the array at index 0 has size 480 and the array at index 1 has size 1
+ERROR conda.cli.main_run:execute(142): `conda run python -m eval.n5k_masks_sam3 ../data/datasets/Nutrition5k --out ../results/n5k/masks_sam3` failed. (See above for error)

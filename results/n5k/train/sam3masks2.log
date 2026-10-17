@@ -1,0 +1,38 @@
+/home/kyle/src/sam3/sam3/model/model_misc.py:71: UserWarning: Flash Attention is disabled as it requires a GPU with Ampere (8.0) CUDA capability.
+  OLD_GPU, USE_FLASH_ATTN, MATH_KERNEL_ON = get_sdpa_settings()
+/home/kyle/miniconda3/envs/foodseg/lib/python3.12/site-packages/timm/models/layers/__init__.py:49: FutureWarning: Importing from timm.models.layers is deprecated, please import via timm.layers
+  warnings.warn(f"Importing from {__name__} is deprecated, please import via timm.layers", FutureWarning)
+3262 dishes to mask
+  0/3262 dish_1558641037: 1 food / 1 dish masks, 0.043 of image
+  100/3262 dish_1565379788: 12 food / 1 dish masks, 0.093 of image
+  200/3262 dish_1558640477: 2 food / 1 dish masks, 0.023 of image
+  300/3262 dish_1559843052: 10 food / 1 dish masks, 0.073 of image
+  400/3262 dish_1565637548: 17 food / 1 dish masks, 0.143 of image
+  500/3262 dish_1563217895: 15 food / 1 dish masks, 0.134 of image
+  600/3262 dish_1561739973: 8 food / 1 dish masks, 0.184 of image
+  700/3262 dish_1568061174: 25 food / 1 dish masks, 0.271 of image
+  800/3262 dish_1558719097: 8 food / 1 dish masks, 0.052 of image
+  900/3262 dish_1558636813: 16 food / 1 dish masks, 0.056 of image
+  1000/3262 dish_1568649387: 28 food / 1 dish masks, 0.145 of image
+  1100/3262 dish_1562698132: 18 food / 1 dish masks, 0.117 of image
+  1200/3262 dish_1563207277: 35 food / 1 dish masks, 0.095 of image
+  1300/3262 dish_1562181217: 11 food / 1 dish masks, 0.110 of image
+  1400/3262 dish_1560367153: 44 food / 1 dish masks, 0.189 of image
+  1500/3262 dish_1568664931: 4 food / 2 dish masks, 0.195 of image
+  1600/3262 dish_1561579902: 23 food / 1 dish masks, 0.265 of image
+  1700/3262 dish_1565195436: 17 food / 1 dish masks, 0.134 of image
+  1800/3262 dish_1562169840: 34 food / 1 dish masks, 0.352 of image
+  1900/3262 dish_1558638292: 33 food / 1 dish masks, 0.293 of image
+  2000/3262 dish_1561405934: 21 food / 1 dish masks, 0.292 of image
+  2100/3262 dish_1565972674: 20 food / 1 dish masks, 0.338 of image
+  2200/3262 dish_1560961012: 1 food / 1 dish masks, 0.084 of image
+  2300/3262 dish_1568405466: 13 food / 1 dish masks, 0.238 of image
+  2400/3262 dish_1566933498: 3 food / 2 dish masks, 0.362 of image
+  2500/3262 dish_1558381143: 6 food / 2 dish masks, 0.038 of image
+  2600/3262 dish_1561576978: 12 food / 1 dish masks, 0.266 of image
+  2700/3262 dish_1558029230: 10 food / 1 dish masks, 0.078 of image
+  2800/3262 dish_1558461760: 6 food / 2 dish masks, 0.034 of image
+  2900/3262 dish_1557936599: 10 food / 2 dish masks, 0.066 of image
+  3000/3262 dish_1560526530: 25 food / 1 dish masks, 0.291 of image
+  3100/3262 dish_1558718649: 12 food / 1 dish masks, 0.065 of image
+  3200/3262 dish_1565898331: 2 food / 1 dish masks, 0.078 of image

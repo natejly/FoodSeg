@@ -1,0 +1,33 @@
+dropped 3 training objects with negative / missing labels
+train objects 359 (326 with video frames), val 40, test 95; 5225 training images
+{"epoch": 0, "loss": 0.5148005535814659, "sec": 60.1, "mem_gb": 1.13, "val_vol_mape": 115.11, "val_eng_mape": 65.59}
+{"epoch": 1, "loss": 0.2760940546546977, "sec": 54.2, "mem_gb": 1.32, "val_vol_mape": 83.11, "val_eng_mape": 32.94}
+{"epoch": 2, "loss": 0.19648566227291991, "sec": 51.6, "mem_gb": 1.32, "val_vol_mape": 91.31, "val_eng_mape": 55.22}
+{"epoch": 3, "loss": 0.15096575586250954, "sec": 51.6, "mem_gb": 1.32, "val_vol_mape": 79.62, "val_eng_mape": 58.72}
+{"epoch": 4, "loss": 0.12844566946015037, "sec": 64.1, "mem_gb": 1.32, "val_vol_mape": 80.53, "val_eng_mape": 42.09}
+{"epoch": 5, "loss": 0.10654468395592977, "sec": 66.5, "mem_gb": 1.32, "val_vol_mape": 84.89, "val_eng_mape": 38.98}
+{"epoch": 6, "loss": 0.09436213197700817, "sec": 51.5, "mem_gb": 1.32, "val_vol_mape": 70.88, "val_eng_mape": 34.71}
+{"epoch": 7, "loss": 0.08186184096098678, "sec": 52.2, "mem_gb": 1.32, "val_vol_mape": 75.47, "val_eng_mape": 38.3}
+{"epoch": 8, "loss": 0.07615680490946111, "sec": 51.5, "mem_gb": 1.32, "val_vol_mape": 89.93, "val_eng_mape": 41.81}
+{"epoch": 9, "loss": 0.06923984567080539, "sec": 51.5, "mem_gb": 1.32, "val_vol_mape": 78.54, "val_eng_mape": 60.44}
+{"epoch": 10, "loss": 0.062238780998744844, "sec": 51.6, "mem_gb": 1.32, "val_vol_mape": 91.81, "val_eng_mape": 39.17}
+{"epoch": 11, "loss": 0.05864070203909479, "sec": 51.7, "mem_gb": 1.32, "val_vol_mape": 76.35, "val_eng_mape": 38.17}
+{"epoch": 12, "loss": 0.05289276790993711, "sec": 51.6, "mem_gb": 1.32, "val_vol_mape": 77.85, "val_eng_mape": 42.6}
+{"epoch": 13, "loss": 0.04950406526906724, "sec": 51.5, "mem_gb": 1.32, "val_vol_mape": 78.49, "val_eng_mape": 38.17}
+{"epoch": 14, "loss": 0.0441427540342592, "sec": 51.7, "mem_gb": 1.32, "val_vol_mape": 74.17, "val_eng_mape": 39.99}
+{"epoch": 15, "loss": 0.04124156934169172, "sec": 51.5, "mem_gb": 1.32, "val_vol_mape": 72.91, "val_eng_mape": 39.43}
+{"epoch": 16, "loss": 0.03810030092239563, "sec": 51.5, "mem_gb": 1.32, "val_vol_mape": 82.54, "val_eng_mape": 39.99}
+{"epoch": 17, "loss": 0.03441244442061595, "sec": 51.5, "mem_gb": 1.32, "val_vol_mape": 79.6, "val_eng_mape": 39.11}
+{"epoch": 18, "loss": 0.03175414167915934, "sec": 51.5, "mem_gb": 1.32, "val_vol_mape": 84.88, "val_eng_mape": 38.45}
+{"epoch": 19, "loss": 0.028999191331762843, "sec": 51.6, "mem_gb": 1.32, "val_vol_mape": 81.96, "val_eng_mape": 38.05}
+{"epoch": 20, "loss": 0.026474100143357288, "sec": 51.5, "mem_gb": 1.32, "val_vol_mape": 86.72, "val_eng_mape": 39.67}
+{"epoch": 21, "loss": 0.0238775659289691, "sec": 51.6, "mem_gb": 1.32, "val_vol_mape": 75.41, "val_eng_mape": 37.54}
+{"epoch": 22, "loss": 0.0221587437622112, "sec": 51.5, "mem_gb": 1.32, "val_vol_mape": 80.69, "val_eng_mape": 38.89}
+{"epoch": 23, "loss": 0.021146362984518698, "sec": 51.6, "mem_gb": 1.32, "val_vol_mape": 79.55, "val_eng_mape": 40.0}
+{"epoch": 24, "loss": 0.01820237129823836, "sec": 51.5, "mem_gb": 1.32, "val_vol_mape": 80.81, "val_eng_mape": 40.25}
+{"epoch": 25, "loss": 0.017747813492921965, "sec": 51.6, "mem_gb": 1.32, "val_vol_mape": 80.66, "val_eng_mape": 40.93}
+{"epoch": 26, "loss": 0.016700778419346165, "sec": 51.4, "mem_gb": 1.32, "val_vol_mape": 81.17, "val_eng_mape": 40.73}
+{"epoch": 27, "loss": 0.01609289464740757, "sec": 51.6, "mem_gb": 1.32, "val_vol_mape": 81.47, "val_eng_mape": 40.68}
+{"epoch": 28, "loss": 0.015866519491891006, "sec": 51.6, "mem_gb": 1.32, "val_vol_mape": 81.66, "val_eng_mape": 40.98}
+{"epoch": 29, "loss": 0.015042283360852055, "sec": 51.5, "mem_gb": 1.32, "val_vol_mape": 81.63, "val_eng_mape": 40.97}
+TEST volume MAE 62.6 MAPE 39.6%  energy MAE 98.4 MAPE 63.0%  weight MAE 50.2 MAPE 41.3%  fat MAE 5.8 MAPE 347.9%  carb MAE 11.3 MAPE 131.1%  protein MAE 5.2 MAPE 132.8%

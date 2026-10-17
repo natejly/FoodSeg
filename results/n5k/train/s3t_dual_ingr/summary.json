@@ -1,0 +1,413 @@
+{
+  "args": {
+    "root": "../data/datasets/Nutrition5k",
+    "cache": "../data/cache/n5k_448_sam3b",
+    "channels": "rgbd_thick",
+    "arch": "convnext_small.fb_in22k_ft_in1k",
+    "epochs": "40",
+    "bs": "8",
+    "eval_bs": "32",
+    "lr": "0.0002",
+    "wd": "0.05",
+    "drop_path": "0.1",
+    "val_frac": "0.1",
+    "seed": "0",
+    "split_seed": "0",
+    "loss": "log",
+    "accum": "2",
+    "grad_ckpt": "True",
+    "ema": "0.0",
+    "full": "False",
+    "arch_depth": "convnext_tiny.fb_in22k_ft_in1k",
+    "ingr_aux": "0.5",
+    "ingr_min": "10",
+    "select": "all5",
+    "max_steps": "0",
+    "out": "/home/kyle/Desktop/FoodSeg/results/n5k/train/s3t_dual_ingr"
+  },
+  "best_val": 13.94038935054834,
+  "test": {
+    "mass": [
+      19.448143546162743,
+      9.797115355018194
+    ],
+    "kcal": [
+      33.70973778704844,
+      13.19533681916711
+    ],
+    "fat": [
+      2.8994353760322866,
+      22.597707542565725
+    ],
+    "carb": [
+      4.158830970191982,
+      21.128411248964827
+    ],
+    "protein": [
+      3.800428941128608,
+      21.743257463770473
+    ]
+  },
+  "log": [
+    {
+      "epoch": 0,
+      "loss": 0.7164109778981055,
+      "sec": 111.6,
+      "peak_mem_gb": 2.05,
+      "val_mass_pct": 24.2,
+      "val_kcal_pct": 32.29,
+      "val_mean5_pct": 36.71
+    },
+    {
+      "epoch": 1,
+      "loss": 0.4755253340928785,
+      "sec": 102.7,
+      "peak_mem_gb": 2.34,
+      "val_mass_pct": 13.5,
+      "val_kcal_pct": 26.71,
+      "val_mean5_pct": 31.31
+    },
+    {
+      "epoch": 2,
+      "loss": 0.41120120392691706,
+      "sec": 102.7,
+      "peak_mem_gb": 2.34,
+      "val_mass_pct": 18.95,
+      "val_kcal_pct": 33.68,
+      "val_mean5_pct": 32.61
+    },
+    {
+      "epoch": 3,
+      "loss": 0.37102904723536584,
+      "sec": 102.9,
+      "peak_mem_gb": 2.34,
+      "val_mass_pct": 12.14,
+      "val_kcal_pct": 21.25,
+      "val_mean5_pct": 25.33
+    },
+    {
+      "epoch": 4,
+      "loss": 0.3366527394421639,
+      "sec": 102.7,
+      "peak_mem_gb": 2.34,
+      "val_mass_pct": 15.65,
+      "val_kcal_pct": 35.26,
+      "val_mean5_pct": 29.38
+    },
+    {
+      "epoch": 5,
+      "loss": 0.30936006187431275,
+      "sec": 102.8,
+      "peak_mem_gb": 2.34,
+      "val_mass_pct": 21.31,
+      "val_kcal_pct": 22.99,
+      "val_mean5_pct": 27.69
+    },
+    {
+      "epoch": 6,
+      "loss": 0.2766395158825382,
+      "sec": 102.9,
+      "peak_mem_gb": 2.34,
+      "val_mass_pct": 21.96,
+      "val_kcal_pct": 23.22,
+      "val_mean5_pct": 27.91
+    },
+    {
+      "epoch": 7,
+      "loss": 0.25938623326440013,
+      "sec": 102.7,
+      "peak_mem_gb": 2.34,
+      "val_mass_pct": 19.3,
+      "val_kcal_pct": 20.51,
+      "val_mean5_pct": 28.07
+    },
+    {
+      "epoch": 8,
+      "loss": 0.248091451198824,
+      "sec": 102.8,
+      "peak_mem_gb": 2.34,
+      "val_mass_pct": 10.98,
+      "val_kcal_pct": 18.33,
+      "val_mean5_pct": 22.26
+    },
+    {
+      "epoch": 9,
+      "loss": 0.2383713117530269,
+      "sec": 102.7,
+      "peak_mem_gb": 2.34,
+      "val_mass_pct": 10.53,
+      "val_kcal_pct": 19.83,
+      "val_mean5_pct": 22.53
+    },
+    {
+      "epoch": 10,
+      "loss": 0.22947723620360896,
+      "sec": 102.9,
+      "peak_mem_gb": 2.34,
+      "val_mass_pct": 9.52,
+      "val_kcal_pct": 18.67,
+      "val_mean5_pct": 19.99
+    },
+    {
+      "epoch": 11,
+      "loss": 0.2136323093646957,
+      "sec": 102.9,
+      "peak_mem_gb": 2.34,
+      "val_mass_pct": 11.75,
+      "val_kcal_pct": 19.75,
+      "val_mean5_pct": 20.69
+    },
+    {
+      "epoch": 12,
+      "loss": 0.20097289162297402,
+      "sec": 103.1,
+      "peak_mem_gb": 2.34,
+      "val_mass_pct": 10.59,
+      "val_kcal_pct": 17.11,
+      "val_mean5_pct": 19.85
+    },
+    {
+      "epoch": 13,
+      "loss": 0.19329037296195184,
+      "sec": 103.0,
+      "peak_mem_gb": 2.34,
+      "val_mass_pct": 9.99,
+      "val_kcal_pct": 17.83,
+      "val_mean5_pct": 19.91
+    },
+    {
+      "epoch": 14,
+      "loss": 0.1848289885828572,
+      "sec": 105.3,
+      "peak_mem_gb": 2.34,
+      "val_mass_pct": 11.71,
+      "val_kcal_pct": 17.53,
+      "val_mean5_pct": 20.2
+    },
+    {
+      "epoch": 15,
+      "loss": 0.17726724316035547,
+      "sec": 105.2,
+      "peak_mem_gb": 2.34,
+      "val_mass_pct": 9.98,
+      "val_kcal_pct": 17.7,
+      "val_mean5_pct": 20.44
+    },
+    {
+      "epoch": 16,
+      "loss": 0.17365394088049088,
+      "sec": 105.6,
+      "peak_mem_gb": 2.34,
+      "val_mass_pct": 11.63,
+      "val_kcal_pct": 17.24,
+      "val_mean5_pct": 19.66
+    },
+    {
+      "epoch": 17,
+      "loss": 0.1626602237022692,
+      "sec": 105.7,
+      "peak_mem_gb": 2.34,
+      "val_mass_pct": 11.25,
+      "val_kcal_pct": 16.49,
+      "val_mean5_pct": 18.48
+    },
+    {
+      "epoch": 18,
+      "loss": 0.1568624776938269,
+      "sec": 105.4,
+      "peak_mem_gb": 2.34,
+      "val_mass_pct": 10.64,
+      "val_kcal_pct": 15.75,
+      "val_mean5_pct": 18.02
+    },
+    {
+      "epoch": 19,
+      "loss": 0.1550401761166511,
+      "sec": 122.2,
+      "peak_mem_gb": 2.34,
+      "val_mass_pct": 9.7,
+      "val_kcal_pct": 17.41,
+      "val_mean5_pct": 19.13
+    },
+    {
+      "epoch": 20,
+      "loss": 0.1466436276993444,
+      "sec": 120.0,
+      "peak_mem_gb": 2.34,
+      "val_mass_pct": 8.64,
+      "val_kcal_pct": 15.78,
+      "val_mean5_pct": 17.1
+    },
+    {
+      "epoch": 21,
+      "loss": 0.14319050194274996,
+      "sec": 120.2,
+      "peak_mem_gb": 2.34,
+      "val_mass_pct": 8.76,
+      "val_kcal_pct": 15.83,
+      "val_mean5_pct": 17.22
+    },
+    {
+      "epoch": 22,
+      "loss": 0.13835026609801476,
+      "sec": 118.9,
+      "peak_mem_gb": 2.34,
+      "val_mass_pct": 9.45,
+      "val_kcal_pct": 17.67,
+      "val_mean5_pct": 18.11
+    },
+    {
+      "epoch": 23,
+      "loss": 0.1332497068230183,
+      "sec": 107.3,
+      "peak_mem_gb": 2.34,
+      "val_mass_pct": 9.56,
+      "val_kcal_pct": 15.59,
+      "val_mean5_pct": 16.78
+    },
+    {
+      "epoch": 24,
+      "loss": 0.12644074669768735,
+      "sec": 108.5,
+      "peak_mem_gb": 2.34,
+      "val_mass_pct": 8.49,
+      "val_kcal_pct": 15.0,
+      "val_mean5_pct": 16.04
+    },
+    {
+      "epoch": 25,
+      "loss": 0.122862824557289,
+      "sec": 122.4,
+      "peak_mem_gb": 2.34,
+      "val_mass_pct": 8.17,
+      "val_kcal_pct": 14.67,
+      "val_mean5_pct": 15.95
+    },
+    {
+      "epoch": 26,
+      "loss": 0.11892017760584431,
+      "sec": 116.4,
+      "peak_mem_gb": 2.34,
+      "val_mass_pct": 8.47,
+      "val_kcal_pct": 14.51,
+      "val_mean5_pct": 15.52
+    },
+    {
+      "epoch": 27,
+      "loss": 0.1157216394620557,
+      "sec": 110.8,
+      "peak_mem_gb": 2.34,
+      "val_mass_pct": 8.84,
+      "val_kcal_pct": 14.66,
+      "val_mean5_pct": 15.73
+    },
+    {
+      "epoch": 28,
+      "loss": 0.11062990874052048,
+      "sec": 105.3,
+      "peak_mem_gb": 2.34,
+      "val_mass_pct": 9.01,
+      "val_kcal_pct": 14.59,
+      "val_mean5_pct": 15.27
+    },
+    {
+      "epoch": 29,
+      "loss": 0.10916334566089415,
+      "sec": 105.3,
+      "peak_mem_gb": 2.34,
+      "val_mass_pct": 8.57,
+      "val_kcal_pct": 14.27,
+      "val_mean5_pct": 15.27
+    },
+    {
+      "epoch": 30,
+      "loss": 0.10415487609082652,
+      "sec": 105.7,
+      "peak_mem_gb": 2.34,
+      "val_mass_pct": 8.16,
+      "val_kcal_pct": 13.9,
+      "val_mean5_pct": 14.8
+    },
+    {
+      "epoch": 31,
+      "loss": 0.1020748866782073,
+      "sec": 109.9,
+      "peak_mem_gb": 2.34,
+      "val_mass_pct": 8.43,
+      "val_kcal_pct": 13.54,
+      "val_mean5_pct": 14.64
+    },
+    {
+      "epoch": 32,
+      "loss": 0.09955489981559015,
+      "sec": 122.9,
+      "peak_mem_gb": 2.34,
+      "val_mass_pct": 7.74,
+      "val_kcal_pct": 14.6,
+      "val_mean5_pct": 14.86
+    },
+    {
+      "epoch": 33,
+      "loss": 0.09931938721527976,
+      "sec": 116.5,
+      "peak_mem_gb": 2.34,
+      "val_mass_pct": 7.79,
+      "val_kcal_pct": 13.35,
+      "val_mean5_pct": 14.35
+    },
+    {
+      "epoch": 34,
+      "loss": 0.09551413239490601,
+      "sec": 118.3,
+      "peak_mem_gb": 2.34,
+      "val_mass_pct": 7.9,
+      "val_kcal_pct": 13.2,
+      "val_mean5_pct": 14.32
+    },
+    {
+      "epoch": 35,
+      "loss": 0.0933151313133778,
+      "sec": 120.2,
+      "peak_mem_gb": 2.34,
+      "val_mass_pct": 7.83,
+      "val_kcal_pct": 13.24,
+      "val_mean5_pct": 14.26
+    },
+    {
+      "epoch": 36,
+      "loss": 0.09330854395464544,
+      "sec": 105.5,
+      "peak_mem_gb": 2.34,
+      "val_mass_pct": 7.81,
+      "val_kcal_pct": 13.4,
+      "val_mean5_pct": 14.25
+    },
+    {
+      "epoch": 37,
+      "loss": 0.0937027799626512,
+      "sec": 114.0,
+      "peak_mem_gb": 2.34,
+      "val_mass_pct": 7.63,
+      "val_kcal_pct": 13.12,
+      "val_mean5_pct": 13.94
+    },
+    {
+      "epoch": 38,
+      "loss": 0.09207229799320621,
+      "sec": 121.2,
+      "peak_mem_gb": 2.34,
+      "val_mass_pct": 7.83,
+      "val_kcal_pct": 13.34,
+      "val_mean5_pct": 14.2
+    },
+    {
+      "epoch": 39,
+      "loss": 0.09200987199381475,
+      "sec": 109.3,
+      "peak_mem_gb": 2.34,
+      "val_mass_pct": 7.77,
+      "val_kcal_pct": 13.3,
+      "val_mean5_pct": 14.14
+    }
+  ]
+}

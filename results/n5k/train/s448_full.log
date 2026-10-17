@@ -1,0 +1,3 @@
+train 2755  val 0  test 507  channels rgbd_thick
+Terminated
+ERROR conda.cli.main_run:execute(142): `conda run python -m eval.n5k_train ../data/datasets/Nutrition5k --channels rgbd_thick --arch convnext_small.fb_in22k_ft_in1k --grad-ckpt --bs 8 --accum 2 --full --out /home/kyle/Desktop/FoodSeg/results/n5k/train/s448_full` failed. (See above for error)

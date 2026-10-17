@@ -1,0 +1,90 @@
+train 2480  val 275  test 507  channels rgbd_thick
+{"epoch": 0, "loss": 0.5141387879608139, "sec": 194.6, "peak_mem_gb": 3.74, "val_mass_pct": 24.03, "val_kcal_pct": 36.3}
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "/home/kyle/Desktop/FoodSeg/pipeline/eval/n5k_train.py", line 276, in <module>
+    main()
+  File "/home/kyle/Desktop/FoodSeg/pipeline/eval/n5k_train.py", line 239, in main
+    v = score(val, predict(val, tta=False))
+                   ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/kyle/miniconda3/envs/foodseg/lib/python3.12/site-packages/torch/utils/_contextlib.py", line 124, in decorate_context
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/home/kyle/Desktop/FoodSeg/pipeline/eval/n5k_train.py", line 180, in predict
+    p = torch.stack([model(v).float() for v in views]).mean(0)
+                     ^^^^^^^^
+  File "/home/kyle/miniconda3/envs/foodseg/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1779, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/kyle/miniconda3/envs/foodseg/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1790, in _call_impl
+    return forward_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/kyle/miniconda3/envs/foodseg/lib/python3.12/site-packages/timm/models/convnext.py", line 629, in forward
+    x = self.forward_features(x)
+        ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/kyle/miniconda3/envs/foodseg/lib/python3.12/site-packages/timm/models/convnext.py", line 611, in forward_features
+    x = self.stages(x)
+        ^^^^^^^^^^^^^^
+  File "/home/kyle/miniconda3/envs/foodseg/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1779, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/kyle/miniconda3/envs/foodseg/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1790, in _call_impl
+    return forward_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/kyle/miniconda3/envs/foodseg/lib/python3.12/site-packages/torch/nn/modules/container.py", line 253, in forward
+    input = module(input)
+            ^^^^^^^^^^^^^
+  File "/home/kyle/miniconda3/envs/foodseg/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1779, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/kyle/miniconda3/envs/foodseg/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1790, in _call_impl
+    return forward_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/kyle/miniconda3/envs/foodseg/lib/python3.12/site-packages/timm/models/convnext.py", line 305, in forward
+    x = checkpoint_seq(self.blocks, x)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/kyle/miniconda3/envs/foodseg/lib/python3.12/site-packages/timm/models/_manipulate.py", line 279, in checkpoint_seq
+    x = torch.utils.checkpoint.checkpoint(
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/kyle/miniconda3/envs/foodseg/lib/python3.12/site-packages/torch/_compile.py", line 54, in inner
+    return disable_fn(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/kyle/miniconda3/envs/foodseg/lib/python3.12/site-packages/torch/_dynamo/eval_frame.py", line 1263, in _fn
+    return fn(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^
+  File "/home/kyle/miniconda3/envs/foodseg/lib/python3.12/site-packages/torch/utils/checkpoint.py", line 512, in checkpoint
+    ret = function(*args, **kwargs)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/kyle/miniconda3/envs/foodseg/lib/python3.12/site-packages/timm/models/_manipulate.py", line 262, in forward
+    _x = functions[j](_x)
+         ^^^^^^^^^^^^^^^^
+  File "/home/kyle/miniconda3/envs/foodseg/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1779, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/kyle/miniconda3/envs/foodseg/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1790, in _call_impl
+    return forward_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/kyle/miniconda3/envs/foodseg/lib/python3.12/site-packages/timm/models/convnext.py", line 208, in forward
+    x = self.mlp(x)
+        ^^^^^^^^^^^
+  File "/home/kyle/miniconda3/envs/foodseg/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1779, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/kyle/miniconda3/envs/foodseg/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1790, in _call_impl
+    return forward_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/kyle/miniconda3/envs/foodseg/lib/python3.12/site-packages/timm/layers/mlp.py", line 48, in forward
+    x = self.fc1(x)
+        ^^^^^^^^^^^
+  File "/home/kyle/miniconda3/envs/foodseg/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1779, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/kyle/miniconda3/envs/foodseg/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1790, in _call_impl
+    return forward_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/kyle/miniconda3/envs/foodseg/lib/python3.12/site-packages/torch/nn/modules/linear.py", line 134, in forward
+    return F.linear(input, self.weight, self.bias)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+torch.OutOfMemoryError: CUDA out of memory. Tried to allocate 442.00 MiB. GPU 0 has a total capacity of 5.60 GiB of which 315.25 MiB is free. Process 407807 has 122.45 MiB memory in use. Including non-PyTorch memory, this process has 4.72 GiB memory in use. Of the allocated memory 4.33 GiB is allocated by PyTorch, and 274.98 MiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://docs.pytorch.org/docs/stable/notes/cuda.html#optimizing-memory-usage-with-pytorch-cuda-alloc-conf)
+ERROR conda.cli.main_run:execute(142): `conda run python -m eval.n5k_train ../data/datasets/Nutrition5k --channels rgbd_thick --arch convnext_large.fb_in22k_ft_in1k --grad-ckpt --bs 4 --accum 4 --loss raw --cache ../data/cache/n5k_448_sam3b --out /home/kyle/Desktop/FoodSeg/results/n5k/train/l448_raw` failed. (See above for error)

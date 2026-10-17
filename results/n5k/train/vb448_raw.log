@@ -1,0 +1,19 @@
+train 2480  val 275  test 507  channels rgbd_thick
+{"epoch": 0, "loss": 0.7465911810436556, "sec": 110.6, "peak_mem_gb": 1.82, "val_mass_pct": 45.21, "val_kcal_pct": 35.6}
+{"epoch": 1, "loss": 0.5568644869231408, "sec": 110.5, "peak_mem_gb": 2.14, "val_mass_pct": 25.0, "val_kcal_pct": 35.26}
+{"epoch": 2, "loss": 0.469158627958067, "sec": 110.5, "peak_mem_gb": 2.14, "val_mass_pct": 27.38, "val_kcal_pct": 38.69}
+{"epoch": 3, "loss": 0.44340175346982097, "sec": 110.4, "peak_mem_gb": 2.14, "val_mass_pct": 23.7, "val_kcal_pct": 31.5}
+{"epoch": 4, "loss": 0.40815703921741053, "sec": 110.4, "peak_mem_gb": 2.14, "val_mass_pct": 21.89, "val_kcal_pct": 33.93}
+{"epoch": 5, "loss": 0.385806164385811, "sec": 110.5, "peak_mem_gb": 2.14, "val_mass_pct": 21.92, "val_kcal_pct": 28.72}
+{"epoch": 6, "loss": 0.3790495785013322, "sec": 110.3, "peak_mem_gb": 2.14, "val_mass_pct": 24.01, "val_kcal_pct": 37.19}
+{"epoch": 7, "loss": 0.35796008360001347, "sec": 110.3, "peak_mem_gb": 2.14, "val_mass_pct": 19.25, "val_kcal_pct": 29.66}
+{"epoch": 8, "loss": 0.3488686122721241, "sec": 110.4, "peak_mem_gb": 2.14, "val_mass_pct": 21.9, "val_kcal_pct": 31.95}
+{"epoch": 9, "loss": 0.3290730370388877, "sec": 110.3, "peak_mem_gb": 2.14, "val_mass_pct": 20.14, "val_kcal_pct": 25.41}
+{"epoch": 10, "loss": 0.3248123311227368, "sec": 110.3, "peak_mem_gb": 2.14, "val_mass_pct": 17.2, "val_kcal_pct": 29.37}
+{"epoch": 11, "loss": 0.32282237078874343, "sec": 110.4, "peak_mem_gb": 2.14, "val_mass_pct": 21.42, "val_kcal_pct": 38.69}
+{"epoch": 12, "loss": 0.2951747542427432, "sec": 110.3, "peak_mem_gb": 2.14, "val_mass_pct": 20.33, "val_kcal_pct": 30.28}
+{"epoch": 13, "loss": 0.2931898899857075, "sec": 110.3, "peak_mem_gb": 2.14, "val_mass_pct": 20.24, "val_kcal_pct": 27.11}
+{"epoch": 14, "loss": 0.27974304895727864, "sec": 110.3, "peak_mem_gb": 2.14, "val_mass_pct": 15.94, "val_kcal_pct": 26.15}
+{"epoch": 15, "loss": 0.2736244018039396, "sec": 110.3, "peak_mem_gb": 2.14, "val_mass_pct": 18.47, "val_kcal_pct": 27.1}
+Terminated
+ERROR conda.cli.main_run:execute(142): `conda run python -m eval.n5k_train ../data/datasets/Nutrition5k --channels rgbd_thick --arch vit_base_patch14_dinov2.lvd142m --lr 5e-5 --grad-ckpt --bs 8 --accum 2 --loss raw --out /home/kyle/Desktop/FoodSeg/results/n5k/train/vb448_raw` failed. (See above for error)
