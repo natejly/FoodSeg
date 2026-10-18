@@ -131,6 +131,7 @@ final class ScanRecorder: NSObject, ObservableObject, ARSessionDelegate {
             previewPoints = 0
             currentScanName = dir.lastPathComponent
             lastPose = nil
+            linearSpeed = 0; angularSpeed = 0  // else the previous scan's last speeds leak into frame 0
             overSince = nil
             isRecording = true
         } catch {

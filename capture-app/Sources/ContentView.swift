@@ -94,8 +94,8 @@ struct ContentView: View {
             }
             if recorder.isRecording {
                 let lin = recorder.linearSpeed * 100, ang = recorder.angularSpeed
-                // Good scans move 6-18 cm/s; rotation drives blur so its limits are tighter.
-                let level = max(lin > 35 ? 2 : lin > 20 ? 1 : 0, ang > 60 ? 2 : ang > 30 ? 1 : 0)
+                // Good scans: median 5-6.5, p90 8-10 cm/s; rotation drives blur so its limits are tighter.
+                let level = max(lin > 25 ? 2 : lin > 15 ? 1 : 0, ang > 60 ? 2 : ang > 30 ? 1 : 0)
                 let color: Color = [Color.green, .yellow, .red][level]
                 HStack {
                     Circle().fill(color).frame(width: 12, height: 12)
