@@ -1,0 +1,21 @@
+NVIDIA H100 80GB HBM3, 81559 MiB
+cnx_log_full_s0 mass 9.96  kcal 12.68  fat 21.16  carb 19.61  protein 19.62  | mass+kcal 11.32  mean5 16.61
+cnx_log_full_s1 mass 9.53  kcal 12.97  fat 21.89  carb 19.72  protein 20.82  | mass+kcal 11.25  mean5 16.98
+cnx_log_full_s2 mass 9.72  kcal 12.94  fat 21.27  carb 19.22  protein 20.18  | mass+kcal 11.33  mean5 16.67
+cnx_log_full_s3 mass 9.94  kcal 13.36  fat 21.56  carb 20.04  protein 21.10  | mass+kcal 11.65  mean5 17.20
+cnx_log_full_s4 mass 9.68  kcal 13.08  fat 21.35  carb 19.51  protein 20.31  | mass+kcal 11.38  mean5 16.79
+cnl_raw_full_s0 mass 9.37  kcal 13.21  fat 21.33  carb 20.34  protein 19.90  | mass+kcal 11.29  mean5 16.83
+cnl_raw_full_s1 mass 9.72  kcal 13.41  fat 21.04  carb 20.35  protein 20.34  | mass+kcal 11.57  mean5 16.97
+cnl_raw_full_s2 mass 9.59  kcal 13.15  fat 20.61  carb 20.33  protein 19.79  | mass+kcal 11.37  mean5 16.69
+cnl_raw_full_s3 mass 9.99  kcal 13.50  fat 20.94  carb 20.55  protein 19.65  | mass+kcal 11.75  mean5 16.93
+cnl_raw_full_s4 mass 10.07  kcal 13.45  fat 21.51  carb 19.82  protein 19.43  | mass+kcal 11.76  mean5 16.85
+cnx80_log_full_s0 mass 9.81  kcal 12.90  fat 21.08  carb 19.64  protein 20.02  | mass+kcal 11.36  mean5 16.69
+cnx80_log_full_s1 mass 9.58  kcal 12.91  fat 20.82  carb 19.43  protein 20.40  | mass+kcal 11.24  mean5 16.63
+cnx80_log_full_s2 mass 9.71  kcal 12.73  fat 20.32  carb 19.30  protein 19.64  | mass+kcal 11.22  mean5 16.34
+cnx80_log_full_s3 mass 9.81  kcal 13.05  fat 21.25  carb 19.12  protein 20.12  | mass+kcal 11.43  mean5 16.67
+cnx80_log_full_s4 mass 9.72  kcal 13.17  fat 20.93  carb 19.37  protein 20.17  | mass+kcal 11.44  mean5 16.67
+PRIMARY_ensemble_15         mass 9.51  kcal 12.82  fat 20.61  carb 19.40  protein 19.69  | mass+kcal 11.17  mean5 16.41
+SECONDARY_group_A1_cnx_log  mass 9.63  kcal 12.86  fat 21.05  carb 19.48  protein 20.16  | mass+kcal 11.24  mean5 16.63
+SECONDARY_group_A2_cnl_raw  mass 9.56  kcal 13.18  fat 20.78  carb 20.03  protein 19.61  | mass+kcal 11.37  mean5 16.63
+SECONDARY_group_B1_cnx80_logmass 9.62  kcal 12.83  fat 20.64  carb 19.21  protein 19.87  | mass+kcal 11.23  mean5 16.43
+SECONDARY single-model mean5: mean 16.77 sd 0.20
