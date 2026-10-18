@@ -1,0 +1,97 @@
+{
+ "scan": "20261017_212836_scan",
+ "mass_rule": "envelope",
+ "frames": 292,
+ "support": {
+  "container": "plane",
+  "plane": {
+   "robust": true,
+   "gravity_fallback": false,
+   "tilt_deg": 0.8308171744533325,
+   "n_inliers": 142901
+  },
+  "lift": {
+   "weighting": "cos+qual",
+   "merged_ids": {
+    "3": 2
+   },
+   "frames": 292,
+   "agree_fraction": 0.9897647815078646
+  }
+ },
+ "plane_normal": [
+  0.0026031579028340706,
+  0.999894869661937,
+  -0.01426440299035181
+ ],
+ "container_fit_ok": null,
+ "dropped_items": [],
+ "items": [
+  {
+   "id": 1,
+   "name": "fruit",
+   "mask_score": 0.9648002729023972,
+   "label_margin": 0.8909343481063843,
+   "agree_fraction": 0.9609184171958964,
+   "n_points": 4094,
+   "crop": "label",
+   "crop_faces": 10605,
+   "crop_label_faces": 10605,
+   "kind": "pile",
+   "kind_source": "table:fuzzy",
+   "volume_envelope_ml": 121.21746994407194,
+   "volume_ml": 121.21746994407194,
+   "envelope_ratio": 1.18,
+   "volume_solid_est_ml": 102.72666944412876,
+   "footprint_cm2": 30.240000000000002,
+   "height_mm": 52.41140893441657,
+   "height_max_mm": 53.371266837764665,
+   "mass_g": 74.3063090757161,
+   "mass_rule": "envelope_bulk",
+   "density_used_g_ml": 0.613,
+   "density_kind": "bulk",
+   "density_source": "USDA FoodData Central SR Legacy (2018-04 CSV, food_portion.csv) https://fdc.nal.usda.gov/",
+   "density_conf": 0.55,
+   "mass_confidence": 0.55,
+   "density_g_per_ml": 0.613
+  },
+  {
+   "id": 2,
+   "name": "fruit",
+   "mask_score": 0.9693111590485075,
+   "label_margin": 0.9388413429260254,
+   "agree_fraction": 0.9810017271157168,
+   "n_points": 7527,
+   "crop": "label",
+   "crop_faces": 17140,
+   "crop_label_faces": 17140,
+   "kind": "pile",
+   "kind_source": "table:fuzzy",
+   "volume_envelope_ml": 287.38740480834036,
+   "volume_ml": 287.38740480834036,
+   "envelope_ratio": 1.18,
+   "volume_solid_est_ml": 243.54864814266134,
+   "footprint_cm2": 61.60000000000001,
+   "height_mm": 63.858800522613336,
+   "height_max_mm": 66.85771704971458,
+   "mass_g": 176.16847914751264,
+   "mass_rule": "envelope_bulk",
+   "density_used_g_ml": 0.613,
+   "density_kind": "bulk",
+   "density_source": "USDA FoodData Central SR Legacy (2018-04 CSV, food_portion.csv) https://fdc.nal.usda.gov/",
+   "density_conf": 0.55,
+   "mass_confidence": 0.55,
+   "density_g_per_ml": 0.613
+  }
+ ],
+ "totals": {
+  "volume_ml": 408.6048747524123,
+  "volume_envelope_ml": 408.6048747524123,
+  "volume_solid_est_ml": 346.2753175867901,
+  "mass_g": 250.47478822322876,
+  "kcal": 0.0,
+  "protein_g": 0.0,
+  "carb_g": 0.0,
+  "fat_g": 0.0
+ }
+}

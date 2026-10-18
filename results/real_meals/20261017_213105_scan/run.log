@@ -1,0 +1,99 @@
+integrate:   0%|          | 0/104 [00:00<?, ?it/s]integrate:   1%|          | 1/104 [00:00<00:20,  5.00it/s]integrate:   2%|▏         | 2/104 [00:00<00:15,  6.45it/s]integrate:   5%|▍         | 5/104 [00:00<00:07, 13.99it/s]integrate:   7%|▋         | 7/104 [00:00<00:06, 15.50it/s]integrate:   9%|▊         | 9/104 [00:00<00:05, 16.35it/s]integrate:  12%|█▏        | 12/104 [00:00<00:05, 17.00it/s]integrate:  14%|█▍        | 15/104 [00:00<00:04, 17.85it/s]integrate:  16%|█▋        | 17/104 [00:01<00:05, 15.80it/s]integrate:  18%|█▊        | 19/104 [00:01<00:05, 16.40it/s]integrate:  21%|██        | 22/104 [00:01<00:04, 17.29it/s]integrate:  23%|██▎       | 24/104 [00:01<00:04, 17.66it/s]integrate:  26%|██▌       | 27/104 [00:01<00:04, 18.62it/s]integrate:  28%|██▊       | 29/104 [00:01<00:04, 18.14it/s]integrate:  30%|██▉       | 31/104 [00:01<00:04, 17.26it/s]integrate:  32%|███▏      | 33/104 [00:02<00:04, 16.68it/s]integrate:  35%|███▍      | 36/104 [00:02<00:03, 17.49it/s]integrate:  38%|███▊      | 39/104 [00:02<00:04, 15.96it/s]integrate:  39%|███▉      | 41/104 [00:02<00:03, 16.01it/s]integrate:  41%|████▏     | 43/104 [00:02<00:03, 16.11it/s]integrate:  43%|████▎     | 45/104 [00:02<00:03, 15.79it/s]integrate:  46%|████▌     | 48/104 [00:02<00:03, 16.81it/s]integrate:  49%|████▉     | 51/104 [00:03<00:02, 18.83it/s]integrate:  51%|█████     | 53/104 [00:03<00:02, 18.65it/s]integrate:  53%|█████▎    | 55/104 [00:03<00:02, 18.51it/s]integrate:  55%|█████▍    | 57/104 [00:03<00:02, 17.77it/s]integrate:  57%|█████▋    | 59/104 [00:03<00:02, 17.41it/s]integrate:  60%|█████▉    | 62/104 [00:03<00:02, 19.75it/s]integrate:  62%|██████▎   | 65/104 [00:03<00:01, 20.47it/s]integrate:  65%|██████▌   | 68/104 [00:03<00:01, 21.60it/s]integrate:  68%|██████▊   | 71/104 [00:04<00:01, 21.14it/s]integrate:  71%|███████   | 74/104 [00:04<00:01, 18.32it/s]integrate:  74%|███████▍  | 77/104 [00:04<00:01, 19.93it/s]integrate:  77%|███████▋  | 80/104 [00:04<00:01, 16.27it/s]integrate:  80%|███████▉  | 83/104 [00:04<00:01, 18.63it/s]integrate:  83%|████████▎ | 86/104 [00:04<00:00, 18.42it/s]integrate:  86%|████████▌ | 89/104 [00:05<00:00, 20.21it/s]integrate:  88%|████████▊ | 92/104 [00:05<00:00, 20.46it/s]integrate:  91%|█████████▏| 95/104 [00:05<00:00, 18.76it/s]integrate:  93%|█████████▎| 97/104 [00:05<00:00, 18.75it/s]integrate:  96%|█████████▌| 100/104 [00:05<00:00, 18.73it/s]integrate:  99%|█████████▉| 103/104 [00:05<00:00, 18.95it/s]integrate: 100%|██████████| 104/104 [00:05<00:00, 17.78it/s]
+/nfs/roberts/project/cpsc4900/cpsc4900_njl36/envs/thesis/lib/python3.12/site-packages/torch/jit/_script.py:1491: FutureWarning: `torch.jit.script` is deprecated. Please switch to `torch.compile` or `torch.export`.
+  warnings.warn(
+image: 2 food instances (2 named), prompts ['fruit', 'sweet potato']
+{
+ "scan": "20261017_213105_scan",
+ "mass_rule": "envelope",
+ "frames": 207,
+ "support": {
+  "container": "plane",
+  "plane": {
+   "robust": true,
+   "gravity_fallback": false,
+   "tilt_deg": 0.34659771636449016,
+   "n_inliers": 81794
+  },
+  "lift": {
+   "weighting": "cos+qual",
+   "merged_ids": {},
+   "frames": 207,
+   "agree_fraction": 0.9924569195998888
+  }
+ },
+ "plane_normal": [
+  0.0030201562003942767,
+  0.9999817032139809,
+  0.00524136373394584
+ ],
+ "container_fit_ok": null,
+ "dropped_items": [],
+ "items": [
+  {
+   "id": 1,
+   "name": "fruit",
+   "mask_score": 0.958661213013285,
+   "label_margin": 0.9509028196334839,
+   "agree_fraction": 0.9794575725026853,
+   "n_points": 7448,
+   "crop": "label",
+   "crop_faces": 17844,
+   "crop_label_faces": 17844,
+   "kind": "pile",
+   "kind_source": "table:fuzzy",
+   "volume_envelope_ml": 271.4048245020797,
+   "volume_ml": 271.4048245020797,
+   "envelope_ratio": 1.18,
+   "volume_solid_est_ml": 230.0040885610845,
+   "footprint_cm2": 64.64,
+   "height_mm": 56.07240745869356,
+   "height_max_mm": 58.25950865608873,
+   "mass_g": 166.37115741977485,
+   "mass_rule": "envelope_bulk",
+   "density_used_g_ml": 0.613,
+   "density_kind": "bulk",
+   "density_source": "USDA FoodData Central SR Legacy (2018-04 CSV, food_portion.csv) https://fdc.nal.usda.gov/",
+   "density_conf": 0.55,
+   "mass_confidence": 0.55,
+   "density_g_per_ml": 0.613
+  },
+  {
+   "id": 2,
+   "name": "fruit",
+   "mask_score": 0.9504099675422706,
+   "label_margin": 0.9163737893104553,
+   "agree_fraction": 0.96672548525334,
+   "n_points": 3967,
+   "crop": "label",
+   "crop_faces": 10167,
+   "crop_label_faces": 10167,
+   "kind": "pile",
+   "kind_source": "table:fuzzy",
+   "volume_envelope_ml": 103.87865270895024,
+   "volume_ml": 103.87865270895024,
+   "envelope_ratio": 1.18,
+   "volume_solid_est_ml": 88.03275653300868,
+   "footprint_cm2": 30.92,
+   "height_mm": 43.64550271621776,
+   "height_max_mm": 44.84082728350927,
+   "mass_g": 63.6776141105865,
+   "mass_rule": "envelope_bulk",
+   "density_used_g_ml": 0.613,
+   "density_kind": "bulk",
+   "density_source": "USDA FoodData Central SR Legacy (2018-04 CSV, food_portion.csv) https://fdc.nal.usda.gov/",
+   "density_conf": 0.55,
+   "mass_confidence": 0.55,
+   "density_g_per_ml": 0.613
+  }
+ ],
+ "totals": {
+  "volume_ml": 375.28347721102995,
+  "volume_envelope_ml": 375.28347721102995,
+  "volume_solid_est_ml": 318.03684509409317,
+  "mass_g": 230.04877153036134,
+  "kcal": 0.0,
+  "protein_g": 0.0,
+  "carb_g": 0.0,
+  "fat_g": 0.0
+ }
+}
