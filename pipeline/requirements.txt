@@ -4,3 +4,4 @@ opencv-python-headless==4.10.0.84
 pillow==12.3.0
 tqdm==4.70.1
 scipy==1.14.1
+pycolmap==3.12.6  # 4.x breaks refine_poses.py

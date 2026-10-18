@@ -252,7 +252,7 @@ def main() -> None:
                     help="envelope (default): mass = envelope volume x bulk density, leaf/topping via solid "
                          "estimate x material density or the thin-layer rule; legacy: volume x densities.csv "
                          "(needs nutrition, i.e. no --no-nutrition, to produce a mass)")
-    ap.add_argument("--poses", default=None, choices=[None, "refined"])
+    ap.add_argument("--poses", default=None, choices=[None, "arkit", "odometry", "refined"])
     ap.add_argument("--depth", default="depth", choices=["depth", "depth_hr"])
     ap.add_argument("--voxel", type=float, default=0.0015)
     ap.add_argument("--up", default="y", choices=["y", "z"],

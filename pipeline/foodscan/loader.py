@@ -86,19 +86,40 @@ class Frame:
         return d
 
 
+def arkit_runaway(path: str | Path, max_speed: float = 0.6, run: int = 5) -> bool:
+    """ARKit tracking ran away: meta.json trackingFailure, or >= `run` consecutive pose steps faster
+    than `max_speed` m/s (hand-held scans peak ~0.45 m/s; runaways sit at 1.9+ m/s). Works on old scans."""
+    path = Path(path)
+    if json.loads((path / "meta.json").read_text()).get("trackingFailure"):
+        return True
+    rows = [json.loads(l) for l in (path / "frames.jsonl").read_text().splitlines() if l.strip()]
+    p = np.array([np.array(r["transform"])[:3, 3] for r in rows])
+    t = np.array([r["timestamp"] for r in rows])
+    fast = np.linalg.norm(np.diff(p, axis=0), axis=1) > max_speed * np.maximum(np.diff(t), 1e-6)
+    return bool(np.convolve(fast, np.ones(run), "valid").max(initial=0) >= run)
+
+
 class Scan:
     """A capture directory.
 
-    poses: None (ARKit) or "refined" (SCAN_DIR/poses_refined.json from refine_poses.py;
-           frames without a refined pose are dropped).
+    poses: "auto" (default; None too): ARKit, or depth-odometry refinement (features+table drop, cached in
+           frames_refined_features_drop.jsonl) when arkit_runaway(); "arkit"; "odometry" (force the refinement);
+           "refined" (SCAN_DIR/poses_refined.json from refine_poses.py; frames without a refined pose are dropped).
+    Afterwards `pose_source` is "arkit" | "odometry" | "refined", and `bad_mask` (bool per frame, all False
+    unless odometry) flags frames the refinement distrusts; frames are never dropped, so indices stay stable.
     depth: "depth" (LiDAR 256x192) or "depth_hr" (SCAN_DIR/depth_hr from depth_upsample.py;
            frames without an HR file are dropped).
     """
 
-    def __init__(self, path: str | Path, poses: str | None = None, depth: str = "depth"):
+    def __init__(self, path: str | Path, poses: str | None = "auto", depth: str = "depth"):
         self.dir = Path(path)
         self.meta = json.loads((self.dir / "meta.json").read_text())
         self.depth_source = depth
+        poses = poses or "auto"
+        assert poses in ("auto", "arkit", "odometry", "refined"), poses
+        if poses == "auto":
+            poses = "odometry" if arkit_runaway(self.dir) else "arkit"
+        self.pose_source = poses
         refined = None
         if poses == "refined":
             refined = {int(k): np.array(v) for k, v in
@@ -117,6 +138,21 @@ class Scan:
                 if depth == "depth_hr" and not (self.dir / "depth_hr" / f"{r['index']:06d}.f32").exists():
                     continue
                 self.frames.append(self._parse(r))
+        self.bad_mask = np.zeros(len(self.frames), bool)
+        if poses == "odometry":
+            self._use_odometry()
+
+    def _use_odometry(self) -> None:
+        from .depth_odometry import refine_scan, write_jsonl  # lazy: depth_odometry imports Scan
+        cache = self.dir / "frames_refined_features_drop.jsonl"
+        if not cache.exists():
+            write_jsonl(self.dir, *refine_scan(self.dir, method="features", table="drop"), method="features_drop")
+        rows = [json.loads(l) for l in cache.read_text().splitlines() if l.strip()]
+        assert [r["index"] for r in rows] == [f.index for f in self.frames], "stale refined cache"
+        for f, r in zip(self.frames, rows):
+            f.T_cw = np.array(r["transform"]) @ _ARKIT_TO_CV
+        self.bad_mask = np.array([r["refined_bad"] for r in rows])
+        self.refined_why = [r["refined_why"] for r in rows]
 
     def _parse(self, r: dict) -> Frame:
         K = np.array(r["intrinsics"], dtype=np.float64)
