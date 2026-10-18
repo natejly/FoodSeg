@@ -30,6 +30,7 @@ struct ContentView: View {
             ARPreview(session: recorder.session)
             VStack {
                 statusBar
+                banner
                 Spacer()
                 controls
             }
@@ -45,7 +46,7 @@ struct ContentView: View {
             if recorder.previewGeometry == nil {
                 Text(recorder.isRecording ? "Building scan…" : "Press record — the scan builds up here")
                     .font(.callout)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(.white.opacity(0.6))
                     .frame(maxHeight: .infinity)
             }
             HStack {
@@ -83,6 +84,40 @@ struct ContentView: View {
         .foregroundStyle(.white)
     }
 
+    /// Readiness / failure / motion feedback under the status bar.
+    private var banner: some View {
+        VStack(spacing: 6) {
+            if let f = recorder.failureMessage {
+                bannerText(f, .red)
+            } else if !recorder.isRecording, let g = recorder.gateMessage {
+                bannerText(recorder.isArming ? g : "Not ready: \(g)", recorder.isArming ? .yellow : .orange)
+            }
+            if recorder.isRecording {
+                let lin = recorder.linearSpeed * 100, ang = recorder.angularSpeed
+                // Good scans move 6-18 cm/s; rotation drives blur so its limits are tighter.
+                let level = max(lin > 35 ? 2 : lin > 20 ? 1 : 0, ang > 60 ? 2 : ang > 30 ? 1 : 0)
+                let color: Color = [Color.green, .yellow, .red][level]
+                HStack {
+                    Circle().fill(color).frame(width: 12, height: 12)
+                    Text(String(format: "%.0f cm/s  %.0f °/s", lin, ang)).font(.caption.monospaced())
+                    if level > 0 { Text("Slow down").font(.caption.bold()).foregroundStyle(color) }
+                }
+                .padding(8)
+                .background(.black.opacity(0.5), in: RoundedRectangle(cornerRadius: 8))
+                .foregroundStyle(.white)
+            }
+            if recorder.lightWarning && (recorder.isRecording || recorder.isArming) {
+                bannerText("Low light — motion blur likely", .orange)
+            }
+        }
+    }
+
+    private func bannerText(_ t: String, _ c: Color) -> some View {
+        Text(t).font(.callout.bold()).padding(8)
+            .background(.black.opacity(0.6), in: RoundedRectangle(cornerRadius: 8))
+            .foregroundStyle(c)
+    }
+
     private var trackingIcon: String {
         recorder.trackingState == "normal" ? "checkmark.circle" : "exclamationmark.triangle"
     }
@@ -108,25 +143,27 @@ struct ContentView: View {
                         .background(.black.opacity(0.5), in: Circle())
                         .foregroundStyle(.white)
                 }
-                .disabled(recorder.isRecording)
+                .disabled(recorder.isRecording || recorder.isArming)
 
                 Button {
                     if recorder.isRecording {
                         recorder.stopRecording()
+                    } else if recorder.isArming {
+                        recorder.cancelArming()
                     } else {
                         recorder.startRecording(name: scanName)
                     }
                 } label: {
                     ZStack {
                         Circle().stroke(.white, lineWidth: 4).frame(width: 80, height: 80)
-                        if recorder.isRecording {
+                        if recorder.isRecording || recorder.isArming {
                             RoundedRectangle(cornerRadius: 6).fill(.red).frame(width: 34, height: 34)
                         } else {
                             Circle().fill(.red).frame(width: 64, height: 64)
                         }
                     }
                 }
-                .disabled(recorder.trackingState != "normal" && !recorder.isRecording)
+                .disabled(recorder.trackingState != "normal" && !recorder.isRecording && !recorder.isArming)
 
                 // Spacer of the same width to keep the record button centered.
                 Color.clear.frame(width: 56, height: 56)

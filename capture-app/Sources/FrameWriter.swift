@@ -17,11 +17,19 @@ struct FrameRecord: Codable {
     let depthHeight: Int
     let exposureDuration: TimeInterval
     let exposureOffset: Float
+    // Diagnostics (additive, optional so older scans still decode).
+    var featurePoints: Int?
+    var ambientIntensity: Double?
+    /// Speeds from ARKit poses over the last ~0.1 s.
+    var linearSpeed: Double?   // m/s
+    var angularSpeed: Double?  // deg/s
 
     init(index: Int, timestamp: TimeInterval, trackingState: String,
          intrinsics: simd_float3x3, transform: simd_float4x4,
          imageWidth: Int, imageHeight: Int, depthWidth: Int, depthHeight: Int,
-         exposureDuration: TimeInterval, exposureOffset: Float) {
+         exposureDuration: TimeInterval, exposureOffset: Float,
+         featurePoints: Int? = nil, ambientIntensity: Double? = nil,
+         linearSpeed: Double? = nil, angularSpeed: Double? = nil) {
         self.index = index
         self.timestamp = timestamp
         self.trackingState = trackingState
@@ -34,7 +42,16 @@ struct FrameRecord: Codable {
         self.depthHeight = depthHeight
         self.exposureDuration = exposureDuration
         self.exposureOffset = exposureOffset
+        self.featurePoints = featurePoints
+        self.ambientIntensity = ambientIntensity
+        self.linearSpeed = linearSpeed
+        self.angularSpeed = angularSpeed
     }
+}
+
+struct TrackingFailure: Encodable {
+    let frame: Int
+    let reason: String
 }
 
 struct ScanMeta: Encodable {
@@ -45,6 +62,8 @@ struct ScanMeta: Encodable {
     let startedAt: String
     var finishedAt: String?
     var savedFrames: Int?
+    /// Set when the runaway detector stopped the scan; frames before `frame` are kept.
+    var trackingFailure: TrackingFailure?
     let rgbFormat = "jpeg, sensor (landscape) orientation"
     let depthFormat = "float32 little-endian meters, row-major, ARKit sceneDepth"
     let smoothDepthFormat = "float32 little-endian meters, ARKit smoothedSceneDepth"
@@ -92,7 +111,8 @@ final class FrameWriter {
         jsonlHandle.write(line)
     }
 
-    func finish(savedFrames: Int) {
+    func finish(savedFrames: Int, failure: TrackingFailure? = nil) {
+        meta.trackingFailure = failure
         meta.finishedAt = ISO8601DateFormatter().string(from: Date())
         meta.savedFrames = savedFrames
         try? writeMeta()

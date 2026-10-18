@@ -67,7 +67,11 @@ final class PointCloud {
         element.minimumPointScreenSpaceRadius = 1
         element.maximumPointScreenSpaceRadius = 6
         let g = SCNGeometry(sources: [pos, col], elements: [element])
-        g.firstMaterial?.lightingModel = .constant
+        // Geometry built from sources has no materials; without one SceneKit's default lit
+        // material renders black (the scene has no lights).
+        let material = SCNMaterial()
+        material.lightingModel = .constant
+        g.materials = [material]
         return g
     }
 

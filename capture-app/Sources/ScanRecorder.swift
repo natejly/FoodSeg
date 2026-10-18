@@ -32,6 +32,14 @@ final class ScanRecorder: NSObject, ObservableObject, ARSessionDelegate {
     /// Point cloud of the frames saved so far in the current scan.
     @Published var previewGeometry: SCNGeometry?
     @Published var previewPoints = 0
+    /// Record pressed, tracking reset, waiting for the readiness gate to pass.
+    @Published var isArming = false
+    /// Why we are not ready yet (nil = ready). Also shown as a hint while idle.
+    @Published var gateMessage: String? = "Hold still…"
+    @Published var linearSpeed = 0.0    // m/s
+    @Published var angularSpeed = 0.0   // deg/s
+    @Published var lightWarning = false
+    @Published var failureMessage: String?
 
     /// Save every `stride`-th ARFrame. ARKit runs at 60 fps, so 4 -> 15 fps.
     var stride = 4
@@ -48,6 +56,21 @@ final class ScanRecorder: NSObject, ObservableObject, ARSessionDelegate {
     private let previewQueue = DispatchQueue(label: "foodscan.preview", qos: .utility)
     private var previewBusy = false
     private var previewFrames = 0
+
+    // Readiness gate. Apple publishes no numbers; these are practical values to tune on device.
+    private let minFeaturePoints = 100
+    private let minAmbient = 400.0                 // ARKit ambientIntensity: ~1000 = neutral indoor light
+    private let depthRange = 0.25...0.8            // m, median of centre depth
+    private let normalHold = 1.0                   // s of continuous .normal
+    private var normalSince: TimeInterval?
+    private var armedName = ""
+
+    // Motion / runaway. Good scans: 6-18 cm/s. Cap 0.6 m/s sustained ~0.3 s (runaway was >1.5 m/s).
+    let runawaySpeed = 0.6
+    private let runawayHold = 0.3
+    private var lastPose: (t: TimeInterval, m: simd_float4x4)?
+    private var overSince: TimeInterval?
+    private var overAtFrame = 0
 
     override init() {
         super.init()
@@ -74,14 +97,29 @@ final class ScanRecorder: NSObject, ObservableObject, ARSessionDelegate {
     }
 
     func pause() {
+        isArming = false
         if isRecording { stopRecording() }
         session.pause()
     }
 
     // MARK: Recording
 
+    /// Record button: reset tracking, then wait for the readiness gate; saving starts automatically.
     func startRecording(name: String) {
-        guard !isRecording else { return }
+        guard !isRecording, !isArming else { return }
+        armedName = name
+        failureMessage = nil
+        normalSince = nil
+        gateMessage = "Hold still…"
+        isArming = true
+        // Fresh VIO state per scan: a long-running session can diverge (runaway poses).
+        start()
+    }
+
+    func cancelArming() { isArming = false }
+
+    private func beginRecording(name: String) {
+        isArming = false
         do {
             let dir = try ScanStore.newScanDirectory(named: name)
             writer = try FrameWriter(directory: dir)
@@ -92,19 +130,22 @@ final class ScanRecorder: NSObject, ObservableObject, ARSessionDelegate {
             previewGeometry = nil
             previewPoints = 0
             currentScanName = dir.lastPathComponent
+            lastPose = nil
+            overSince = nil
             isRecording = true
         } catch {
             print("Failed to start recording: \(error)")
         }
     }
 
-    func stopRecording() {
+    func stopRecording(failure: TrackingFailure? = nil) {
         guard isRecording else { return }
         isRecording = false
         let w = writer
         writer = nil
+        let n = savedFrames
         writeQueue.async {
-            w?.finish(savedFrames: self.savedFrames)
+            w?.finish(savedFrames: n, failure: failure)
         }
         previewQueue.async {
             let g = self.cloud.geometry()
@@ -130,7 +171,39 @@ final class ScanRecorder: NSObject, ObservableObject, ARSessionDelegate {
         }
         if state != trackingState { trackingState = state }
 
+        let features = frame.rawFeaturePoints?.points.count ?? 0
+        let ambient = frame.lightEstimate?.ambientIntensity
+        lightWarning = (ambient ?? .infinity) < minAmbient
+
+        if isArming { updateGate(frame, normal: state == "normal", features: features) }
         guard isRecording, let writer = writer else { return }
+
+        // Speed from poses ~0.1 s apart (60 fps differences are too noisy).
+        if let (lt, lm) = lastPose {
+            let dt = frame.timestamp - lt
+            if dt >= 0.1 {
+                let m = frame.camera.transform
+                let dp = m.columns.3 - lm.columns.3
+                linearSpeed = Double(simd_length(SIMD3(dp.x, dp.y, dp.z))) / dt
+                let dq = simd_quatf(lm).inverse * simd_quatf(m)
+                angularSpeed = Double(2 * acos(min(1, abs(dq.real)))) * 180 / .pi / dt
+                lastPose = (frame.timestamp, m)
+                if linearSpeed > runawaySpeed {
+                    if overSince == nil { overSince = frame.timestamp; overAtFrame = savedFrames }
+                    if frame.timestamp - overSince! >= runawayHold {
+                        failureMessage = "Tracking lost — scan stopped, please rescan"
+                        stopRecording(failure: TrackingFailure(
+                            frame: overAtFrame,
+                            reason: String(format: "linear speed %.2f m/s > %.1f m/s for %.1f s while tracking normal",
+                                           linearSpeed, runawaySpeed, runawayHold)))
+                        return
+                    }
+                } else { overSince = nil }
+            }
+        } else { lastPose = (frame.timestamp, frame.camera.transform) }
+
+        // Poses from limited tracking (initializing/excessive motion) are unreliable.
+        guard state == "normal" else { return }
         frameCounter += 1
         guard frameCounter % stride == 0 else { return }
 
@@ -156,7 +229,11 @@ final class ScanRecorder: NSObject, ObservableObject, ARSessionDelegate {
             depthWidth: CVPixelBufferGetWidth(depth.depthMap),
             depthHeight: CVPixelBufferGetHeight(depth.depthMap),
             exposureDuration: frame.camera.exposureDuration,
-            exposureOffset: frame.camera.exposureOffset
+            exposureOffset: frame.camera.exposureOffset,
+            featurePoints: features,
+            ambientIntensity: ambient.map(Double.init),
+            linearSpeed: linearSpeed,
+            angularSpeed: angularSpeed
         )
         let depthData = PixelBufferCopy.floatPlane(depth.depthMap)
         let confData = depth.confidenceMap.map { PixelBufferCopy.bytePlane($0) }
@@ -200,12 +277,46 @@ final class ScanRecorder: NSObject, ObservableObject, ARSessionDelegate {
         }
     }
 
+    private func updateGate(_ frame: ARFrame, normal: Bool, features: Int) {
+        var msg: String?
+        if !normal { normalSince = nil } else if normalSince == nil { normalSince = frame.timestamp }
+        if !normal || frame.timestamp - (normalSince ?? frame.timestamp) < normalHold {
+            msg = "Hold still…"
+        } else if features < minFeaturePoints {
+            msg = "Low texture: add a patterned placemat"
+        } else if lightWarning {
+            msg = "Too dark"
+        } else if let d = Self.centreDepth(frame), !depthRange.contains(d) {
+            msg = d < depthRange.lowerBound ? "Move farther" : "Move closer"
+        }
+        if msg != gateMessage { gateMessage = msg }
+        if msg == nil { beginRecording(name: armedName) }
+    }
+
+    /// Median depth (m) of a 33x33 window at the image centre; nil if no valid samples.
+    private static func centreDepth(_ frame: ARFrame) -> Double? {
+        guard let map = frame.sceneDepth?.depthMap else { return nil }
+        CVPixelBufferLockBaseAddress(map, .readOnly)
+        defer { CVPixelBufferUnlockBaseAddress(map, .readOnly) }
+        guard let base = CVPixelBufferGetBaseAddress(map) else { return nil }
+        let w = CVPixelBufferGetWidth(map), h = CVPixelBufferGetHeight(map)
+        let stride = CVPixelBufferGetBytesPerRow(map)
+        var v: [Float] = []
+        for y in (h / 2 - 16)..<(h / 2 + 17) {
+            let row = base.advanced(by: y * stride).assumingMemoryBound(to: Float.self)
+            for x in (w / 2 - 16)..<(w / 2 + 17) where row[x].isFinite && row[x] > 0 { v.append(row[x]) }
+        }
+        guard !v.isEmpty else { return nil }
+        return Double(v.sorted()[v.count / 2])
+    }
+
     func session(_ session: ARSession, didFailWithError error: Error) {
         trackingState = "error: \(error.localizedDescription)"
     }
 
     func sessionWasInterrupted(_ session: ARSession) {
         trackingState = "interrupted"
+        isArming = false
         if isRecording { stopRecording() }
     }
 
